@@ -1,5 +1,6 @@
 ﻿# IA-RoutingEngine
 
-This AI will be able to help our tourists here in GDL, México
+This AI is a Routing Engine for PITZBOL website, the function of this is to help tourists in Guadalajara México
 
 PITZBOL WINS
+
