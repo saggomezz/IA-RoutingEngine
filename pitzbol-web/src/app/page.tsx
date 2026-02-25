@@ -1,117 +1,49 @@
 // src/app/page.tsx
 'use client';
-import { useState } from 'react';
-import ItineraryCard from '@/components/ItineraryCard';
-
-const CATEGORIAS = ["Gastronomía", "Cultura", "Fútbol", "Vida Nocturna", "Museos", "Naturaleza"];
+import Link from 'next/link';
 
 export default function Home() {
-  const [itinerary, setItinerary] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [budget, setBudget] = useState(2000);
-  const [selectedInterests, setSelectedInterests] = useState<string[]>(["Cultura"]);
-
-  const toggleInterest = (cat: string) => {
-    setSelectedInterests(prev => 
-      prev.includes(cat) ? prev.filter(i => i !== cat) : [...prev, cat]
-    );
-  };
-
-  const handleGenerate = async () => {
-    if (selectedInterests.length === 0) return alert("Selecciona al menos un interés");
-    
-    setLoading(true);
-    setItinerary(null);
-    try {
-      const response = await fetch('/api/itinerary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          budget: budget,
-          interests: selectedInterests,
-          location: "La Minerva"
-        })
-      });
-      
-      const data = await response.json();
-      console.log("Respuesta cruda procesada:", data);
-
-      // NORMALIZACIÓN: Detectamos variaciones de nombres de la IA
-      const rawItinerary = data.itinerarios?.[0] || data.opcion_1 || data;
-
-      const fixedData = {
-        titulo: rawItinerary.titulo || "Tu Ruta PitzBol",
-        presupuesto_total: String(rawItinerary.presupuesto_total || rawItinerary.presupuesto || budget),
-        // Mapeo flexible para el arreglo de actividades
-        plan_detallado: rawItinerary.plan_detallado || rawItinerary.plan_detalle || rawItinerary.itinerario || [],
-        descripcion: rawItinerary.descripcion || "Itinerario personalizado para tu visita.",
-        tips: rawItinerary.tips || rawItinerary.consejos || "¡Disfruta Guadalajara!"
-      };
-
-      setItinerary(fixedData);
-      
-    } catch (error) {
-      console.error("Error al renderizar:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#fafafa] py-16 px-4">
-      <div className="max-w-md mx-auto">
-        <header className="text-center mb-10">
-          <h1 className="text-4xl font-black text-gray-900 tracking-tighter">PitzBol<span className="text-emerald-800">.</span></h1>
-          <p className="text-gray-500 text-sm italic mt-2">IA</p>
-        </header>
-
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-8">
-          <div>
-            <label className="block text-[13px] font-bold text-gray-400  mb-4">
-              Presupuesto: <span className="text-emerald-900 text-sm">${budget} MXN</span>
-            </label>
-            <input type="range" min="500" max="10000" step="500" value={budget}
-              onChange={(e) => setBudget(parseInt(e.target.value))}
-              className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-emerald-900"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-4">
-              ¿Qué te interesa?
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIAS.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => toggleInterest(cat)}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-all border ${
-                    selectedInterests.includes(cat) 
-                    ? "bg-emerald-950 border-emerald-950 text-white shadow-md" 
-                    : "bg-white border-gray-200 text-gray-500 hover:border-emerald-800"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="w-full bg-emerald-950 text-emerald-50 py-4 rounded-2xl font-bold hover:bg-emerald-900 transition-all disabled:opacity-50 shadow-xl shadow-emerald-900/20"
-          >
-            {loading ? 'Analizando rutas...' : 'Generar Itinerario'}
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 flex items-center justify-center px-4">
+      <div className="max-w-lg mx-auto text-center space-y-12">
+        
+        {/* Logo */}
+        <div className="space-y-2">
+          <h1 className="text-6xl font-black text-white tracking-tighter">
+            PitzBol<span className="text-emerald-200">.</span>
+          </h1>
+          <p className="text-emerald-100 text-lg font-light tracking-widest">Descubre tu próxima aventura</p>
         </div>
 
-        {/* Los resultados aparecen aquí abajo */}
-        {itinerary && (
-          <div className="mt-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-            <ItineraryCard data={itinerary} />
+        {/* Main CTA */}
+        <div className="space-y-6">
+          <p className="text-emerald-50 text-lg leading-relaxed max-w-md mx-auto">
+            Déjate guiar por nuestra IA para crear el itinerario perfecto según tus intereses y presupuesto.
+          </p>
+          
+          <Link href="/itinerary">
+            <button className="w-full bg-white text-emerald-950 py-5 px-8 rounded-2xl font-bold text-lg hover:bg-emerald-50 hover:shadow-2xl transition-all duration-300 shadow-xl hover:scale-105 active:scale-95">
+              Armar tu itinerario ✨
+            </button>
+          </Link>
+        </div>
+
+        {/* Features */}
+        <div className="grid grid-cols-3 gap-4 mt-16 pt-16 border-t border-emerald-700">
+          <div className="space-y-2">
+            <div className="text-3xl">🎯</div>
+            <p className="text-xs text-emerald-100 font-medium">Personalizado</p>
           </div>
-        )}
+          <div className="space-y-2">
+            <div className="text-3xl">⚡</div>
+            <p className="text-xs text-emerald-100 font-medium">Rápido</p>
+          </div>
+          <div className="space-y-2">
+            <div className="text-3xl">🤖</div>
+            <p className="text-xs text-emerald-100 font-medium">Con IA</p>
+          </div>
+        </div>
+
       </div>
     </div>
   );
