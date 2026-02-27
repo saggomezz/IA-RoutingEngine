@@ -23,18 +23,14 @@ export default function Home() {
     setLoading(true);
     setItinerary(null);
     try {
-      // Construir prompt para la IA en el VPS
-      const prompt = `Dame un itinerario de 1 día en Guadalajara con presupuesto de $${budget} MXN. 
-      Intereses: ${selectedInterests.join(", ")}. 
-      Ubicación de partida: La Minerva.
-      Genera 2 opciones de itinerarios en JSON con estructura: titulo, presupuesto_total, plan_detallado (array de hora, actividad, tiempo_estancia, traslado_proximo), descripcion, tips.`;
-
-      // Conectar al backend del VPS
-      const response = await fetch('http://69.30.204.56:3001/api/ai', {
+      // Usar la API local de itinerarios
+      const response = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: prompt
+          budget: budget,
+          interests: selectedInterests,
+          location: 'La Minerva'
         })
       });
       
@@ -45,34 +41,16 @@ export default function Home() {
       const data = await response.json();
       console.log("Respuesta de la IA:", data);
 
-      if (!data.success) {
-        throw new Error(data.msg || "Error generando itinerario");
-      }
-
-      // NORMALIZACIÓN: Parseamos la respuesta de Ollama
-      let rawItinerary;
-      
-      try {
-        // Intentar parsear como JSON
-        const parsed = JSON.parse(data.output);
-        rawItinerary = parsed.itinerarios?.[0] || parsed.opcion_1 || parsed;
-      } catch {
-        // Si no es JSON válido, usar la respuesta cruda
-        rawItinerary = {
-          titulo: "Tu Ruta PitzBol",
-          presupuesto_total: budget,
-          plan_detallado: [],
-          descripcion: data.output,
-          tips: "Disfruta tu itinerario personalizado en Guadalajara"
-        };
+      if (data.error) {
+        throw new Error(data.error || "Error generando itinerario");
       }
 
       const fixedData = {
-        titulo: rawItinerary.titulo || "Tu Ruta PitzBol",
-        presupuesto_total: String(rawItinerary.presupuesto_total || budget),
-        plan_detallado: rawItinerary.plan_detallado || [],
-        descripcion: rawItinerary.descripcion || "Itinerario personalizado para tu visita.",
-        tips: rawItinerary.tips || "¡Disfruta Guadalajara!"
+        titulo: data.titulo || "Tu Ruta PitzBol",
+        presupuesto_total: String(data.presupuesto_total || `${budget} MXN`),
+        plan_detallado: data.plan_detallado || [],
+        descripcion: data.descripcion || "Itinerario personalizado para tu visita.",
+        tips: data.tips || "¡Disfruta Guadalajara!"
       };
 
       setItinerary(fixedData);
