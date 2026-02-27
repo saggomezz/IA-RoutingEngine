@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    //verificación de seguridad
     const rawBody = await req.text();
     if (!rawBody) {
       return NextResponse.json({ error: "Cuerpo de petición vacío" }, { status: 400 });
