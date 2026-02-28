@@ -63,11 +63,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] py-16 px-4">
+    <div className="min-h-screen bg-[#fafafa] py-16 px-4" id="itinerary-form">
       <div className="max-w-md mx-auto">
         <header className="text-center mb-10">
           <h1 className="text-4xl font-black text-gray-900 tracking-tighter">PitzBol<span className="text-emerald-800">.</span></h1>
-          <p className="text-gray-500 text-sm italic mt-2">IA</p>
+          <p className="text-gray-500 text-sm italic mt-2">IA de Itinerarios</p>
         </header>
 
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-8">
