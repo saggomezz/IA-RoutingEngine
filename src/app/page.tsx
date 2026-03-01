@@ -2,7 +2,6 @@
 'use client';
 import ItineraryCard from '@/components/ItineraryCard';
 import { useState } from 'react';
-import { FiArrowRight, FiZap } from 'react-icons/fi';
 
 const CATEGORIAS = ["Gastronomía", "Cultura", "Fútbol", "Vida Nocturna", "Museos", "Naturaleza"];
 
@@ -101,9 +100,9 @@ export default function Home() {
               }}
               className="inline-flex items-center gap-3 px-8 py-5 bg-[#1A4D2E] text-white font-bold text-lg rounded-full hover:bg-[#0D601E] transition-all duration-300 shadow-xl hover:shadow-2xl group animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300"
             >
-              <FiZap size={24} />
+              <span className="text-2xl">⚡</span>
               Crear Itinerario con IA
-              <FiArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
             </button>
 
             {/* FEATURES */}
@@ -196,7 +195,7 @@ export default function Home() {
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
-                      <FiZap size={20} />
+                      <span className="text-xl">⚡</span>
                       Generar Itinerario
                     </span>
                   )}

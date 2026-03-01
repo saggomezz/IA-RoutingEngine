@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
-import { FiHome, FiMenu, FiX, FiZap } from "react-icons/fi";
 
 export default function PitzbolNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -36,14 +35,18 @@ export default function PitzbolNavbar() {
       {/* ICONOS DERECHA */}
       <div className="flex items-center gap-3 md:gap-5 relative">
         <Link href="http://69.30.204.56:3000">
-          <FiHome size={22} className="hover:text-[#F00808] transition-colors cursor-pointer" title="Volver al Home" />
+          <span className="text-2xl hover:text-[#F00808] transition-colors cursor-pointer" title="Volver al Home">🏠</span>
         </Link>
 
         <button 
           onClick={() => setIsMenuOpen(!isMenuOpen)} 
           className="p-2 z-[110] bg-white/60 rounded-full hover:bg-white transition-all shadow-sm border border-gray-200"
         >
-          {isMenuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+          {isMenuOpen ? (
+            <span className="text-2xl">✕</span>
+          ) : (
+            <span className="text-2xl">☰</span>
+          )}
         </button>
 
         {/* MENÚ DESPLEGABLE */}
@@ -65,7 +68,7 @@ export default function PitzbolNavbar() {
               }}
               className="flex items-center gap-3 p-3 rounded-2xl text-sm font-medium w-full text-left group hover:bg-[#F6F0E6] transition-all"
             >
-              <FiZap className="text-[#0D601E] group-hover:text-[#F00808] transition-colors" />
+              <span className="text-[#0D601E] group-hover:text-[#F00808] transition-colors text-lg">⚡</span>
               <span className="text-[#1A4D2E] group-hover:text-[#F00808] transition-colors">
                 Crear Itinerario con IA
               </span>
@@ -82,7 +85,7 @@ export default function PitzbolNavbar() {
               onClick={() => setIsMenuOpen(false)} 
               className="flex items-center gap-3 p-3 hover:bg-[#F6F0E6] rounded-2xl text-sm font-medium transition-all text-left"
             >
-              <FiHome className="text-[#1A4D2E]" /> 
+              <span className="text-[#1A4D2E] text-lg">🏠</span> 
               <span className="text-[#1A4D2E]">Volver al Home</span>
             </Link>
           </div>
