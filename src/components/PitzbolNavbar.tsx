@@ -50,6 +50,7 @@ export default function PitzbolNavbar() {
                     <span className="hidden md:inline">Volver a Pitzbol</span>
                     <span className="md:hidden">Inicio</span>
                 </Link>
+            </div>
         </nav>
     );
 }
