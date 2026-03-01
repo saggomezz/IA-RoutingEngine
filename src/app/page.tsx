@@ -2,7 +2,6 @@
 'use client';
 import ItineraryCard from '@/components/ItineraryCard';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { FiArrowRight, FiZap } from 'react-icons/fi';
 
 const CATEGORIAS = ["Gastronomía", "Cultura", "Fútbol", "Vida Nocturna", "Museos", "Naturaleza"];
@@ -68,19 +67,10 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-[#FDFCF9] via-[#F6F0E6] to-[#F0E8DC]">
       {/* HERO SECTION */}
       {!showForm && !itinerary && (
-        <motion.section 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="min-h-[85vh] flex items-center justify-center px-4 py-20"
-        >
+        <section className="min-h-[85vh] flex items-center justify-center px-4 py-20 animate-in fade-in duration-1000">
           <div className="max-w-2xl text-center space-y-8">
             {/* LOGO Y NOMBRE */}
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-            >
+            <div className="animate-in zoom-in-95 fade-in slide-in-from-bottom-4 duration-700 delay-100">
               <div className="flex justify-center mb-6">
                 <div className="text-7xl md:text-8xl font-black drop-shadow-lg">
                   PITZ<span className="text-[#F00808]">BOL</span>
@@ -89,48 +79,35 @@ export default function Home() {
               <h2 className="text-xl md:text-2xl text-[#1A4D2E] font-semibold tracking-wide">
                 Tu Asistente de Viaje en Guadalajara
               </h2>
-            </motion.div>
+            </div>
 
             {/* DESCRIPCIÓN */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="space-y-4"
-            >
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
               <p className="text-lg text-gray-700 leading-relaxed">
                 Bienvenido a <span className="font-bold text-[#1A4D2E]">PitzBot</span>, tu compañero de IA para descubrir Guadalajara
               </p>
               <p className="text-gray-600">
                 Crea itinerarios personalizados basados en tu presupuesto e intereses. Desde gastronomía hasta fútbol, ¡nosotros te guiamos!
               </p>
-            </motion.div>
+            </div>
 
             {/* CTA BUTTON */}
-            <motion.button
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
+            <button
               onClick={() => {
                 setShowForm(true);
                 setTimeout(() => {
                   document.querySelector("#itinerary-form")?.scrollIntoView({ behavior: "smooth" });
                 }, 100);
               }}
-              className="inline-flex items-center gap-3 px-8 py-5 bg-[#1A4D2E] text-white font-bold text-lg rounded-full hover:bg-[#0D601E] transition-all duration-300 shadow-xl hover:shadow-2xl group"
+              className="inline-flex items-center gap-3 px-8 py-5 bg-[#1A4D2E] text-white font-bold text-lg rounded-full hover:bg-[#0D601E] transition-all duration-300 shadow-xl hover:shadow-2xl group animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300"
             >
               <FiZap size={24} />
               Crear Itinerario con IA
               <FiArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-            </motion.button>
+            </button>
 
             {/* FEATURES */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-12 pt-12 border-t border-gray-300/30"
-            >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-12 pt-12 border-t border-gray-300/30 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-400">
               <div className="p-4">
                 <p className="text-sm text-[#1A4D2E] font-semibold">⚡ Instantáneo</p>
                 <p className="text-xs text-gray-600">Rutas en segundos</p>
@@ -143,29 +120,21 @@ export default function Home() {
                 <p className="text-sm text-[#1A4D2E] font-semibold">🤖 IA Inteligente</p>
                 <p className="text-xs text-gray-600">Recomendaciones únicas</p>
               </div>
-            </motion.div>
+            </div>
           </div>
-        </motion.section>
+        </section>
       )}
 
       {/* FORMULARIO */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: showForm || itinerary ? 1 : 0 }}
-        transition={{ duration: 0.6 }}
-        className={showForm || itinerary ? "py-16 px-4" : ""}
+      <div 
+        className={`${showForm || itinerary ? "py-16 px-4 animate-in fade-in duration-600" : "opacity-0"}`}
         id="itinerary-form"
       >
         {(showForm || itinerary) && (
           <div className="max-w-2xl mx-auto">
             {/* FORMULARIO */}
             {!itinerary && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white p-8 md:p-12 rounded-3xl border border-gray-100 shadow-xl space-y-8"
-              >
+              <div className="bg-white p-8 md:p-12 rounded-3xl border border-gray-100 shadow-xl space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500">
                 <div>
                   <h3 className="text-2xl font-bold text-[#1A4D2E] mb-2">Cuéntame sobre tu viaje</h3>
                   <p className="text-gray-600 text-sm">Personalizaremos tu itinerario según tus preferencias</p>
@@ -199,30 +168,26 @@ export default function Home() {
                   <label className="block text-sm font-bold text-[#1A4D2E] mb-4">¿Qué te interesa?</label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {CATEGORIAS.map(cat => (
-                      <motion.button
+                      <button
                         key={cat}
                         onClick={() => toggleInterest(cat)}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`px-4 py-3 rounded-xl font-semibold transition-all border-2 text-sm ${
+                        className={`px-4 py-3 rounded-xl font-semibold transition-all border-2 text-sm hover:scale-105 active:scale-95 ${
                           selectedInterests.includes(cat) 
                           ? "bg-[#1A4D2E] border-[#1A4D2E] text-white shadow-lg" 
                           : "bg-[#F6F0E6] border-[#1A4D2E]/20 text-[#1A4D2E] hover:border-[#1A4D2E]"
                         }`}
                       >
                         {cat}
-                      </motion.button>
+                      </button>
                     ))}
                   </div>
                 </div>
 
                 {/* BOTÓN GENERAR */}
-                <motion.button
+                <button
                   onClick={handleGenerate}
                   disabled={loading}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full bg-[#1A4D2E] hover:bg-[#0D601E] text-white py-4 rounded-2xl font-bold text-lg transition-all disabled:opacity-50 shadow-xl hover:shadow-2xl"
+                  className="w-full bg-[#1A4D2E] hover:bg-[#0D601E] text-white py-4 rounded-2xl font-bold text-lg transition-all disabled:opacity-50 shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98]"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -235,19 +200,15 @@ export default function Home() {
                       Generar Itinerario
                     </span>
                   )}
-                </motion.button>
-              </motion.div>
+                </button>
+              </div>
             )}
 
             {/* RESULTADO */}
             {itinerary && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
+              <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
                 <ItineraryCard data={itinerary} />
-                <motion.button
+                <button
                   onClick={() => {
                     setShowForm(false);
                     setItinerary(null);
@@ -256,12 +217,12 @@ export default function Home() {
                   className="w-full mt-6 px-6 py-3 border-2 border-[#1A4D2E] text-[#1A4D2E] font-bold rounded-xl hover:bg-[#F6F0E6] transition-all"
                 >
                   Crear otro itinerario
-                </motion.button>
-              </motion.div>
+                </button>
+              </div>
             )}
           </div>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 }
