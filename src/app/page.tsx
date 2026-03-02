@@ -3,9 +3,9 @@ import { useState } from "react";
 import ItineraryCard from "../components/ItineraryCard";
 import {
   FaBuilding, FaCamera, FaFutbol, FaLandmark,
-  FaMoon, FaMountain, FaMusic, FaPalette, 
+  FaMoon, FaMountain, FaMusic, FaPalette,
   FaShoppingBag, FaStore, FaTree, FaUtensils
-} from "react-icons/fa";
+} from "../lib/icons";
 
 export default function HomePage() {
   // Estados principales
@@ -107,7 +107,7 @@ export default function HomePage() {
             case 'aventura':
               return category.includes('aventura') || category.includes('extremo') || tipo.includes('actividad');
             case 'musica':
-              return category.includes('musica') || categoria.includes('concierto') || tipo.includes('musical');
+              return category.includes('musica') || category.includes('concierto') || tipo.includes('musical');
             case 'mercados':
               return category.includes('mercado') || tipo.includes('mercado') || category.includes('local');
             default:
