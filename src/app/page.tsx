@@ -1,8 +1,6 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { app as firebaseApp } from "../lib/firebase";
 
 const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
 
@@ -224,21 +222,25 @@ function HomePageInner() {
     if (!userId) return;
     setIsSaving(true);
     try {
-      const db = getFirestore(firebaseApp);
-      await addDoc(collection(db, 'usuarios', userId, 'itinerarios'), {
-        titulo: meta.title,
-        fecha: selectedDate,
-        meta: { budget, groupSize, duration: meta.duration },
-        stops: stops.map(s => ({
-          nombre: s.place.nombre,
-          categoria: s.place.categoria,
-          direccion: s.place.direccion,
-          horaLlegada: s.horaLlegada,
-          horaSalida: s.horaSalida,
-          costo: s.place.costo,
-        })),
-        creadoEn: serverTimestamp(),
+      const res = await fetch('/api/save-itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: userId,
+          titulo: meta.title,
+          fecha: selectedDate,
+          meta: { budget, groupSize, duration: meta.duration },
+          stops: stops.map(s => ({
+            nombre: s.place.nombre,
+            categoria: s.place.categoria,
+            direccion: s.place.direccion,
+            horaLlegada: s.horaLlegada,
+            horaSalida: s.horaSalida,
+            costo: s.place.costo,
+          })),
+        }),
       });
+      if (!res.ok) throw new Error('Respuesta no exitosa');
       setSavedOk(true);
     } catch (err) {
       console.error('Error al guardar:', err);
