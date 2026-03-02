@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +16,7 @@ export async function POST(req: NextRequest) {
       fecha,
       meta,
       stops,
-      creadoEn: FieldValue.serverTimestamp(),
+      creadoEn: new Date().toISOString(),
     });
 
     return NextResponse.json({ id: docRef.id }, { status: 201 });
