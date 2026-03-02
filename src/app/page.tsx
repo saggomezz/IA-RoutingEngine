@@ -621,6 +621,19 @@ export default function HomePage() {
                               {stop.place.nota}
                             </p>
                           )}
+                          {!stop.place.isMatch && (
+                            <button
+                              onClick={() => {
+                                const base = window.location.origin.replace(/:\d+$/, ':3000');
+                                const back = encodeURIComponent(window.location.href);
+                                const url = `${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario&back=${back}`;
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }}
+                              className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E0F2F1] transition-colors print:hidden"
+                            >
+                              Ver lugar →
+                            </button>
+                          )}
                         </div>
 
                         <div className="flex flex-col gap-1 print:hidden shrink-0">
