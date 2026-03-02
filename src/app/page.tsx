@@ -1,5 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { app as firebaseApp } from "../lib/firebase";
 
 const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
 
@@ -151,6 +154,14 @@ function buildSchedule(places: Place[], startTime: string, defaultTransit = 15):
 
 // ---- Component ----
 export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#fafafa] flex items-center justify-center text-[#1A4D2E] font-bold">Cargando...</div>}>
+      <HomePageInner />
+    </Suspense>
+  );
+}
+
+function HomePageInner() {
   const [selectedDate, setSelectedDate] = useState('');
   const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState('dia-completo');
@@ -165,6 +176,17 @@ export default function HomePage() {
   const [meta, setMeta] = useState<ItineraryMeta>({ title: '', budget: '', groupSize: '', duration: '' });
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
   const [transitTime, setTransitTime] = useState(15);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const uid = searchParams.get('uid');
+    if (uid) setUserId(uid);
+  }, [searchParams]);
 
   const matchInfo = MATCH_DAYS[selectedDate] ?? null;
 
@@ -198,9 +220,43 @@ export default function HomePage() {
     });
   };
 
+  const saveItinerary = async () => {
+    if (!userId) return;
+    setIsSaving(true);
+    try {
+      const db = getFirestore(firebaseApp);
+      await addDoc(collection(db, 'usuarios', userId, 'itinerarios'), {
+        titulo: meta.title,
+        fecha: selectedDate,
+        meta: { budget, groupSize, duration: meta.duration },
+        stops: stops.map(s => ({
+          nombre: s.place.nombre,
+          categoria: s.place.categoria,
+          direccion: s.place.direccion,
+          horaLlegada: s.horaLlegada,
+          horaSalida: s.horaSalida,
+          costo: s.place.costo,
+        })),
+        creadoEn: serverTimestamp(),
+      });
+      setSavedOk(true);
+    } catch (err) {
+      console.error('Error al guardar:', err);
+      alert('Error al guardar el itinerario. Intenta de nuevo.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const generateItinerary = async () => {
     if (!selectedDate || selectedInterests.length === 0) {
       alert('Por favor selecciona una fecha e intereses');
+      return;
+    }
+    // Límite para invitados: 1 itinerario sin cuenta
+    const guestCount = parseInt(localStorage.getItem('pitzbol_guest_count') || '0');
+    if (!userId && guestCount >= 1) {
+      setShowGuestModal(true);
       return;
     }
     setGenerating(true);
@@ -338,6 +394,12 @@ export default function HomePage() {
         duration: duration === 'rapido' ? '2–3 hrs' : duration === 'medio-dia' ? '4–6 hrs' : '8–10 hrs',
       });
       setShowResults(true);
+      setSavedOk(false);
+      // Incrementar contador de invitado si no tiene cuenta
+      if (!userId) {
+        const prev = parseInt(localStorage.getItem('pitzbol_guest_count') || '0');
+        localStorage.setItem('pitzbol_guest_count', String(prev + 1));
+      }
     } catch (error) {
       console.error(error);
       alert('Error al generar el itinerario. Inténtalo de nuevo.');
@@ -389,6 +451,30 @@ export default function HomePage() {
   if (!showResults) {
     return (
       <div className="min-h-screen bg-[#fafafa]">
+
+        {/* Modal invitado */}
+        {showGuestModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-[#1A4D2E] text-base">¡Crea tu cuenta gratis!</h3>
+                <button
+                  onClick={() => setShowGuestModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-lg font-bold leading-none"
+                >✕</button>
+              </div>
+              <p className="text-sm text-gray-600 mb-5">
+                Ya usaste tu itinerario de invitado. Regístrate para generar itinerarios ilimitados y guardarlos en tu perfil.
+              </p>
+              <a
+                href="http://69.30.204.56:3000/login"
+                className="w-full block text-center bg-[#1A4D2E] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#0D601E] transition-colors"
+              >
+                Iniciar sesión / Registrarse
+              </a>
+            </div>
+          </div>
+        )}
 
         <div className="max-w-4xl mx-auto p-4 md:p-8">
           <div className="text-center mb-8">
@@ -597,6 +683,30 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#fafafa]">
 
+      {/* Modal invitado */}
+      {showGuestModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-[#1A4D2E] text-base">¡Crea tu cuenta gratis!</h3>
+              <button
+                onClick={() => setShowGuestModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold leading-none"
+              >✕</button>
+            </div>
+            <p className="text-sm text-gray-600 mb-5">
+              Ya usaste tu itinerario de invitado. Regístrate para generar itinerarios ilimitados y guardarlos en tu perfil.
+            </p>
+            <a
+              href="http://69.30.204.56:3000/login"
+              className="w-full block text-center bg-[#1A4D2E] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#0D601E] transition-colors"
+            >
+              Iniciar sesión / Registrarse
+            </a>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-3xl mx-auto p-4 md:p-8">
         <div className="flex justify-between items-center mb-6 print:hidden">
           <button
@@ -605,12 +715,27 @@ export default function HomePage() {
           >
             ← Modificar búsqueda
           </button>
-          <button
-            onClick={() => window.print()}
-            className="bg-[#1A4D2E] text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-[#0D601E] transition-colors"
-          >
-            Imprimir
-          </button>
+          <div className="flex gap-2">
+            {userId && (
+              <button
+                onClick={saveItinerary}
+                disabled={isSaving || savedOk}
+                className={`px-5 py-2 rounded-xl text-sm font-bold border transition-colors
+                  ${savedOk
+                    ? 'bg-green-50 border-green-300 text-green-700 cursor-default'
+                    : 'bg-white border-[#1A4D2E] text-[#1A4D2E] hover:bg-[#E0F2F1] disabled:opacity-50'
+                  }`}
+              >
+                {savedOk ? '✓ Guardado' : isSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+            )}
+            <button
+              onClick={() => window.print()}
+              className="bg-[#1A4D2E] text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-[#0D601E] transition-colors"
+            >
+              Imprimir
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-3xl border border-[#E0F2F1] shadow-sm p-6 md:p-8">
