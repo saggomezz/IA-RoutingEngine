@@ -10,6 +10,7 @@ interface Place {
   costo: string;
   calificacion: string;
   nota: string;
+  isMatch?: boolean;
 }
 
 interface Stop {
@@ -25,6 +26,25 @@ interface ItineraryMeta {
   groupSize: string;
   duration: string;
 }
+
+// ---- Partidos en Guadalajara ----
+const MATCH_DAYS: Record<string, { partido: string; equipos: string }> = {
+  '2026-06-11': { partido: 'Partido 2 — Grupo A', equipos: 'Corea del Sur vs. Ganador Repechaje' },
+  '2026-06-18': { partido: 'Partido 28 — Grupo A', equipos: 'México vs. Corea del Sur' },
+  '2026-06-23': { partido: 'Partido 48 — Grupo K', equipos: 'Colombia vs. Ganador Repechaje' },
+  '2026-06-26': { partido: 'Partido 66 — Grupo H', equipos: 'Uruguay vs. España' },
+};
+
+const ESTADIO_AKRON: Place = {
+  nombre: 'Estadio Akron — Partido del Mundial',
+  categoria: 'Fútbol',
+  direccion: 'Cto. J.V.C. 2800, Zapopan, Jalisco',
+  tiempoEstancia: 180,
+  costo: '$400 – $2,500',
+  calificacion: '5',
+  nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona y alrededores del estadio — considera transporte público o salir con mucha anticipación.',
+  isMatch: true,
+};
 
 // ---- Helpers ----
 function addMinutes(time: string, mins: number): string {
@@ -74,13 +94,15 @@ function buildSchedule(places: Place[], startTime: string): Stop[] {
     const horaLlegada = current;
     const mins = place.tiempoEstancia || 60;
     const horaSalida = addMinutes(current, mins);
-    current = addMinutes(horaSalida, 15);
-    return {
-      place,
-      horaLlegada,
-      horaSalida,
-      traslado: i < places.length - 1 ? '~15 min en tráfico' : '',
-    };
+    const nextIsMatch = i < places.length - 1 && places[i + 1]?.isMatch;
+    const transitMins = nextIsMatch ? 45 : 15;
+    current = addMinutes(horaSalida, transitMins);
+    const trasladoLabel = i < places.length - 1
+      ? nextIsMatch
+        ? '~45 min en tráfico hasta el estadio (se recomienda salir con tiempo extra)'
+        : '~15 min en tráfico'
+      : '';
+    return { place, horaLlegada, horaSalida, traslado: trasladoLabel };
   });
 }
 
@@ -93,10 +115,13 @@ export default function HomePage() {
   const [groupSize, setGroupSize] = useState(2);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [foodPreference, setFoodPreference] = useState('');
+  const [attendsMatch, setAttendsMatch] = useState<boolean | null>(null);
   const [isGenerating, setGenerating] = useState(false);
   const [stops, setStops] = useState<Stop[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [meta, setMeta] = useState<ItineraryMeta>({ title: '', budget: '', groupSize: '', duration: '' });
+
+  const matchInfo = MATCH_DAYS[selectedDate] ?? null;
 
   const interestOptions = [
     { id: 'futbol', name: 'Fútbol' },
@@ -120,6 +145,14 @@ export default function HomePage() {
     { id: 'vegetariano', name: 'Vegetariano', desc: 'Opciones sin carne' },
   ];
 
+  const toggleInterest = (id: string) => {
+    setSelectedInterests(prev => {
+      const next = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
+      if (!next.includes('gastronomia')) setFoodPreference('');
+      return next;
+    });
+  };
+
   const generateItinerary = async () => {
     if (!selectedDate || selectedInterests.length === 0) {
       alert('Por favor selecciona una fecha e intereses');
@@ -140,18 +173,15 @@ export default function HomePage() {
         nota: p['Nota para IA'] || '',
       })).filter(p => p.nombre);
 
-      // Filtrar por intereses
       let filtered = places.filter(p =>
         selectedInterests.some(interest => matchesInterest(p.categoria, interest))
       );
 
-      // Filtrar por presupuesto por persona
       filtered = filtered.filter(p => {
         const min = parseCostMin(p.costo);
         return min === 0 || min <= budget;
       });
 
-      // Filtro de comida vegetariana
       if (foodPreference === 'vegetariano') {
         filtered = filtered.filter(p => {
           if (matchesInterest(p.categoria, 'gastronomia')) {
@@ -166,10 +196,10 @@ export default function HomePage() {
         return;
       }
 
-      // Tiempo máximo según duración seleccionada
-      const targetMins = duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 600;
+      // Si va al partido, reservar tiempo para el estadio (180 min + 45 transit)
+      const matchReservedMins = attendsMatch ? 180 + 45 : 0;
+      const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 600) - matchReservedMins;
 
-      // Mezclar aleatoriamente y seleccionar lugares que quepan en el tiempo
       const shuffled = [...filtered].sort(() => Math.random() - 0.5);
       const selected: Place[] = [];
       let totalTime = 0;
@@ -184,6 +214,9 @@ export default function HomePage() {
       }
 
       if (selected.length === 0) selected.push(shuffled[0]);
+
+      // Agregar estadio al final si asiste al partido
+      if (attendsMatch) selected.push(ESTADIO_AKRON);
 
       const schedule = buildSchedule(selected, startTime);
       setStops(schedule);
@@ -226,6 +259,11 @@ export default function HomePage() {
     setStops(buildSchedule(newPlaces, startTime));
   };
 
+  // Clases reutilizables
+  const labelClass = "block text-sm font-semibold text-[#1A4D2E] mb-2";
+  const sectionTitleClass = "text-sm font-semibold text-[#1A4D2E] mb-4";
+  const inputClass = "w-full p-3 border border-[#E0F2F1] rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-[#0D601E]/20 focus:border-[#0D601E] transition-all bg-white";
+
   // ---- FORM ----
   if (!showResults) {
     return (
@@ -239,45 +277,35 @@ export default function HomePage() {
         </nav>
 
         <div className="max-w-4xl mx-auto p-4 md:p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-black text-[#1A4D2E] tracking-tighter mb-2">
-              PitzBot<span className="text-[#E53935]">.</span>
-            </h1>
-            <p className="text-[#81C784] text-sm italic">IA de itinerarios Mundial 2026</p>
-          </div>
-
           <form
             onSubmit={(e) => { e.preventDefault(); generateItinerary(); }}
             className="max-w-md mx-auto bg-white p-8 rounded-3xl border border-[#E0F2F1] shadow-sm space-y-6"
           >
             {/* Información básica */}
             <div>
-              <p className="text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-4">
-                Información básica
-              </p>
+              <p className={sectionTitleClass}>Información básica</p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-2">
-                    Fecha de tu visita
-                  </label>
+                  <label className={labelClass}>Fecha de tu visita</label>
                   <input
                     type="date"
                     value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setAttendsMatch(null);
+                    }}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full p-3 border border-[#E0F2F1] rounded-xl text-sm focus:ring-2 focus:ring-[#0D601E]/20 focus:border-[#0D601E] transition-all"
+                    className={inputClass}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-2">
-                    Hora de inicio
-                  </label>
+                  <label className={labelClass}>Hora de inicio</label>
                   <select
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full p-3 border border-[#E0F2F1] rounded-xl text-sm focus:ring-2 focus:ring-[#0D601E]/20 focus:border-[#0D601E] transition-all"
+                    className={inputClass}
                   >
                     {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'].map(t => (
                       <option key={t} value={t}>{formatTime12(t)}</option>
@@ -286,13 +314,11 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-2">
-                    Duración del tour
-                  </label>
+                  <label className={labelClass}>Duración del tour</label>
                   <select
                     value={duration}
                     onChange={(e) => setDuration(e.target.value)}
-                    className="w-full p-3 border border-[#E0F2F1] rounded-xl text-sm focus:ring-2 focus:ring-[#0D601E]/20 focus:border-[#0D601E] transition-all"
+                    className={inputClass}
                   >
                     <option value="rapido">Rápido (2–3 hrs)</option>
                     <option value="medio-dia">Medio día (4–6 hrs)</option>
@@ -303,8 +329,8 @@ export default function HomePage() {
 
               <div className="space-y-4 mt-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-2">
-                    Presupuesto: <span className="text-sm font-semibold">${budget} MXN</span>
+                  <label className={labelClass}>
+                    Presupuesto: <span className="font-bold">${budget} MXN</span>
                   </label>
                   <input
                     type="range" min="200" max="3000" step="100" value={budget}
@@ -314,8 +340,8 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-2">
-                    Tamaño del grupo: <span className="text-sm font-semibold">{groupSize} persona{groupSize > 1 ? 's' : ''}</span>
+                  <label className={labelClass}>
+                    Tamaño del grupo: <span className="font-bold">{groupSize} persona{groupSize > 1 ? 's' : ''}</span>
                   </label>
                   <input
                     type="range" min="1" max="10" value={groupSize}
@@ -328,9 +354,7 @@ export default function HomePage() {
 
             {/* Intereses */}
             <div>
-              <p className="text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-4">
-                Intereses
-              </p>
+              <p className={sectionTitleClass}>Intereses</p>
               <div className="grid grid-cols-2 gap-3">
                 {interestOptions.map((opt) => {
                   const isSelected = selectedInterests.includes(opt.id);
@@ -338,10 +362,8 @@ export default function HomePage() {
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => setSelectedInterests(prev =>
-                        isSelected ? prev.filter(i => i !== opt.id) : [...prev, opt.id]
-                      )}
-                      className={`rounded-xl border transition-all duration-200 p-3 text-left text-xs font-medium
+                      onClick={() => toggleInterest(opt.id)}
+                      className={`rounded-xl border transition-all duration-200 p-3 text-left text-sm font-medium
                         ${isSelected
                           ? 'border-transparent bg-[#1A4D2E] text-white shadow-md'
                           : 'border-[#E0F2F1] bg-white text-[#1A4D2E] hover:border-[#81C784] hover:shadow-sm'
@@ -354,29 +376,71 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Tipo de comida */}
-            <div>
-              <p className="text-[10px] font-bold text-[#1A4D2E] tracking-[0.2em] mb-4">
-                Tipo de comida
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {foodPreferences.map((pref) => (
+            {/* Tipo de comida — solo si gastronomia está seleccionada */}
+            {selectedInterests.includes('gastronomia') && (
+              <div>
+                <p className={sectionTitleClass}>Tipo de comida</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {foodPreferences.map((pref) => (
+                    <button
+                      key={pref.id}
+                      type="button"
+                      onClick={() => setFoodPreference(foodPreference === pref.id ? '' : pref.id)}
+                      className={`p-3 rounded-xl border transition-all duration-200 text-left
+                        ${foodPreference === pref.id
+                          ? 'border-[#0D601E] bg-[#0D601E] text-white'
+                          : 'border-[#E0F2F1] bg-white text-[#1A4D2E] hover:border-[#81C784]'
+                        }`}
+                    >
+                      <div className="font-medium text-sm mb-1">{pref.name}</div>
+                      <div className="text-xs opacity-70">{pref.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sección partido — solo en días de partido */}
+            {matchInfo && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                <p className="text-sm font-bold text-amber-800 mb-1">
+                  ⚽ ¡Hay partido del Mundial este día!
+                </p>
+                <p className="text-sm text-amber-700 font-semibold">{matchInfo.equipos}</p>
+                <p className="text-xs text-amber-600 mb-4">{matchInfo.partido} · Estadio Akron</p>
+
+                <p className={`text-sm font-semibold text-[#1A4D2E] mb-3`}>¿Asistirás al partido?</p>
+                <div className="flex gap-3">
                   <button
-                    key={pref.id}
                     type="button"
-                    onClick={() => setFoodPreference(foodPreference === pref.id ? '' : pref.id)}
-                    className={`p-3 rounded-xl border transition-all duration-200 text-left
-                      ${foodPreference === pref.id
-                        ? 'border-[#0D601E] bg-[#0D601E] text-white'
-                        : 'border-[#E0F2F1] bg-white text-[#1A4D2E] hover:border-[#81C784]'
+                    onClick={() => setAttendsMatch(true)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all
+                      ${attendsMatch === true
+                        ? 'bg-[#1A4D2E] text-white border-transparent'
+                        : 'bg-white text-[#1A4D2E] border-[#E0F2F1] hover:border-[#81C784]'
                       }`}
                   >
-                    <div className="font-medium text-xs mb-1">{pref.name}</div>
-                    <div className="text-[10px] opacity-70">{pref.desc}</div>
+                    Sí, asistiré
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setAttendsMatch(false)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all
+                      ${attendsMatch === false
+                        ? 'bg-[#1A4D2E] text-white border-transparent'
+                        : 'bg-white text-[#1A4D2E] border-[#E0F2F1] hover:border-[#81C784]'
+                      }`}
+                  >
+                    No, solo turismo
+                  </button>
+                </div>
+                {attendsMatch === true && (
+                  <p className="text-xs text-amber-700 mt-3">
+                    El Estadio Akron se incluirá en tu itinerario con tiempo de traslado estimado.
+                  </p>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Botón generar */}
             <button
@@ -409,7 +473,6 @@ export default function HomePage() {
       </nav>
 
       <div className="max-w-3xl mx-auto p-4 md:p-8">
-        {/* Header de resultados */}
         <div className="flex justify-between items-center mb-6 print:hidden">
           <button
             onClick={() => setShowResults(false)}
@@ -426,7 +489,6 @@ export default function HomePage() {
         </div>
 
         <div className="bg-white rounded-3xl border border-[#E0F2F1] shadow-sm p-6 md:p-8">
-          {/* Cabecera del itinerario */}
           <div className="mb-8">
             <h2 className="text-xl font-bold text-[#1A4D2E] mb-3">{meta.title}</h2>
             <div className="flex flex-wrap gap-2 text-xs">
@@ -441,97 +503,65 @@ export default function HomePage() {
             <p className="text-gray-400 text-sm text-center py-8">No hay paradas en el itinerario.</p>
           ) : (
             <div className="relative">
-              {/* Línea vertical del timeline */}
               <div className="absolute left-3 top-3 bottom-3 w-px bg-[#E0F2F1]" />
-
               <div className="space-y-4">
                 {stops.map((stop, i) => (
                   <div key={i} className="relative pl-10">
-                    {/* Número en el timeline */}
-                    <div className="absolute left-0 top-2 w-6 h-6 rounded-full bg-[#1A4D2E] flex items-center justify-center shrink-0">
+                    <div className={`absolute left-0 top-2 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${stop.place.isMatch ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}>
                       <span className="text-white text-[10px] font-bold">{i + 1}</span>
                     </div>
 
-                    {/* Tarjeta del lugar */}
-                    <div className="bg-[#fafafa] rounded-2xl p-4 border border-[#E0F2F1]">
+                    <div className={`rounded-2xl p-4 border ${stop.place.isMatch ? 'bg-amber-50 border-amber-200' : 'bg-[#fafafa] border-[#E0F2F1]'}`}>
                       <div className="flex justify-between items-start gap-3">
                         <div className="flex-1 min-w-0">
-                          {/* Horario */}
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[#0D601E] font-bold text-sm">
                               {formatTime12(stop.horaLlegada)}
                             </span>
-                            <span className="text-[11px] text-gray-400">
+                            <span className="text-xs text-gray-400">
                               → {formatTime12(stop.horaSalida)}
                             </span>
                           </div>
-
-                          {/* Nombre */}
                           <h3 className="font-bold text-[#1A4D2E] text-sm leading-snug">
                             {stop.place.nombre}
                           </h3>
-
-                          {/* Dirección */}
                           <p className="text-xs text-gray-500 mt-0.5">
                             📍 {stop.place.direccion}
                           </p>
-
-                          {/* Datos */}
                           <div className="flex flex-wrap gap-3 mt-2">
-                            <span className="text-[11px] text-gray-500">
-                              ⏱ {stop.place.tiempoEstancia} min de estancia
-                            </span>
-                            <span className="text-[11px] text-gray-500">
-                              💰 {stop.place.costo}
-                            </span>
+                            <span className="text-xs text-gray-500">⏱ {stop.place.tiempoEstancia} min</span>
+                            <span className="text-xs text-gray-500">💰 {stop.place.costo}</span>
                             {stop.place.calificacion && (
-                              <span className="text-[11px] text-gray-500">
-                                ⭐ {stop.place.calificacion}/5
-                              </span>
+                              <span className="text-xs text-gray-500">⭐ {stop.place.calificacion}/5</span>
                             )}
                           </div>
-
-                          {/* Nota */}
                           {stop.place.nota && (
-                            <p className="text-[11px] text-gray-400 mt-1.5 italic leading-snug">
+                            <p className="text-xs text-gray-400 mt-1.5 italic leading-snug">
                               {stop.place.nota}
                             </p>
                           )}
                         </div>
 
-                        {/* Controles: subir / bajar / eliminar */}
                         <div className="flex flex-col gap-1 print:hidden shrink-0">
-                          <button
-                            onClick={() => moveUp(i)}
-                            disabled={i === 0}
-                            title="Subir"
-                            className="w-7 h-7 rounded-lg bg-white border border-[#E0F2F1] text-[#1A4D2E] text-xs font-bold disabled:opacity-25 hover:bg-[#E0F2F1] transition-colors flex items-center justify-center"
-                          >
+                          <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
+                            className="w-7 h-7 rounded-lg bg-white border border-[#E0F2F1] text-[#1A4D2E] text-xs font-bold disabled:opacity-25 hover:bg-[#E0F2F1] transition-colors flex items-center justify-center">
                             ↑
                           </button>
-                          <button
-                            onClick={() => moveDown(i)}
-                            disabled={i === stops.length - 1}
-                            title="Bajar"
-                            className="w-7 h-7 rounded-lg bg-white border border-[#E0F2F1] text-[#1A4D2E] text-xs font-bold disabled:opacity-25 hover:bg-[#E0F2F1] transition-colors flex items-center justify-center"
-                          >
+                          <button onClick={() => moveDown(i)} disabled={i === stops.length - 1} title="Bajar"
+                            className="w-7 h-7 rounded-lg bg-white border border-[#E0F2F1] text-[#1A4D2E] text-xs font-bold disabled:opacity-25 hover:bg-[#E0F2F1] transition-colors flex items-center justify-center">
                             ↓
                           </button>
-                          <button
-                            onClick={() => removeStop(i)}
-                            title="Eliminar"
-                            className="w-7 h-7 rounded-lg bg-white border border-red-200 text-red-400 text-xs font-bold hover:bg-red-50 transition-colors flex items-center justify-center"
-                          >
+                          <button onClick={() => removeStop(i)} title="Eliminar"
+                            className="w-7 h-7 rounded-lg bg-white border border-red-200 text-red-400 text-xs font-bold hover:bg-red-50 transition-colors flex items-center justify-center">
                             ✕
                           </button>
                         </div>
                       </div>
 
-                      {/* Tráfico al siguiente */}
                       {stop.traslado && (
                         <div className="mt-2 pt-2 border-t border-[#E0F2F1]">
-                          <span className="text-[11px] text-[#0D601E] font-medium">
-                            🚗 {stop.traslado} al siguiente lugar
+                          <span className={`text-xs font-medium ${stop.traslado.includes('estadio') ? 'text-amber-700' : 'text-[#0D601E]'}`}>
+                            🚗 {stop.traslado}
                           </span>
                         </div>
                       )}
@@ -542,7 +572,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Botón imprimir al final */}
           <div className="mt-8 pt-6 border-t border-[#E0F2F1] flex justify-center print:hidden">
             <button
               onClick={() => window.print()}
