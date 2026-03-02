@@ -185,7 +185,7 @@ export default function HomePage() {
     { id: 'tradicional', name: '100% tradicional', desc: 'Solo comida típica tapatía' },
     { id: 'mix', name: 'Variado', desc: 'Tradicional + internacional' },
     { id: 'internacional', name: 'Internacional', desc: 'Comida familiar/internacional' },
-    { id: 'vegetariano', name: 'Vegetariano', desc: 'Opciones sin carne' },
+    { id: 'vegetariano', name: 'Vegana', desc: 'Opciones veganas' },
   ];
 
   const toggleInterest = (id: string) => {
