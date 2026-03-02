@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 
+const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
+
 // ---- Types ----
 interface Place {
   nombre: string;
@@ -86,6 +88,33 @@ function parseCostMin(costoStr: string): number {
   if (!costoStr || /gratis/i.test(costoStr)) return 0;
   const match = costoStr.replace(/[,. ]/g, '').match(/\$?(\d+)/);
   return match ? parseInt(match[1]) : 0;
+}
+
+type MealContext = 'desayuno' | 'comida' | 'cena';
+
+function getMealContext(time: string): MealContext {
+  const hour = parseInt(time.split(':')[0]);
+  if (hour < 12) return 'desayuno';
+  if (hour < 17) return 'comida';
+  return 'cena';
+}
+
+function mealScore(place: Place, meal: MealContext): number {
+  const text = norm(`${place.nombre} ${place.nota} ${place.categoria}`);
+  const keywords: Record<MealContext, string[]> = {
+    desayuno: ['desayuno', 'cafe', 'cafeteria', 'brunch', 'pan', 'jugo', 'breakfast', 'torta'],
+    comida: ['comida', 'birria', 'torta ahogada', 'pozole', 'taco', 'tacos', 'fonda', 'ahogada', 'mexicana', 'lonche'],
+    cena: ['cena', 'cantina', 'nocturna', 'mariscos', 'coctel', 'restaurant'],
+  };
+  const penalize: Record<MealContext, string[]> = {
+    desayuno: ['cena', 'nocturna', 'bar', 'cantina'],
+    comida: [],
+    cena: ['desayuno', 'cafe', 'brunch'],
+  };
+  let score = 0;
+  for (const kw of keywords[meal]) if (text.includes(norm(kw))) score++;
+  for (const kw of penalize[meal]) if (text.includes(norm(kw))) score--;
+  return score;
 }
 
 function buildSchedule(places: Place[], startTime: string): Stop[] {
@@ -200,7 +229,16 @@ export default function HomePage() {
       const matchReservedMins = attendsMatch ? 180 + 45 : 0;
       const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 600) - matchReservedMins;
 
-      const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+      // Priorizar lugares de gastronomía según el horario de inicio
+      const mealContext = getMealContext(startTime);
+      const gastro = filtered
+        .filter(p => matchesInterest(p.categoria, 'gastronomia'))
+        .sort((a, b) => mealScore(b, mealContext) - mealScore(a, mealContext));
+      const others = filtered
+        .filter(p => !matchesInterest(p.categoria, 'gastronomia'))
+        .sort(() => Math.random() - 0.5);
+      // Gastronomy best matches first, then shuffled other interests
+      const shuffled = [...gastro, ...others];
       const selected: Place[] = [];
       let totalTime = 0;
 
@@ -270,6 +308,13 @@ export default function HomePage() {
       <div className="min-h-screen bg-[#fafafa]">
 
         <div className="max-w-4xl mx-auto p-4 md:p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-black text-[#1A4D2E] tracking-tighter mb-1">
+              PitzBot<span className="text-[#E53935]">.</span>
+            </h1>
+            <p className="text-[#81C784] text-sm italic">IA de itinerarios Mundial 2026</p>
+          </div>
+
           <form
             onSubmit={(e) => { e.preventDefault(); generateItinerary(); }}
             className="max-w-md mx-auto bg-white p-8 rounded-3xl border border-[#E0F2F1] shadow-sm space-y-6"
@@ -323,10 +368,14 @@ export default function HomePage() {
               <div className="space-y-4 mt-4">
                 <div>
                   <label className={labelClass}>
-                    Presupuesto: <span className="font-bold">${budget} MXN</span>
+                    Presupuesto:{" "}
+                    <span className="font-bold">${budget.toLocaleString('es-MX')} MXN</span>
+                    <span className="text-gray-400 font-normal ml-2">
+                      (~${Math.round(budget / MXN_TO_USD).toLocaleString('en-US')} USD)
+                    </span>
                   </label>
                   <input
-                    type="range" min="200" max="3000" step="100" value={budget}
+                    type="range" min="200" max="15000" step="100" value={budget}
                     onChange={(e) => setBudget(Number(e.target.value))}
                     className="w-full h-1.5 bg-[#E0F2F1] rounded-lg appearance-none cursor-pointer accent-[#0D601E]"
                   />
