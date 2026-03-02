@@ -117,6 +117,20 @@ function mealScore(place: Place, meal: MealContext): number {
   return score;
 }
 
+function getFoodType(place: Place): string {
+  const text = norm(`${place.nombre} ${place.nota}`);
+  if (text.includes('taco')) return 'tacos';
+  if (text.includes('birria')) return 'birria';
+  if (text.includes('torta')) return 'tortas';
+  if (text.includes('pozole')) return 'pozole';
+  if (text.includes('tamal')) return 'tamales';
+  if (text.includes('mariscos') || text.includes('ceviche')) return 'mariscos';
+  if (text.includes('cafe') || text.includes('cafeteria') || text.includes('brunch')) return 'cafe';
+  if (text.includes('lonche')) return 'lonches';
+  if (text.includes('sushi')) return 'sushi';
+  return `unique_${norm(place.nombre)}`;
+}
+
 function buildSchedule(places: Place[], startTime: string): Stop[] {
   let current = startTime;
   return places.map((place, i) => {
@@ -229,20 +243,44 @@ export default function HomePage() {
       const matchReservedMins = attendsMatch ? 180 + 45 : 0;
       const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 600) - matchReservedMins;
 
-      // Priorizar lugares de gastronomía según el horario de inicio
+      // Priorizar gastronomía según horario; balancear con otros intereses
       const mealContext = getMealContext(startTime);
-      const gastro = filtered
+      const isGastroOnly = selectedInterests.length === 1 && selectedInterests[0] === 'gastronomia';
+      const maxGastro = isGastroOnly ? 99 : 1;
+      const hasNocturna = selectedInterests.includes('vida-nocturna');
+
+      const gastroPool = filtered
         .filter(p => matchesInterest(p.categoria, 'gastronomia'))
         .sort((a, b) => mealScore(b, mealContext) - mealScore(a, mealContext));
-      const others = filtered
-        .filter(p => !matchesInterest(p.categoria, 'gastronomia'))
+
+      const nocturnaPool = filtered
+        .filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia'))
         .sort(() => Math.random() - 0.5);
-      // Gastronomy best matches first, then shuffled other interests
-      const shuffled = [...gastro, ...others];
+
+      const othersPool = filtered
+        .filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna'))
+        .sort(() => Math.random() - 0.5);
+
+      // Si va al partido + vida nocturna: nocturna va después del estadio
+      const mainPool = attendsMatch && hasNocturna
+        ? [...gastroPool, ...othersPool]
+        : [...gastroPool, ...othersPool, ...nocturnaPool];
+      const afterMatchPool = attendsMatch && hasNocturna ? nocturnaPool : [];
+
       const selected: Place[] = [];
       let totalTime = 0;
+      let gastroCount = 0;
+      const usedFoodTypes = new Set<string>();
 
-      for (const place of shuffled) {
+      for (const place of mainPool) {
+        const isGastro = matchesInterest(place.categoria, 'gastronomia');
+        if (isGastro) {
+          if (gastroCount >= maxGastro) continue;
+          const foodType = getFoodType(place);
+          if (usedFoodTypes.has(foodType)) continue;
+          usedFoodTypes.add(foodType);
+          gastroCount++;
+        }
         const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? 15 : 0);
         if (totalTime + timeNeeded <= targetMins) {
           selected.push(place);
@@ -251,10 +289,11 @@ export default function HomePage() {
         if (selected.length >= 8) break;
       }
 
-      if (selected.length === 0) selected.push(shuffled[0]);
+      if (selected.length === 0) selected.push(mainPool[0] ?? filtered[0]);
 
-      // Agregar estadio al final si asiste al partido
+      // Estadio y vida nocturna post-partido
       if (attendsMatch) selected.push(ESTADIO_AKRON);
+      for (const p of afterMatchPool.slice(0, 2)) selected.push(p);
 
       const schedule = buildSchedule(selected, startTime);
       setStops(schedule);
@@ -325,17 +364,24 @@ export default function HomePage() {
               <div className="space-y-4">
                 <div>
                   <label className={labelClass}>Fecha de tu visita</label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
-                      setAttendsMatch(null);
-                    }}
-                    min={new Date().toISOString().split('T')[0]}
-                    className={inputClass}
-                    required
-                  />
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1A4D2E] pointer-events-none">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        setAttendsMatch(null);
+                      }}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full pl-10 pr-3 py-3 border-2 border-[#E0F2F1] rounded-xl text-sm text-gray-900 focus:border-[#1A4D2E] focus:outline-none transition-all bg-white cursor-pointer [color-scheme:light]"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
