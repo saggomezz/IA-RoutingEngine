@@ -69,7 +69,7 @@ function matchesInterest(categoria: string, interest: string): boolean {
   const cat = norm(categoria);
   const map: Record<string, string[]> = {
     futbol: ['futbol', 'deportes'],
-    gastronomia: ['gastronomia', 'mexicana', 'comida', 'restaurante'],
+    gastronomia: ['gastronomia', 'mexicana', 'comida', 'restaurante', 'vegana', 'calle'],
     'vida-nocturna': ['nocturna', 'bar', 'cantina'],
     cultura: ['cultura', 'museo', 'teatro', 'historia'],
     compras: ['compras', 'comercial', 'eventos', 'tienda'],
@@ -131,19 +131,19 @@ function getFoodType(place: Place): string {
   return `unique_${norm(place.nombre)}`;
 }
 
-function buildSchedule(places: Place[], startTime: string): Stop[] {
+function buildSchedule(places: Place[], startTime: string, defaultTransit = 15): Stop[] {
   let current = startTime;
   return places.map((place, i) => {
     const horaLlegada = current;
     const mins = place.tiempoEstancia || 60;
     const horaSalida = addMinutes(current, mins);
     const nextIsMatch = i < places.length - 1 && places[i + 1]?.isMatch;
-    const transitMins = nextIsMatch ? 45 : 15;
+    const transitMins = nextIsMatch ? 45 : defaultTransit;
     current = addMinutes(horaSalida, transitMins);
     const trasladoLabel = i < places.length - 1
       ? nextIsMatch
         ? '~45 min en tráfico hasta el estadio (se recomienda salir con tiempo extra)'
-        : '~15 min en tráfico'
+        : `~${defaultTransit} min en tráfico`
       : '';
     return { place, horaLlegada, horaSalida, traslado: trasladoLabel };
   });
@@ -163,6 +163,8 @@ export default function HomePage() {
   const [stops, setStops] = useState<Stop[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [meta, setMeta] = useState<ItineraryMeta>({ title: '', budget: '', groupSize: '', duration: '' });
+  const [allPlaces, setAllPlaces] = useState<Place[]>([]);
+  const [transitTime, setTransitTime] = useState(15);
 
   const matchInfo = MATCH_DAYS[selectedDate] ?? null;
 
@@ -185,7 +187,7 @@ export default function HomePage() {
     { id: 'tradicional', name: '100% tradicional', desc: 'Solo comida típica tapatía' },
     { id: 'mix', name: 'Variado', desc: 'Tradicional + internacional' },
     { id: 'internacional', name: 'Internacional', desc: 'Comida familiar/internacional' },
-    { id: 'vegetariano', name: 'Vegetariano', desc: 'Opciones sin carne' },
+    { id: 'vegetariano', name: 'Vegana', desc: 'Opciones veganas' },
   ];
 
   const toggleInterest = (id: string) => {
@@ -228,7 +230,8 @@ export default function HomePage() {
       if (foodPreference === 'vegetariano') {
         filtered = filtered.filter(p => {
           if (matchesInterest(p.categoria, 'gastronomia')) {
-            return norm(p.nota).includes('vegeta') || norm(p.nota).includes('sano');
+            return norm(p.categoria).includes('vegana') ||
+              norm(p.nota).includes('vegeta') || norm(p.nota).includes('sano');
           }
           return true;
         });
@@ -246,8 +249,13 @@ export default function HomePage() {
       // Priorizar gastronomía según horario; balancear con otros intereses
       const mealContext = getMealContext(startTime);
       const isGastroOnly = selectedInterests.length === 1 && selectedInterests[0] === 'gastronomia';
-      const maxGastro = isGastroOnly ? 99 : 1;
       const hasNocturna = selectedInterests.includes('vida-nocturna');
+
+      // Max restaurantes según duración del tour
+      const maxGastro = isGastroOnly ? 99
+        : duration === 'rapido' ? 1
+        : duration === 'medio-dia' ? 2
+        : 3;
 
       const gastroPool = filtered
         .filter(p => matchesInterest(p.categoria, 'gastronomia'))
@@ -261,19 +269,34 @@ export default function HomePage() {
         .filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna'))
         .sort(() => Math.random() - 0.5);
 
-      // Si va al partido + vida nocturna: nocturna va después del estadio
-      const mainPool = attendsMatch && hasNocturna
-        ? [...gastroPool, ...othersPool]
-        : [...gastroPool, ...othersPool, ...nocturnaPool];
       const afterMatchPool = attendsMatch && hasNocturna ? nocturnaPool : [];
+
+      // Intercalar gastro con otros para evitar dos restaurantes seguidos
+      const buildInterleavedPool = (): Place[] => {
+        if (isGastroOnly) return [...gastroPool];
+        const others = (attendsMatch && hasNocturna) ? othersPool : [...othersPool, ...nocturnaPool];
+        const gap = others.length > 0 && maxGastro > 0 ? Math.max(2, Math.floor(others.length / maxGastro)) : 2;
+        const result: Place[] = [];
+        let gi = 0, oi = 0;
+        while (gi < gastroPool.length || oi < others.length) {
+          for (let j = 0; j < gap && oi < others.length; j++) result.push(others[oi++]);
+          if (gi < gastroPool.length) result.push(gastroPool[gi++]);
+        }
+        return result;
+      };
+
+      const mainPool = buildInterleavedPool();
 
       const selected: Place[] = [];
       let totalTime = 0;
       let gastroCount = 0;
+      let lastWasGastro = false;
       const usedFoodTypes = new Set<string>();
 
       for (const place of mainPool) {
         const isGastro = matchesInterest(place.categoria, 'gastronomia');
+        // No dos gastro seguidos cuando hay otros intereses
+        if (isGastro && lastWasGastro && !isGastroOnly) continue;
         if (isGastro) {
           if (gastroCount >= maxGastro) continue;
           const foodType = getFoodType(place);
@@ -285,6 +308,7 @@ export default function HomePage() {
         if (totalTime + timeNeeded <= targetMins) {
           selected.push(place);
           totalTime += timeNeeded;
+          lastWasGastro = isGastro;
         }
         if (selected.length >= 8) break;
       }
@@ -295,7 +319,12 @@ export default function HomePage() {
       if (attendsMatch) selected.push(ESTADIO_AKRON);
       for (const p of afterMatchPool.slice(0, 2)) selected.push(p);
 
-      const schedule = buildSchedule(selected, startTime);
+      // Gastro-solo: más espacio entre paradas (no comer cada 15 min)
+      const transit = isGastroOnly ? 75 : 15;
+      setTransitTime(transit);
+      setAllPlaces(filtered);
+
+      const schedule = buildSchedule(selected, startTime, transit);
       setStops(schedule);
 
       const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', {
@@ -321,19 +350,34 @@ export default function HomePage() {
     if (i === 0) return;
     const arr = [...stops];
     [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime));
+    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime));
   };
 
   const moveDown = (i: number) => {
     if (i === stops.length - 1) return;
     const arr = [...stops];
     [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime));
+    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime));
   };
 
   const removeStop = (i: number) => {
     const newPlaces = stops.filter((_, idx) => idx !== i).map(s => s.place);
-    setStops(buildSchedule(newPlaces, startTime));
+    setStops(buildSchedule(newPlaces, startTime, transitTime));
+  };
+
+  const replaceStop = (i: number) => {
+    const current = stops[i].place;
+    const usedNames = new Set(stops.map(s => s.place.nombre));
+    const matchingInterest = selectedInterests.find(int => matchesInterest(current.categoria, int))
+      || selectedInterests[0];
+    const candidates = allPlaces.filter(p =>
+      !usedNames.has(p.nombre) &&
+      matchesInterest(p.categoria, matchingInterest)
+    );
+    if (candidates.length === 0) return;
+    const newPlace = candidates[Math.floor(Math.random() * candidates.length)];
+    const newPlaces = stops.map((s, idx) => idx === i ? newPlace : s.place);
+    setStops(buildSchedule(newPlaces, startTime, transitTime));
   };
 
   // Clases reutilizables
@@ -606,6 +650,16 @@ export default function HomePage() {
                           <h3 className="font-bold text-[#1A4D2E] text-sm leading-snug">
                             {stop.place.nombre}
                           </h3>
+                          {norm(stop.place.categoria).includes('calle') && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 rounded-md px-1.5 py-0.5 mt-0.5">
+                              🌮 Comida callejera
+                            </span>
+                          )}
+                          {norm(stop.place.categoria).includes('vegana') && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 rounded-md px-1.5 py-0.5 mt-0.5 ml-1">
+                              🌱 Vegano
+                            </span>
+                          )}
                           <p className="text-xs text-gray-500 mt-0.5">
                             📍 {stop.place.direccion}
                           </p>
@@ -621,6 +675,19 @@ export default function HomePage() {
                               {stop.place.nota}
                             </p>
                           )}
+                          {!stop.place.isMatch && (
+                            <button
+                              onClick={() => {
+                                const base = window.location.origin.replace(/:\d+$/, ':3000');
+                                const back = encodeURIComponent(window.location.href);
+                                const url = `${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario&back=${back}`;
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }}
+                              className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E0F2F1] transition-colors print:hidden"
+                            >
+                              Ver lugar →
+                            </button>
+                          )}
                         </div>
 
                         <div className="flex flex-col gap-1 print:hidden shrink-0">
@@ -632,6 +699,12 @@ export default function HomePage() {
                             className="w-7 h-7 rounded-lg bg-white border border-[#E0F2F1] text-[#1A4D2E] text-xs font-bold disabled:opacity-25 hover:bg-[#E0F2F1] transition-colors flex items-center justify-center">
                             ↓
                           </button>
+                          {!stop.place.isMatch && (
+                            <button onClick={() => replaceStop(i)} title="Sugerir otro lugar"
+                              className="w-7 h-7 rounded-lg bg-white border border-[#81C784] text-[#0D601E] text-xs font-bold hover:bg-[#E0F2F1] transition-colors flex items-center justify-center">
+                              ↺
+                            </button>
+                          )}
                           <button onClick={() => removeStop(i)} title="Eliminar"
                             className="w-7 h-7 rounded-lg bg-white border border-red-200 text-red-400 text-xs font-bold hover:bg-red-50 transition-colors flex items-center justify-center">
                             ✕

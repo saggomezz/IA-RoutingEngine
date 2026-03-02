@@ -41,15 +41,7 @@ export default function PitzbolNavbar() {
                     <h2 className="text-[#1A4D2E] text-lg md:text-xl font-bold">IA de Itinerarios</h2>
                     <p className="text-[#769C7B] text-xs md:text-sm">Powered by PitzBot</p>
                 </div>
-                
-                <Link 
-                    href="http://69.30.204.56:3000"
-                    className="bg-[#1A4D2E] hover:bg-[#0D601E] text-white px-4 py-2 rounded-full text-sm font-medium transition-all hover:shadow-md flex items-center gap-2"
-                >
-                    <span className="text-lg">🏠</span>
-                    <span className="hidden md:inline">Volver a Pitzbol</span>
-                    <span className="md:hidden">Inicio</span>
-                </Link>
+
             </div>
         </nav>
     );
