@@ -69,7 +69,7 @@ function matchesInterest(categoria: string, interest: string): boolean {
   const cat = norm(categoria);
   const map: Record<string, string[]> = {
     futbol: ['futbol', 'deportes'],
-    gastronomia: ['gastronomia', 'mexicana', 'comida', 'restaurante'],
+    gastronomia: ['gastronomia', 'mexicana', 'comida', 'restaurante', 'vegana', 'calle'],
     'vida-nocturna': ['nocturna', 'bar', 'cantina'],
     cultura: ['cultura', 'museo', 'teatro', 'historia'],
     compras: ['compras', 'comercial', 'eventos', 'tienda'],
@@ -228,7 +228,8 @@ export default function HomePage() {
       if (foodPreference === 'vegetariano') {
         filtered = filtered.filter(p => {
           if (matchesInterest(p.categoria, 'gastronomia')) {
-            return norm(p.nota).includes('vegeta') || norm(p.nota).includes('sano');
+            return norm(p.categoria).includes('vegana') ||
+              norm(p.nota).includes('vegeta') || norm(p.nota).includes('sano');
           }
           return true;
         });
@@ -606,6 +607,16 @@ export default function HomePage() {
                           <h3 className="font-bold text-[#1A4D2E] text-sm leading-snug">
                             {stop.place.nombre}
                           </h3>
+                          {norm(stop.place.categoria).includes('calle') && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 rounded-md px-1.5 py-0.5 mt-0.5">
+                              🌮 Comida callejera
+                            </span>
+                          )}
+                          {norm(stop.place.categoria).includes('vegana') && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 rounded-md px-1.5 py-0.5 mt-0.5 ml-1">
+                              🌱 Vegano
+                            </span>
+                          )}
                           <p className="text-xs text-gray-500 mt-0.5">
                             📍 {stop.place.direccion}
                           </p>

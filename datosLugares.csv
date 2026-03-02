@@ -1,82 +1,84 @@
-Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo Estimado,Calificacion,Nota para IA
-"Estadio Akron, Guadalajara",Fútbol,Cto. J.V.C. 2800,"20,6817764","-103,4626455",180,"$400 - $2,500",5,Casa de Chivas. Tour disponible.
-"Estadio Jalisco, Guadalajara",Fútbol,C. Siete Colinas 1772,"20,7049947","-103,3281769",150,"$200 - $1,200",3,Estadio histórico. Barrio futbolero.
-"Glorieta de la Minerva, Guadalajara",Fútbol,Av. Ignacio L Vallarta,"20,6743943","-103,3874128",45,Gratis,5,Punto máximo de festejos de títulos.
-"Museo Chivas, Guadalajara",Arquitectura,Cto. J.V.C. 2800,20.681.946.732.220.500,-10.346.151.608.820.700,90,$150,5,Historia del Rebaño Sagrado.
-"El Gallo Cantina, Guadalajara","Vida Nocturna, Música",Alfredo R. Plascencia 746,"20,6890096","-103,3716708",90,$200 - $500,5,Cantina tradicional para ver partidos.
-"La Gran Plaza Fashion Mall, Guadalajara","Eventos, Compras",La Gran Plaza Fashion Mall,"20,6737855","-103,4047841",90,$100,4,Tiene varias tiendas deportivas oficiales.
-"AlasWings Morelos, Guadalajara","Gastronomía, Vida Nocturna",Escuela Militar Aviación 6,"20,6760653","-103,369575",120,$350,4,Muy popular para ver Champions y Liga MX.
-"Tortas Ahogadas ""El Güerito"", Guadalajara",Gastronomía Mexicana,Calle Francisco I. Madero 13,"20,6730994","-103,3436262",60,$100 - $200,,Un clásico absoluto del centro. Muy futbolero.
-"Tortas Ahogadas El Güerito, Guadalajara",Gastronomía Mexicana,"C. Pino Suárez 279A, Zona Centro, 44100 ",20.683.258.297.486.400,-10.334.679.287.677.100,90,$300,,
-"Vancouver Wings Gold, Guadalajara","Gastronomía, Vida Nocturna, Música",Av. Chapultepec Sur 275,"20,6719441",-10.334.679.287.677.100,90,$300,,
-"Wingman Chapultepec, Guadalajara","Gastronomía, Vida Nocturna","4, Av. Chapultepec Sur 143, Americana","20,6787965","-103,369049",90,$300,,
-"Wings Army Gran Plaza, Guadalajara","Vida Nocturna, Gastronomía",Av. Ignacio L Vallarta 3959-interior 13,"20,6740456","-103,4045419",90,$300,,
-"Centro Histórico de Tlaquepaque, Guadalajara","Cultura, Eventos, Postre, Mercados Locales, Museos, Aventura, Compras, Vida Nocturna, Fotografía, Música, Arquitectura, Gastronomía, Gastronomía Mexicana, Arte e Historia",Calle Independencia,"20,6393535","-103,3149955",60,Gratis,,"Andadores llenos de arte, mariachi y galerías."
-"Santo Coyote Real, Guadalajara","Gastronomía Mexicana, Arte e Historia, Postre, Naturaleza, Fotografía, Música",Av. del Servidor Público 3600,"20,7331289","-103,4307459",150,$500 - $600,,
-"Santo Coyote, Guadalajara",Gastronomía,C. Miguel Lerdo de Tejada 2379,"20,670492","-103,377027",150,$500 - $600,,Buffet y ambiente místico mexicano. Gran experiencia visual.
-"La Bodega de León, Guadalajara","Gastronomía, Gastronomía Mexicana",C. Miguel de Cervantes Saavedra 144,"20,6725991","-103,3749047",150,$500 - $600,,
-"Mutante Restaurante, Guadalajara","Gastronomía Mexicana, Gastronomía, Vida Nocturna, Música",Lopez Cotilla 1937 Colonia Americana Laffayette S.J,"20,6731631","-103,376819",150,$500 - $600,,
-"Plaza de Armas, Guadalajara","Eventos, Cultura",Plaza de Armas,"20,6763238","-103,3469332",60,Gratis,4,Donde se ponen pantallas en finales.
-"Karne Garibaldi (Santa Tere), Guadalajara",Gastronomía Mexicana,Calle Garibaldi 1306,"20,6813902","-103,3663819",90,$250 - $400,,Récord Guinness de rapidez. Ideal para antes de ir al estadio.
-"Karne Garibaldi Sucursal Tlaquepaque, Guadalajara",Gastronomía Mexicana,Blvd. Gral. Marcelino García Barragán 1627,"20,652878","-103,3250386",90,$250 - $400,,
-"Karne Garibaldi Sucursal Plaza Del Sol, Guadalajara",Gastronomía Mexicana,Av. Mariano Otero 3019,"20,6477173","-103,4309",90,$250 - $400,,
-"Karne Garibaldi Sucursal Centro Zapopan, Guadalajara",Gastronomía Mexicana,Av. Hidalgo 352,"20,7210559","-103,3880923",90,$250 - $400,,
-"Karne Garibaldi Food court Plaza Galerías, Guadalajara",Gastronomía Mexicana,FF-10,"20,6761987","-103,4314109",90,$250 - $400,,
-"El Sacromonte, Guadalajara",Gastronomía Mexicana,C. Pedro Moreno 1398,"20,6757368","-103,3660848",120,$500 - $900,,Comida mexicana de autor. Experiencia más premium.
-"Los Famosos Equipales, Guadalajara",Gastronomía Mexicana,C. Juan Álvarez 704,"20,6845544","-103,3523226",90,$200 - $400,,"Cantina histórica con su bebida ""Las Nalgas Alegre""."
-"La Chata, Guadalajara",Gastronomía Mexicana,Av. Ramón Corona 126,"20,6746934","-103,3466531",90,$200 - $450,,Antojitos mexicanos tradicionales en el corazón del centro.
-"La Chata Terranova, Guadalajara",Gastronomía Mexicana,Av Terranova 405A,"20,6828334","-103,3873673",90,$200 - $451,,Antojitos mexicanos tradicionales en el corazón del centro.
-"Restaurante La Chata, Guadalajara",Gastronomía Mexicana,C. José Fernando Abascal y Souza 250,"20,6793681","-103,3359491",90,$200 - $452,,Antojitos mexicanos tradicionales en el corazón del centro.
-"La Chata Atemajac, Guadalajara",Gastronomía Mexicana,Av. Enrique Díaz de León 2527,"20,7201097","-103,3613259",90,$200 - $453,,Antojitos mexicanos tradicionales en el corazón del centro.
-"Birriería Las Nueve Esquinas, Guadalajara",Gastronomía Mexicana,C. Colón 384,"20,6706857","-103,348513",70,$150 - $350,,La mejor birria de chivo en un barrio muy tradicional.
-"Tacos Providencia, Guadalajara",Gastronomía Mexicana,C. Justo Sierra 3084,"20,6770078","-103,3931757",60,$100 - $350,,Muy populares para cenar después de un partido en el Akron.
-"Tacos Providencia Ruben Daria, Guadalajara",Gastronomía Mexicana,Av. Rubén Darío 534,"20,685292","-103,3850041",60,$100 - $350,,
-"Los Laureles (Av. México), Guadalajara",Gastronomía Mexicana,Av. México 2605,"20,679192","-103,382849",90,$300 - $550,,Excelente cocina tapatía con un toque hogareño.
-"Mercado San Juan de Dios, Guadalajara","Mercados Locales, Gastronomía Mexicana, Compras, Postre, Cultura",C. Dionisio Rodríguez 52,"20,6755148","-103,3398522",120,$80 - $250,,Inmensa variedad de comida local en un solo lugar.
-"Restaurante Casa Luna, Guadalajara","Gastronomía Mexicana, Postre, Música",Calle Independencia 211-int. A,"20,6391717","-103,3139611",150,$500 - $600,,"En Tlaquepaque, hermoso para cerrar un día de tour futbolero."
-"Tortas Ahogadas Don Jose El De La Bicicleta, Guadalajara",Gastronomía Mexicana,C. Mexicaltzingo 27,"20,6652842","-103,3479514",45,$120 - $250,,"Famosas por sus salsas; el ""pique"" es parte de la experiencia."
-"Cantina La Fuente, Guadalajara","Gastronomía Mexicana, Música, Vida Nocturna",C. Pino Suárez 78,"20,6777418","-103,3456321",90,$200-$300,,Famosa por la bicicleta empotrada en la pared y su historia.
-"Pozole El Pollo, Guadalajara",Gastronomía,C. Mezquitán 810 - A,"20,6890492","-103,3531121",60,$150 - $280,,Uno de los pozoles más queridos por las familias tapatías.
-"El Parián de Tlaquepaque, Guadalajara","Cultura, Gastronomía Mexicana, Música, Fotografía, Vida Nocturna, Postre",Calle Progreso 15,"20,6388349","-103,3110439",120,$300,,El lugar más famoso para escuchar mariachi y beber tequila.
-"Instituto Cultural Cabañas, Guadalajara","Cultura, Fotografía, Arte e Historia, Museos",Pl. Tapatía,"20,6768911","-103,3406483",120,$80,,Murales de Orozco; es Patrimonio de la Humanidad.
-"Teatro Degollado, Guadalajara ","Fotografía, Vida Nocturna, Música, Arte e Historia, Cultura, Museos, Aventura, Eventos",C. Degollado s/n,"20,6770173","-103,3447566",45,$90 - $350,,Joya arquitectónica; a veces hay ensayos abiertos.
-"Catedral Metropolitana, Guadalajara","Cultura, Gastronomía Mexicana, Música, Fotografía, Vida Nocturna, Postre",Guadalajara,"20,6751707","-103,3473385",40,Gratis,,Símbolo máximo de la ciudad con sus torres icónicas.
-"Palacio de Gobierno de Jalisco, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia",Av. Ramón Corona 31,"20,6761701","-103,3463247",60,Gratis,,Murales históricos y arquitectura colonial.
-"Rotonda de los Jaliscienses Ilustres, Guadalajara","Naturaleza, Arquitectura, Fotografía",Rotonda de los Jaliscienses Ilustres,"20,6778865","-103,3470261",30,Gratis,,Monumento a los personajes que marcaron la historia.
-"Museo del Periodismo y las Artes Gráficas, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia, Fotografía",Av. Alcalde 225,"20,6799521","-103,3478543",60,Gratis,,"Conocido como ""La Casa de los Perros""."
-"Expiatorio del Santísimo Sacramento, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia",C. Manuel López Cotilla 935,"20,6736946","-103,3589671",45,Gratis,,Templo neogótico impresionante; de noche hay luz y sonido.
-"Nieves Chapalita Tepeyac, Guadalajara",Postre,Av. Tepeyac 1207,"20,6615796","-103,4059981",15,$50 - $100,,Postre artesanal clásico hecho en tina de madera.
-"Nieves de Garrafa Chapalita Juárez, Guadalajara",Postre,C. Juárez 246,"20,6383582","-103,3145029",15,$50 - $100,,El postre típico de GDL (parecido al flan pero quemado arriba).
-"Nieves de Garrafa Chapalita Nueva Escocia, Guadalajara",Postre,C. Nueva Escocia 1468A,"20,696276","-103,3900136",15,$50 - $100,,
-"Nieves de Garrafa Chapalita Gourmet, Guadalajara",Postre,Calle Independencia 321,"20,6392819","-103,3161748",15,$50 - $100,,
-"Churros ""La Bombilla"", Guadalajara",Postre,C. Manuel López Cotilla 751-A,"20,6740596","-103,3558814",45,$100 - $200,,Churros con chocolate caliente desde 1952.
-"Dulces Regionales ""Nuestros Dulces"", Guadalajara",Postre,Av. 16 de Septiembre 133,"20,6746863","-103,3471794",45,$100,,"En Tlaquepaque; tienen cajeta, borrachitos y dulces de leche."
-"El Gallo Altanero, Guadalajara",Vida Nocturna,Calle Marsella 126,"20,6740616","-103,3707624",30,$60 - $120,,Una de las heladerías más antiguas y tradicionales.
-"Gallo Cervecero Sportsbar , Guadalajara","Vida Nocturna, Gastronomía",C. Progreso 79,"20,6750469","-103,3670046",20,$20 - $100,,Pan dulce tradicional tapatío recién horneado.
-"Osteria 10, Guadalajara","Postre, Gastronomía",C. Manuel López Cotilla 1498-A,"20,6738854","-103,3696233",30,$40 - $80,,Muy tradicionales mientras descansas frente al templo.
-"Bosque Colomos, Guadalajara","Aventura, Naturaleza",Los Colomos Forest,"20,7048846","-103,3910733",60,Gratis,,
-"La Boca Parrilla Rustica, Guadalajara","Gastronomía, Gastronomía Mexicana, Vida Nocturna","Miguel, C. Miguel Lerdo de Tejada 2100","20,6716459","-103,3703191",150,$500 - $600,,
-"CRAFT Americana, Guadalajara","Gastronomía, Música, Vida Nocturna",Av. de la Paz 1766-Local 2,"20,671765","-103,3639297",90,$300,,
-"Argento Americana, Guadalajara",Gastronomía,Calle Argentina 355,"20,6714566","-103,361081",90,$300,,
-"PINOCCHIO - Pedro Moreno, Guadalajara",Gastronomía,C. Pedro Moreno 1567,"20,6752127","-103,369875",120,$200-$400,,
-"Romea, Guadalajara","Gastronomía, Vida Nocturna, Música",C. José María Morelos 1360,"20,6762475","-103,3652095",120,$200-$400,,
-"Andador Americano, Guadalajara","Gastronomía, Vida Nocturna",C. Independencia #1183,"20,6783815","-103,361904",120,$200-$400,,
-"Casa Dolores - Av. Chapultepec, Guadalajara","Gastronomía Mexicana, Postre",Av. Chapultepec Sur 451,"20,6691495","-103,3682298",120,$200-$400,,
-"Tikuun comedor, Guadalajara",Gastronomía Mexicana,C. Emeterio Robles Gil 50,"20,6757448","-103,3624709",120,"$400 - $2,500",,
-"Rosarito, Guadalajara","Gastronomía Mexicana, Gastronomía, Música, Vida Nocturna",Av. Chapultepec Sur 565,"20,6674669","-103,3682254",150,$200-$400,,
-"Tyrano, Guadalajara","Gastronomía, Vida Nocturna, Música",C. Pedro Moreno 1212,"20,6756822","-103,36293",150,$300-$600,,
-"De La O Cantina, Guadalajara","Vida Nocturna, Música",Calle Argentina 70,"20,6751906","-103,3614435",150,$200-$400,,
-"Americana Bar & Burgers, Guadalajara","Gastronomía, Vida Nocturna, Música",Av. Chapultepec Sur 201,"20,6729167","-103,3683522",150,$200-$400,,
-"Hueso Restaurante, Guadalajara","Gastronomía, Música, Vida Nocturna",Calle Efraín González Luna 2061,"20,6695522","-103,3697616",150,"$1,200",,
-"Parque Agua Azul, Guadalajara",Naturaleza,Parque Agua Azul,"20,6595989","-103,3494703",90,Gratis,,
-"Restaurante Casa Caborca Asador de Carnes Zapopan, Guadalajara","Gastronomía Mexicana, Gastronomía, Vida Nocturna",Av Rafael Sanzio 165,"20,6747396","-103,4298768",150,$400-$600,,
-Cuerno Andares,"Gastronomía Mexicana, Gastronomía, Postre, Música, Vida Nocturna",Blvd. Puerta de Hierro 4965,"20,712606","-103,4125498",150,"$1,000-$1,500",,
-Mantela Restaurante,"Gastronomía, Gastronomía Mexicana, Vida Nocturna",Blvd. Puerta de Hierro 4965,"20,7107409","-103,4124959",150,"$1,000-$1,500",,
-Mochomos Guadalajara,"Gastronomía, Gastronomía Mexicana, Postre",Av. Patria 188,"20,7074473","-103,4128724",150,"$1,000-$1,500",,
-Cotidiano - Restaurante en La Perla,Gastronomía,Av. Mariano Otero 480,"20,6438923","-103,4126551",150,$200-$400,,
-Casa Prime Puerta de Hierro,"Gastronomía, Gastronomía Mexicana",Real de Acueducto 210,"20,7101861","-103,410269",150,"$1,000-$1,500",,
-"Ay! Caguamas Ciudad Granja, Guadalajara","Música, Vida Nocturna",Calzada Nte 7195-Interior 19,"20,682391","-103,4461655",150,$200-$400,,
-"Punto crema, Guadalajara","Gastronomía, Gastronomía Mexicana, Postre",Calz. Circunvalación Pte 54,"20,6816051",#ERROR!,150,$200-$400,,
-"Angelina Bistro, Guadalajara","Gastronomía, Gastronomía Mexicana, Vida Nocturna, Música",Av central no 248B Local LB col,"20,6747619","-103,4517081",150,$200-$400,,
-"Taberna Central, Guadalajara","Gastronomía, Música, Vida Nocturna",Calz. Central 125 A,"20,6751707","-103,3473385",150,$200-$400,,
-,,,,,,$200-$400,,
+Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo Estimado
+"Estadio Akron, Guadalajara",Fútbol,Cto. J.V.C. 2800,"20,6817764","-103,4626455",180,"$400 - $2,500"
+"Estadio Jalisco, Guadalajara",Fútbol,C. Siete Colinas 1772,"20,7049947","-103,3281769",150,"$200 - $1,200"
+"Glorieta de la Minerva, Guadalajara",Fútbol,Av. Ignacio L Vallarta,"20,6743943","-103,3874128",45,Gratis
+"Museo Chivas, Guadalajara",Arquitectura,Cto. J.V.C. 2800,20.681.946.732.220.500,-10.346.151.608.820.700,90,$150
+"El Gallo Cantina, Guadalajara","Vida Nocturna, Música",Alfredo R. Plascencia 746,"20,6890096","-103,3716708",90,$200 - $500
+"La Gran Plaza Fashion Mall, Guadalajara","Eventos, Compras",La Gran Plaza Fashion Mall,"20,6737855","-103,4047841",90,$100
+"AlasWings Morelos, Guadalajara","Gastronomía, Vida Nocturna",Escuela Militar Aviación 6,"20,6760653","-103,369575",120,$350
+"Tortas Ahogadas ""El Güerito"", Guadalajara",Gastronomía Mexicana,Calle Francisco I. Madero 13,"20,6730994","-103,3436262",60,$100 - $200
+"Tortas Ahogadas El Güerito, Guadalajara",Gastronomía Mexicana,"C. Pino Suárez 279A, Zona Centro, 44100 ",20.683.258.297.486.400,-10.334.679.287.677.100,90,$300
+"Vancouver Wings Gold, Guadalajara","Gastronomía, Vida Nocturna, Música",Av. Chapultepec Sur 275,"20,6719441",-10.334.679.287.677.100,90,$300
+"Wingman Chapultepec, Guadalajara","Gastronomía, Vida Nocturna","4, Av. Chapultepec Sur 143, Americana","20,6787965","-103,369049",90,$300
+"Wings Army Gran Plaza, Guadalajara","Vida Nocturna, Gastronomía",Av. Ignacio L Vallarta 3959-interior 13,"20,6740456","-103,4045419",90,$300
+"Centro Histórico de Tlaquepaque, Guadalajara","Cultura, Eventos, Postre, Mercados Locales, Museos, Aventura, Compras, Vida Nocturna, Fotografía, Música, Arquitectura, Gastronomía, Gastronomía Mexicana, Arte e Historia",Calle Independencia,"20,6393535","-103,3149955",60,Gratis
+"Santo Coyote Real, Guadalajara","Gastronomía Mexicana, Gastronomía",Av. del Servidor Público 3600,"20,7331289","-103,4307459",150,$500 - $600
+"Santo Coyote, Guadalajara","Gastronomía, Gastronomía Mexicana",C. Miguel Lerdo de Tejada 2379,"20,670492","-103,377027",150,$500 - $600
+"La Bodega de León, Guadalajara","Gastronomía, Gastronomía Mexicana",C. Miguel de Cervantes Saavedra 144,"20,6725991","-103,3749047",150,$500 - $600
+"Mutante Restaurante, Guadalajara","Gastronomía Mexicana, Gastronomía, Vida Nocturna, Música",Lopez Cotilla 1937 Colonia Americana Laffayette S.J,"20,6731631","-103,376819",150,$500 - $600
+"Plaza de Armas, Guadalajara","Eventos, Cultura",Plaza de Armas,"20,6763238","-103,3469332",60,Gratis
+"Karne Garibaldi (Santa Tere), Guadalajara",Gastronomía Mexicana,Calle Garibaldi,"20,6813489","-103,3669478",90,$250 - $400
+"Karne Garibaldi Sucursal Tlaquepaque, Guadalajara",Gastronomía Mexicana,Blvd. Gral. Marcelino García Barragán 1627,"20,652878","-103,3250386",90,$250 - $400
+"Karne Garibaldi Sucursal Plaza Del Sol, Guadalajara",Gastronomía Mexicana,Av. Mariano Otero 3019,"20,6477173","-103,4309",90,$250 - $400
+"Karne Garibaldi Sucursal Centro Zapopan, Guadalajara",Gastronomía Mexicana,Av. Hidalgo 352,"20,7210559","-103,3880923",90,$250 - $400
+"Karne Garibaldi Food court Plaza Galerías, Guadalajara",Gastronomía Mexicana,FF-10,"20,6761987","-103,4314109",90,$250 - $400
+"El Sacromonte, Guadalajara",Gastronomía Mexicana,C. Pedro Moreno 1398,"20,6757368","-103,3660848",120,$500 - $900
+"Los Famosos Equipales, Guadalajara",Gastronomía Mexicana,C. Juan Álvarez 704,"20,6845544","-103,3523226",90,$200 - $400
+"La Chata, Guadalajara",Gastronomía Mexicana,Av. Ramón Corona 126,"20,6746934","-103,3466531",90,$200 - $450
+"La Chata Terranova, Guadalajara",Gastronomía Mexicana,Av Terranova 405A,"20,6828334","-103,3873673",90,$200 - $451
+"Restaurante La Chata, Guadalajara",Gastronomía Mexicana,C. José Fernando Abascal y Souza 250,"20,6793681","-103,3359491",90,$200 - $452
+"Birriería Las Nueve Esquinas, Guadalajara",Gastronomía Mexicana,C. Colón 384,"20,6706857","-103,348513",70,$150 - $350
+"Tacos Providencia, Guadalajara",Gastronomía Mexicana,C. Justo Sierra 3084,"20,6770078","-103,3931757",60,$100 - $350
+"Tacos Providencia Ruben Daria, Guadalajara",Gastronomía Mexicana,Av. Rubén Darío 534,"20,685292","-103,3850041",60,$100 - $350
+"Los Laureles (Av. México), Guadalajara",Gastronomía Mexicana,Av. México 2605,"20,679192","-103,382849",90,$300 - $550
+"Mercado San Juan de Dios, Guadalajara","Mercados Locales, Gastronomía Mexicana, Compras, Postre, Cultura",C. Dionisio Rodríguez 52,"20,6755148","-103,3398522",120,$80 - $250
+"Restaurante Casa Luna, Guadalajara","Gastronomía Mexicana, Postre, Música",Calle Independencia 211-int. A,"20,6391717","-103,3139611",150,$500 - $600
+"Tortas Ahogadas Don Jose El De La Bicicleta, Guadalajara",Gastronomía Mexicana,C. Mexicaltzingo 27,"20,6652842","-103,3479514",45,$120 - $250
+"Cantina La Fuente, Guadalajara","Gastronomía Mexicana, Música, Vida Nocturna",C. Pino Suárez 78,"20,6777418","-103,3456321",90,$200-$300
+"Pozole El Pollo, Guadalajara",Gastronomía,C. Mezquitán 810 - A,"20,6890492","-103,3531121",60,$150 - $280
+"El Parián de Tlaquepaque, Guadalajara","Gastronomía Mexicana, Vida Nocturna",Calle Progreso 15,"20,6388349","-103,3110439",120,$300
+"Instituto Cultural Cabañas, Guadalajara","Cultura, Fotografía, Arte e Historia, Museos",Pl. Tapatía,"20,6768911","-103,3406483",120,$80
+"Teatro Degollado, Guadalajara ","Fotografía, Vida Nocturna, Música, Arte e Historia, Cultura, Museos, Aventura, Eventos",C. Degollado s/n,"20,6769963","-103,34477",45,$90 - $350
+"Catedral Metropolitana, Guadalajara","Cultura, Música, Fotografía, Vida Nocturna, Postre",Guadalajara,"20,6751707","-103,3473385",40,Gratis
+"Palacio de Gobierno de Jalisco, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia",Av. Ramón Corona 31,"20,6761701","-103,3463247",60,Gratis
+"Rotonda de los Jaliscienses Ilustres, Guadalajara","Naturaleza, Arquitectura, Fotografía",Rotonda de los Jaliscienses Ilustres,"20,6778865","-103,3470261",30,Gratis
+"Museo del Periodismo y las Artes Gráficas, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia, Fotografía",Av. Alcalde 225,"20,6799521","-103,3478543",60,Gratis
+"Expiatorio del Santísimo Sacramento, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia",C. Manuel López Cotilla 935,"20,6736946","-103,3589671",45,Gratis
+"Nieves Chapalita Tepeyac, Guadalajara",Postre,Av. Tepeyac 1207,"20,6615796","-103,4059981",15,$50 - $100
+"Nieves de Garrafa Chapalita Juárez, Guadalajara",Postre,C. Juárez 246,"20,6383582","-103,3145029",15,$50 - $100
+"Nieves de Garrafa Chapalita Nueva Escocia, Guadalajara",Postre,C. Nueva Escocia 1468A,"20,696276","-103,3900136",15,$50 - $100
+"Nieves de Garrafa Chapalita Gourmet, Guadalajara",Postre,Calle Independencia 321,"20,6392819","-103,3161748",15,$50 - $100
+"Churros ""La Bombilla"", Guadalajara",Postre,C. Manuel López Cotilla 751-A,"20,6740596","-103,3558814",45,$100 - $200
+"Dulces Regionales ""Nuestros Dulces"", Guadalajara",Postre,Av. 16 de Septiembre 133,"20,6746863","-103,3471794",45,$100
+"El Gallo Altanero, Guadalajara",Vida Nocturna,Calle Marsella 126,"20,6740616","-103,3707624",30,$60 - $120
+"Gallo Cervecero Sportsbar , Guadalajara","Vida Nocturna, Gastronomía",C. Progreso 79,"20,6750469","-103,3670046",20,$20 - $100
+"Osteria 10, Guadalajara","Postre, Gastronomía",C. Manuel López Cotilla 1498-A,"20,6738854","-103,3696233",30,$40 - $80
+"Bosque Colomos, Guadalajara","Aventura, Naturaleza",Los Colomos Forest,"20,7048846","-103,3910733",60,Gratis
+"La Boca Parrilla Rustica, Guadalajara","Gastronomía, Gastronomía Mexicana, Vida Nocturna","Miguel, C. Miguel Lerdo de Tejada 2100","20,6716459","-103,3703191",150,$500 - $600
+"CRAFT Americana, Guadalajara","Gastronomía, Música, Vida Nocturna",Av. de la Paz 1766-Local 2,"20,671765","-103,3639297",90,$300
+"Argento Americana, Guadalajara",Gastronomía,Calle Argentina 355,"20,6714566","-103,361081",90,$300
+"PINOCCHIO - Pedro Moreno, Guadalajara",Gastronomía,C. Pedro Moreno 1567,"20,6752127","-103,369875",120,$200-$400
+"Romea, Guadalajara","Gastronomía, Vida Nocturna, Música",C. José María Morelos 1360,"20,6762475","-103,3652095",120,$200-$400
+"Andador Americano, Guadalajara","Gastronomía, Vida Nocturna",C. Independencia #1183,"20,6783815","-103,361904",120,$200-$400
+"Casa Dolores - Av. Chapultepec, Guadalajara","Gastronomía Mexicana, Postre",Av. Chapultepec Sur 451,"20,6691495","-103,3682298",120,$200-$400
+"Tikuun comedor, Guadalajara",Gastronomía Mexicana,C. Emeterio Robles Gil 50,"20,6757448","-103,3624709",120,"$400 - $2,500"
+"Rosarito, Guadalajara","Gastronomía Mexicana, Gastronomía, Música, Vida Nocturna",Av. Chapultepec Sur 565,"20,6674669","-103,3682254",150,$200-$400
+"Tyrano, Guadalajara","Gastronomía, Vida Nocturna, Música",C. Pedro Moreno 1212,"20,6756822","-103,36293",150,$300-$600
+"De La O Cantina, Guadalajara","Vida Nocturna, Música",Calle Argentina 70,"20,6751906","-103,3614435",150,$200-$400
+"Americana Bar & Burgers, Guadalajara","Gastronomía, Vida Nocturna, Música",Av. Chapultepec Sur 201,"20,6729167","-103,3683522",150,$200-$400
+"Hueso Restaurante, Guadalajara","Gastronomía, Música, Vida Nocturna",Calle Efraín González Luna 2061,"20,6695522","-103,3697616",150,"$1,200"
+"Parque Agua Azul, Guadalajara",Naturaleza,Parque Agua Azul,"20,6595989","-103,3494703",90,Gratis
+"Restaurante Casa Caborca Asador de Carnes Zapopan, Guadalajara","Gastronomía Mexicana, Gastronomía, Vida Nocturna",Av Rafael Sanzio 165,"20,6747396","-103,4298768",150,$400-$600
+Cuerno Andares,"Gastronomía Mexicana, Gastronomía, Postre, Música, Vida Nocturna",Blvd. Puerta de Hierro 4965,"20,712606","-103,4125498",150,"$1,000-$1,500"
+Mantela Restaurante,"Gastronomía, Gastronomía Mexicana, Vida Nocturna",Blvd. Puerta de Hierro 4965,"20,7107409","-103,4124959",150,"$1,000-$1,500"
+Mochomos Guadalajara,"Gastronomía, Gastronomía Mexicana, Postre",Av. Patria 188,"20,7074473","-103,4128724",150,"$1,000-$1,500"
+Cotidiano - Restaurante en La Perla,Gastronomía,Av. Mariano Otero 480,"20,6438923","-103,4126551",150,$200-$400
+Casa Prime Puerta de Hierro,"Gastronomía, Gastronomía Mexicana","Real de Acueducto 210, Real Acueducto","20,7101861","-103,410269",150,"$1,000-$1,500"
+"Ay! Caguamas Ciudad Granja, Guadalajara","Música, Vida Nocturna",Calzada Nte 7195-Interior 19,"20,682391","-103,4461655",150,$200-$400
+"Punto crema, Guadalajara","Gastronomía, Gastronomía Mexicana, Postre",Calz. Circunvalación Pte 54,"20,6816051","-103,4455426",150,$200-$400
+"Angelina Bistro, Guadalajara","Gastronomía, Gastronomía Mexicana, Vida Nocturna, Música",Av central no 248B Local LB col,"20,6747619","-103,4517081",150,$200-$400
+"Taberna Central, Guadalajara","Gastronomía, Música, Vida Nocturna",Calz. Central 125 A,"20,6751707","-103,3473385",150,$200-$400
+"Tía Ofe Pozole Vegano, Guadalajara","Vegana, Comida Calle","Expiatorio, Col Americana, 44160","20,6730264","-103,3588896",30,$100-$150
+El Taco Vegano Garnacha Vegana,Vegana,C. Juan N. Cumplido 13,"20,6763558","-103,3586051",40,$100-$250
+Jamaica Records,Vegana,C. Lope de Vega 123,"20,6727358","-103,3798362",60,$200-$300
+Choclo y Maiz Cocina Vegana,Vegana,Calle Gabriel Ramos Millán #37,"20,6765945","-103,3674101",60,$100-$250
