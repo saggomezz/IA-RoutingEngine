@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
 
 const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
 
@@ -183,7 +184,27 @@ function HomePageInner() {
 
   useEffect(() => {
     const uid = searchParams.get('uid');
-    if (uid) setUserId(uid);
+    const pendingSave = searchParams.get('pendingSave');
+    if (uid) {
+      setUserId(uid);
+      if (pendingSave === '1') {
+        const raw = localStorage.getItem('pitzbol_pending_itinerary');
+        if (raw) {
+          const pending = JSON.parse(raw);
+          fetch('/api/save-itinerary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, ...pending }),
+          }).then(res => {
+            if (res.ok) {
+              localStorage.removeItem('pitzbol_pending_itinerary');
+              const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+              window.location.replace(`${frontendUrl}/perfil`);
+            }
+          }).catch(console.error);
+        }
+      }
+    }
   }, [searchParams]);
 
   const matchInfo = MATCH_DAYS[selectedDate] ?? null;
@@ -248,6 +269,27 @@ function HomePageInner() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleLoginRedirect = () => {
+    if (stops.length > 0) {
+      localStorage.setItem('pitzbol_pending_itinerary', JSON.stringify({
+        titulo: meta.title || `Itinerario para ${selectedDate}`,
+        fecha: selectedDate,
+        meta: { budget, groupSize, duration: meta.duration },
+        stops: stops.map(s => ({
+          nombre: s.place.nombre,
+          categoria: s.place.categoria,
+          direccion: s.place.direccion,
+          horaLlegada: s.horaLlegada,
+          horaSalida: s.horaSalida,
+          costo: s.place.costo,
+        })),
+      }));
+    }
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+    const returnTo = encodeURIComponent(window.location.origin);
+    window.location.href = `${frontendUrl}/login?returnTo=${returnTo}&pendingSave=1`;
   };
 
   const generateItinerary = async () => {
@@ -468,12 +510,12 @@ function HomePageInner() {
               <p className="text-sm text-gray-600 mb-5">
                 Ya usaste tu itinerario de invitado. Regístrate para generar itinerarios ilimitados y guardarlos en tu perfil.
               </p>
-              <a
-                href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/login`}
+              <button
+                onClick={handleLoginRedirect}
                 className="w-full block text-center bg-[#1A4D2E] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#0D601E] transition-colors"
               >
                 Iniciar sesión / Registrarse
-              </a>
+              </button>
             </div>
           </div>
         )}
@@ -722,13 +764,15 @@ function HomePageInner() {
               <button
                 onClick={saveItinerary}
                 disabled={isSaving || savedOk}
-                className={`px-5 py-2 rounded-xl text-sm font-bold border transition-colors
-                  ${savedOk
-                    ? 'bg-green-50 border-green-300 text-green-700 cursor-default'
-                    : 'bg-white border-[#1A4D2E] text-[#1A4D2E] hover:bg-[#E0F2F1] disabled:opacity-50'
-                  }`}
+                title={savedOk ? 'Guardado' : 'Guardar itinerario'}
+                className="p-2.5 rounded-xl border border-[#1A4D2E] bg-white hover:bg-[#E0F2F1] transition-colors disabled:opacity-50"
               >
-                {savedOk ? '✓ Guardado' : isSaving ? 'Guardando...' : 'Guardar'}
+                {isSaving
+                  ? <div className="w-5 h-5 border-2 border-[#1A4D2E] border-t-transparent rounded-full animate-spin" />
+                  : savedOk
+                    ? <FaBookmark className="text-[#1A4D2E] w-5 h-5" />
+                    : <FaRegBookmark className="text-[#1A4D2E] w-5 h-5" />
+                }
               </button>
             )}
             <button
