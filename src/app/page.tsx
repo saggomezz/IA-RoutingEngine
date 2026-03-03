@@ -187,6 +187,7 @@ function HomePageInner() {
     const pendingSave = searchParams.get('pendingSave');
     if (uid) {
       setUserId(uid);
+      sessionStorage.setItem('pitzbol_uid', uid); // Persistir para recargas
       if (pendingSave === '1') {
         const raw = localStorage.getItem('pitzbol_pending_itinerary');
         if (raw) {
@@ -204,6 +205,10 @@ function HomePageInner() {
           }).catch(console.error);
         }
       }
+    } else {
+      // Sin uid en URL: recuperar de sessionStorage si ya se había logueado antes
+      const saved = sessionStorage.getItem('pitzbol_uid');
+      if (saved) setUserId(saved);
     }
   }, [searchParams]);
 
