@@ -256,7 +256,7 @@ function HomePageInner() {
       return;
     }
     // Límite para invitados: 1 itinerario sin cuenta
-    const guestCount = parseInt(localStorage.getItem('pitzbol_guest_count') || '0');
+    const guestCount = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
     if (!userId && guestCount >= 1) {
       setShowGuestModal(true);
       return;
@@ -399,8 +399,8 @@ function HomePageInner() {
       setSavedOk(false);
       // Incrementar contador de invitado si no tiene cuenta
       if (!userId) {
-        const prev = parseInt(localStorage.getItem('pitzbol_guest_count') || '0');
-        localStorage.setItem('pitzbol_guest_count', String(prev + 1));
+        const prev = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
+        sessionStorage.setItem('pitzbol_guest_count', String(prev + 1));
       }
     } catch (error) {
       console.error(error);
@@ -469,7 +469,7 @@ function HomePageInner() {
                 Ya usaste tu itinerario de invitado. Regístrate para generar itinerarios ilimitados y guardarlos en tu perfil.
               </p>
               <a
-                href="http://69.30.204.56:3000/login"
+                href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/login`}
                 className="w-full block text-center bg-[#1A4D2E] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#0D601E] transition-colors"
               >
                 Iniciar sesión / Registrarse
@@ -700,7 +700,7 @@ function HomePageInner() {
               Ya usaste tu itinerario de invitado. Regístrate para generar itinerarios ilimitados y guardarlos en tu perfil.
             </p>
             <a
-              href="http://69.30.204.56:3000/login"
+              href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/login`}
               className="w-full block text-center bg-[#1A4D2E] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#0D601E] transition-colors"
             >
               Iniciar sesión / Registrarse
