@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ id: docRef.id }, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error guardando itinerario:', err);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return NextResponse.json({ error: err?.message || 'Error interno del servidor' }, { status: 500 });
   }
 }

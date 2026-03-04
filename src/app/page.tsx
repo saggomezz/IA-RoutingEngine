@@ -1,9 +1,20 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
 
 const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
+
+// ---- Calendar helpers ----
+function getLocalDateStr(d: Date = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+function getFirstDayOfWeek(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
 
 // ---- Types ----
 interface Place {
@@ -161,7 +172,7 @@ export default function HomePage() {
 }
 
 function HomePageInner() {
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => getLocalDateStr());
   const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState('dia-completo');
   const [budget, setBudget] = useState(1500);
@@ -179,6 +190,12 @@ function HomePageInner() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarView, setCalendarView] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   const searchParams = useSearchParams();
 
@@ -211,6 +228,17 @@ function HomePageInner() {
       if (saved) setUserId(saved);
     }
   }, [searchParams]);
+
+  // Cerrar calendario al hacer click fuera
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setCalendarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
 
   const matchInfo = MATCH_DAYS[selectedDate] ?? null;
 
@@ -266,11 +294,14 @@ function HomePageInner() {
           })),
         }),
       });
-      if (!res.ok) throw new Error('Respuesta no exitosa');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Respuesta no exitosa');
+      }
       setSavedOk(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error al guardar:', err);
-      alert('Error al guardar el itinerario. Intenta de nuevo.');
+      alert(`Error al guardar: ${err?.message || 'Intenta de nuevo'}`);
     } finally {
       setIsSaving(false);
     }
@@ -527,10 +558,13 @@ function HomePageInner() {
 
         <div className="max-w-4xl mx-auto p-4 md:p-8">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-black text-[#1A4D2E] tracking-tighter mb-1">
-              PitzBot<span className="text-[#E53935]">.</span>
+            <h1 className="text-3xl md:text-4xl font-black text-[#1A4D2E] tracking-tight mb-1">
+              IA de Itinerarios
             </h1>
-            <p className="text-[#81C784] text-sm italic">IA de itinerarios Mundial 2026</p>
+            <p className="text-[#769C7B] text-xs">
+              Powered by <span className="font-semibold text-[#1A4D2E]">PitzBot</span>
+              <span className="mx-2">·</span>Mundial 2026 · Guadalajara
+            </p>
           </div>
 
           <form
@@ -543,23 +577,122 @@ function HomePageInner() {
               <div className="space-y-4">
                 <div>
                   <label className={labelClass}>Fecha de tu visita</label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1A4D2E] pointer-events-none">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <div className="relative" ref={calendarRef}>
+                    {/* Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!calendarOpen) {
+                          const parts = selectedDate.split('-').map(Number);
+                          if (parts[0]) setCalendarView({ year: parts[0], month: parts[1] - 1 });
+                        }
+                        setCalendarOpen(o => !o);
+                      }}
+                      className="w-full flex items-center gap-3 p-3 border-2 border-[#E0F2F1] rounded-xl text-sm bg-white hover:border-[#1A4D2E] transition-all cursor-pointer text-left"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#1A4D2E] shrink-0" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                       </svg>
-                    </div>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => {
-                        setSelectedDate(e.target.value);
-                        setAttendsMatch(null);
-                      }}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full pl-10 pr-3 py-3 border-2 border-[#E0F2F1] rounded-xl text-sm text-gray-900 focus:border-[#1A4D2E] focus:outline-none transition-all bg-white cursor-pointer [color-scheme:light]"
-                      required
-                    />
+                      <span className={selectedDate ? 'text-gray-900 capitalize' : 'text-gray-400'}>
+                        {selectedDate
+                          ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                          : 'Selecciona una fecha'}
+                      </span>
+                      {MATCH_DAYS[selectedDate] && <span className="ml-auto text-base">⚽</span>}
+                    </button>
+
+                    {/* Calendario desplegable */}
+                    {calendarOpen && (
+                      <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-[#E0F2F1] overflow-hidden w-full">
+                        {/* Header verde */}
+                        <div className="bg-[#1A4D2E] px-4 py-3 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setCalendarView(v => {
+                              const d = new Date(v.year, v.month - 1);
+                              return { year: d.getFullYear(), month: d.getMonth() };
+                            })}
+                            className="text-white/70 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10"
+                          >◀</button>
+                          <span className="text-white font-bold text-sm capitalize">
+                            {new Date(calendarView.year, calendarView.month).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarView(v => {
+                              const d = new Date(v.year, v.month + 1);
+                              return { year: d.getFullYear(), month: d.getMonth() };
+                            })}
+                            className="text-white/70 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10"
+                          >▶</button>
+                        </div>
+
+                        {/* Días de la semana */}
+                        <div className="grid grid-cols-7 bg-[#E0F2F1]">
+                          {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
+                            <div key={d} className="text-center text-[10px] font-bold text-[#1A4D2E] py-2">{d}</div>
+                          ))}
+                        </div>
+
+                        {/* Grid de días */}
+                        <div className="grid grid-cols-7 p-2 gap-0.5">
+                          {(() => {
+                            const todayStr = getLocalDateStr();
+                            const total = getDaysInMonth(calendarView.year, calendarView.month);
+                            const first = getFirstDayOfWeek(calendarView.year, calendarView.month);
+                            const cells = [];
+
+                            for (let i = 0; i < first; i++) {
+                              cells.push(<div key={`e${i}`} />);
+                            }
+
+                            for (let d = 1; d <= total; d++) {
+                              const dateStr = `${calendarView.year}-${String(calendarView.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                              const past = dateStr < todayStr;
+                              const sel = dateStr === selectedDate;
+                              const today = dateStr === todayStr;
+                              const match = dateStr in MATCH_DAYS;
+
+                              cells.push(
+                                <button
+                                  key={d}
+                                  type="button"
+                                  disabled={past}
+                                  onClick={() => {
+                                    setSelectedDate(dateStr);
+                                    setAttendsMatch(null);
+                                    setCalendarOpen(false);
+                                  }}
+                                  className={[
+                                    'relative flex flex-col items-center justify-end pb-1 rounded-xl text-xs font-medium h-11 transition-all',
+                                    past ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer',
+                                    sel ? 'bg-[#1A4D2E] text-white' : '',
+                                    !sel && today ? 'border-2 border-[#81C784] text-[#1A4D2E] font-bold' : '',
+                                    !sel && !today && !past ? 'hover:bg-[#E0F2F1] text-gray-700' : '',
+                                    match && !sel ? 'text-[#1A4D2E] font-bold' : '',
+                                  ].join(' ')}
+                                >
+                                  {match && (
+                                    <span className="text-[10px] leading-none mb-0.5">{sel ? '⚽' : '⚽'}</span>
+                                  )}
+                                  <span>{d}</span>
+                                </button>
+                              );
+                            }
+                            return cells;
+                          })()}
+                        </div>
+
+                        {/* Leyenda */}
+                        <div className="px-4 pb-3 pt-1 flex items-center gap-4 text-[10px] text-gray-400 border-t border-[#E0F2F1]">
+                          <span className="flex items-center gap-1">⚽ Día de partido</span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-3 h-3 rounded-full border-2 border-[#81C784] inline-block" />
+                            Hoy
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
