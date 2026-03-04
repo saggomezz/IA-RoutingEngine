@@ -48,9 +48,19 @@ export default function PitzbolNavbar() {
                 <Link href={FRONTEND_URL} className="hover:text-[#F00808] transition-colors" title="Inicio">
                     <FiHome size={22} />
                 </Link>
-                <a href={profileHref} className="hover:text-[#F00808] transition-colors" title="Perfil">
-                    <FiUser size={22} />
-                </a>
+                {profileHref.includes('/perfil') ? (
+                    <a href={profileHref} className="hover:text-[#F00808] transition-colors" title="Mi perfil">
+                        <FiUser size={22} />
+                    </a>
+                ) : (
+                    <button
+                        onClick={() => window.dispatchEvent(new Event('openAuthModal'))}
+                        className="hover:text-[#F00808] transition-colors"
+                        title="Iniciar sesión"
+                    >
+                        <FiUser size={22} />
+                    </button>
+                )}
             </div>
         </nav>
     );

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
+import MiniAuthModal from '@/components/MiniAuthModal';
 
 const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
 
@@ -187,7 +188,8 @@ function HomePageInner() {
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
   const [transitTime, setTransitTime] = useState(15);
   const [userId, setUserId] = useState<string | null>(null);
-  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authTrigger, setAuthTrigger] = useState<'save' | 'limit' | 'profile' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -228,6 +230,13 @@ function HomePageInner() {
       if (saved) setUserId(saved);
     }
   }, [searchParams]);
+
+  // Abrir modal de auth desde el navbar
+  useEffect(() => {
+    const handler = () => { setAuthTrigger('profile'); setShowAuthModal(true); };
+    window.addEventListener('openAuthModal', handler);
+    return () => window.removeEventListener('openAuthModal', handler);
+  }, []);
 
   // Cerrar calendario al hacer click fuera
   useEffect(() => {
@@ -272,15 +281,16 @@ function HomePageInner() {
     });
   };
 
-  const saveItinerary = async () => {
-    if (!userId) return;
+  const saveItinerary = async (overrideUid?: string) => {
+    const uid = overrideUid || userId;
+    if (!uid) return;
     setIsSaving(true);
     try {
       const res = await fetch('/api/save-itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          uid: userId,
+          uid,
           titulo: meta.title,
           fecha: selectedDate,
           meta: { budget, groupSize, duration: meta.duration },
@@ -328,6 +338,19 @@ function HomePageInner() {
     window.location.href = `${frontendUrl}/login?returnTo=${returnTo}&pendingSave=1`;
   };
 
+  const handleAuthSuccess = (uid: string, nombre: string) => {
+    setUserId(uid);
+    sessionStorage.setItem('pitzbol_uid', uid);
+    setShowAuthModal(false);
+    if (authTrigger === 'save' && stops.length > 0) {
+      saveItinerary(uid);
+    } else if (authTrigger === 'profile') {
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+      window.location.href = `${frontendUrl}/perfil`;
+    }
+    setAuthTrigger(null);
+  };
+
   const generateItinerary = async () => {
     if (!selectedDate || selectedInterests.length === 0) {
       alert('Por favor selecciona una fecha e intereses');
@@ -336,7 +359,8 @@ function HomePageInner() {
     // Límite para invitados: 1 itinerario sin cuenta
     const guestCount = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
     if (!userId && guestCount >= 1) {
-      setShowGuestModal(true);
+      setAuthTrigger('limit');
+      setShowAuthModal(true);
       return;
     }
     setGenerating(true);
@@ -532,28 +556,12 @@ function HomePageInner() {
     return (
       <div className="min-h-screen bg-[#fafafa]">
 
-        {/* Modal invitado */}
-        {showGuestModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-[#1A4D2E] text-base">¡Crea tu cuenta gratis!</h3>
-                <button
-                  onClick={() => setShowGuestModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-lg font-bold leading-none"
-                >✕</button>
-              </div>
-              <p className="text-sm text-gray-600 mb-5">
-                Ya usaste tu itinerario de invitado. Regístrate para generar itinerarios ilimitados y guardarlos en tu perfil.
-              </p>
-              <button
-                onClick={handleLoginRedirect}
-                className="w-full block text-center bg-[#1A4D2E] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#0D601E] transition-colors"
-              >
-                Iniciar sesión / Registrarse
-              </button>
-            </div>
-          </div>
+        {showAuthModal && (
+          <MiniAuthModal
+            trigger={authTrigger}
+            onClose={() => setShowAuthModal(false)}
+            onSuccess={handleAuthSuccess}
+          />
         )}
 
         <div className="max-w-4xl mx-auto p-4 md:p-8">
@@ -865,28 +873,12 @@ function HomePageInner() {
   return (
     <div className="min-h-screen bg-[#fafafa]">
 
-      {/* Modal invitado */}
-      {showGuestModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-[#1A4D2E] text-base">¡Crea tu cuenta gratis!</h3>
-              <button
-                onClick={() => setShowGuestModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold leading-none"
-              >✕</button>
-            </div>
-            <p className="text-sm text-gray-600 mb-5">
-              Ya usaste tu itinerario de invitado. Regístrate para generar itinerarios ilimitados y guardarlos en tu perfil.
-            </p>
-            <a
-              href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/login`}
-              className="w-full block text-center bg-[#1A4D2E] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#0D601E] transition-colors"
-            >
-              Iniciar sesión / Registrarse
-            </a>
-          </div>
-        </div>
+      {showAuthModal && (
+        <MiniAuthModal
+          trigger={authTrigger}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
       )}
 
       <div className="max-w-3xl mx-auto p-4 md:p-8">
@@ -898,21 +890,22 @@ function HomePageInner() {
             ← Modificar búsqueda
           </button>
           <div className="flex gap-2">
-            {userId && (
-              <button
-                onClick={saveItinerary}
-                disabled={isSaving || savedOk}
-                title={savedOk ? 'Guardado' : 'Guardar itinerario'}
-                className="p-2.5 rounded-xl border border-[#1A4D2E] bg-white hover:bg-[#E0F2F1] transition-colors disabled:opacity-50"
-              >
-                {isSaving
-                  ? <div className="w-5 h-5 border-2 border-[#1A4D2E] border-t-transparent rounded-full animate-spin" />
-                  : savedOk
-                    ? <FaBookmark className="text-[#1A4D2E] w-5 h-5" />
-                    : <FaRegBookmark className="text-[#1A4D2E] w-5 h-5" />
-                }
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (!userId) { setAuthTrigger('save'); setShowAuthModal(true); }
+                else saveItinerary();
+              }}
+              disabled={isSaving || savedOk}
+              title={savedOk ? 'Guardado' : userId ? 'Guardar itinerario' : 'Guardar (requiere cuenta)'}
+              className="p-2.5 rounded-xl border border-[#1A4D2E] bg-white hover:bg-[#E0F2F1] transition-colors disabled:opacity-50"
+            >
+              {isSaving
+                ? <div className="w-5 h-5 border-2 border-[#1A4D2E] border-t-transparent rounded-full animate-spin" />
+                : savedOk
+                  ? <FaBookmark className="text-[#1A4D2E] w-5 h-5" />
+                  : <FaRegBookmark className="text-[#1A4D2E] w-5 h-5" />
+              }
+            </button>
             <button
               onClick={() => window.print()}
               className="bg-[#1A4D2E] text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-[#0D601E] transition-colors"
