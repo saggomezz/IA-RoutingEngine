@@ -252,13 +252,6 @@ function HomePageInner() {
     }
   }, [searchParams]);
 
-  // Abrir modal de auth desde el navbar
-  useEffect(() => {
-    const handler = () => { setAuthTrigger('profile'); setShowAuthModal(true); };
-    window.addEventListener('openAuthModal', handler);
-    return () => window.removeEventListener('openAuthModal', handler);
-  }, []);
-
   // Cerrar calendario al hacer click fuera
   useEffect(() => {
     const handle = (e: MouseEvent) => {
@@ -379,9 +372,6 @@ function HomePageInner() {
     setShowAuthModal(false);
     if (authTrigger === 'save' && stops.length > 0) {
       saveItinerary(uid);
-    } else if (authTrigger === 'profile') {
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
-      window.location.href = `${frontendUrl}/perfil`;
     }
     setAuthTrigger(null);
   };
