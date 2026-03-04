@@ -188,6 +188,7 @@ function HomePageInner() {
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
   const [transitTime, setTransitTime] = useState(15);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('turista');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTrigger, setAuthTrigger] = useState<'save' | 'limit' | 'profile' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -205,9 +206,18 @@ function HomePageInner() {
   useEffect(() => {
     const uid = searchParams.get('uid');
     const pendingSave = searchParams.get('pendingSave');
+
+    const readRoleFromStorage = (uid: string) => {
+      try {
+        const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
+        if (stored.uid === uid) setUserRole(stored.role || 'turista');
+      } catch {}
+    };
+
     if (uid) {
       setUserId(uid);
-      sessionStorage.setItem('pitzbol_uid', uid); // Persistir para recargas
+      sessionStorage.setItem('pitzbol_uid', uid);
+      readRoleFromStorage(uid);
       if (pendingSave === '1') {
         const raw = localStorage.getItem('pitzbol_pending_itinerary');
         if (raw) {
@@ -226,9 +236,19 @@ function HomePageInner() {
         }
       }
     } else {
-      // Sin uid en URL: recuperar de sessionStorage si ya se había logueado antes
-      const saved = sessionStorage.getItem('pitzbol_uid');
-      if (saved) setUserId(saved);
+      // Solo usar sessionStorage si localStorage tiene el mismo uid (sesión activa)
+      const savedUid = sessionStorage.getItem('pitzbol_uid');
+      if (savedUid) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
+          if (stored.uid === savedUid) {
+            setUserId(savedUid);
+            setUserRole(stored.role || 'turista');
+          } else {
+            sessionStorage.removeItem('pitzbol_uid'); // uid obsoleto, limpiar
+          }
+        } catch {}
+      }
     }
   }, [searchParams]);
 
@@ -282,9 +302,18 @@ function HomePageInner() {
     });
   };
 
+  const getEffectiveRole = (uid: string): string => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
+      if (stored.uid === uid) return stored.role || 'turista';
+    } catch {}
+    return userRole || 'turista';
+  };
+
   const saveItinerary = async (overrideUid?: string) => {
     const uid = overrideUid || userId;
     if (!uid) return;
+    const role = getEffectiveRole(uid);
     setIsSaving(true);
     try {
       const res = await fetch('/api/save-itinerary', {
@@ -292,6 +321,7 @@ function HomePageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           uid,
+          role,
           titulo: meta.title,
           fecha: selectedDate,
           meta: { budget, groupSize, duration: meta.duration },
@@ -323,11 +353,12 @@ function HomePageInner() {
   const unsaveItinerary = async () => {
     const uid = userId;
     if (!uid || !savedItineraryId) return;
+    const role = getEffectiveRole(uid);
     try {
       const res = await fetch('/api/delete-itinerary', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, id: savedItineraryId }),
+        body: JSON.stringify({ uid, role, id: savedItineraryId }),
       });
       if (res.ok) {
         setSavedOk(false);
@@ -338,9 +369,13 @@ function HomePageInner() {
     }
   };
 
-  const handleAuthSuccess = (uid: string, nombre: string) => {
+  const handleAuthSuccess = (uid: string, _nombre: string) => {
     setUserId(uid);
     sessionStorage.setItem('pitzbol_uid', uid);
+    try {
+      const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
+      if (stored.uid === uid) setUserRole(stored.role || 'turista');
+    } catch {}
     setShowAuthModal(false);
     if (authTrigger === 'save' && stops.length > 0) {
       saveItinerary(uid);
