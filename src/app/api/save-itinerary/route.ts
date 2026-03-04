@@ -16,9 +16,29 @@ export async function POST(req: NextRequest) {
     }
 
     const roleCollection = getRoleCollection(role || 'turista');
-    // Path: usuarios/{roleCollection}/{uid}/{autoId}
-    const ref = adminDb.collection('usuarios').doc(roleCollection).collection(uid);
-    const docRef = await ref.add({
+
+    // Buscar el documento del usuario en usuarios/{roleCollection}/lista donde ui == uid
+    const snapshot = await adminDb
+      .collection('usuarios')
+      .doc(roleCollection)
+      .collection('lista')
+      .where('uid', '==', uid)
+      .limit(1)
+      .get();
+
+    // Si no existe documento del usuario, crearlo (usuarios que no tienen doc en Firestore aún)
+    let userDocRef: FirebaseFirestore.DocumentReference;
+    if (snapshot.empty) {
+      userDocRef = await adminDb
+        .collection('usuarios')
+        .doc(roleCollection)
+        .collection('lista')
+        .add({ uid, creadoEn: new Date().toISOString() });
+    } else {
+      userDocRef = snapshot.docs[0].ref;
+    }
+    // Path final: usuarios/{roleCollection}/lista/{nombre_apellido}/itinerarios/{autoId}
+    const docRef = await userDocRef.collection('itinerarios').add({
       titulo,
       fecha,
       meta,

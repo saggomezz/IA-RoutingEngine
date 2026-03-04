@@ -236,7 +236,7 @@ function HomePageInner() {
         }
       }
     } else {
-      // Solo usar sessionStorage si localStorage tiene el mismo uid (sesión activa)
+      // Primero intentar sessionStorage (debe coincidir con localStorage)
       const savedUid = sessionStorage.getItem('pitzbol_uid');
       if (savedUid) {
         try {
@@ -248,11 +248,21 @@ function HomePageInner() {
             sessionStorage.removeItem('pitzbol_uid'); // uid obsoleto, limpiar
           }
         } catch {}
+      } else {
+        // Sin sessionStorage: leer localStorage directamente (registrado en este dominio)
+        try {
+          const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
+          if (stored.uid) {
+            setUserId(stored.uid);
+            setUserRole(stored.role || 'turista');
+            sessionStorage.setItem('pitzbol_uid', stored.uid);
+          }
+        } catch {}
       }
     }
   }, [searchParams]);
 
-  // Abrir modal de auth desde el navbar
+  // Mostrar AuthModal desde el navbar (icono de perfil sin sesión)
   useEffect(() => {
     const handler = () => { setAuthTrigger('profile'); setShowAuthModal(true); };
     window.addEventListener('openAuthModal', handler);
@@ -337,6 +347,12 @@ function HomePageInner() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 404 && !userId) {
+          // Solo mostrar AuthModal si NO hay usuario logueado
+          setAuthTrigger('save');
+          setShowAuthModal(true);
+          return;
+        }
         throw new Error(data.error || 'Respuesta no exitosa');
       }
       const data = await res.json();
@@ -344,7 +360,6 @@ function HomePageInner() {
       setSavedOk(true);
     } catch (err: any) {
       console.error('Error al guardar:', err);
-      alert(`Error al guardar: ${err?.message || 'Intenta de nuevo'}`);
     } finally {
       setIsSaving(false);
     }
@@ -379,9 +394,6 @@ function HomePageInner() {
     setShowAuthModal(false);
     if (authTrigger === 'save' && stops.length > 0) {
       saveItinerary(uid);
-    } else if (authTrigger === 'profile') {
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
-      window.location.href = `${frontendUrl}/perfil`;
     }
     setAuthTrigger(null);
   };
