@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
-import MiniAuthModal from '@/components/MiniAuthModal';
+import AuthModal from '@/components/AuthModal';
 
 const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
 
@@ -192,6 +192,7 @@ function HomePageInner() {
   const [authTrigger, setAuthTrigger] = useState<'save' | 'limit' | 'profile' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
+  const [savedItineraryId, setSavedItineraryId] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarView, setCalendarView] = useState(() => {
     const d = new Date();
@@ -308,12 +309,32 @@ function HomePageInner() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Respuesta no exitosa');
       }
+      const data = await res.json();
+      setSavedItineraryId(data.id || null);
       setSavedOk(true);
     } catch (err: any) {
       console.error('Error al guardar:', err);
       alert(`Error al guardar: ${err?.message || 'Intenta de nuevo'}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const unsaveItinerary = async () => {
+    const uid = userId;
+    if (!uid || !savedItineraryId) return;
+    try {
+      const res = await fetch('/api/delete-itinerary', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, id: savedItineraryId }),
+      });
+      if (res.ok) {
+        setSavedOk(false);
+        setSavedItineraryId(null);
+      }
+    } catch (err) {
+      console.error('Error al eliminar itinerario:', err);
     }
   };
 
@@ -556,13 +577,11 @@ function HomePageInner() {
     return (
       <div className="min-h-screen bg-[#fafafa]">
 
-        {showAuthModal && (
-          <MiniAuthModal
-            trigger={authTrigger}
-            onClose={() => setShowAuthModal(false)}
-            onSuccess={handleAuthSuccess}
-          />
-        )}
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
 
         <div className="max-w-4xl mx-auto p-4 md:p-8">
           <div className="text-center mb-8">
@@ -892,11 +911,12 @@ function HomePageInner() {
           <div className="flex gap-2">
             <button
               onClick={() => {
-                if (!userId) { setAuthTrigger('save'); setShowAuthModal(true); }
+                if (savedOk && savedItineraryId) unsaveItinerary();
+                else if (!userId) { setAuthTrigger('save'); setShowAuthModal(true); }
                 else saveItinerary();
               }}
-              disabled={isSaving || savedOk}
-              title={savedOk ? 'Guardado' : userId ? 'Guardar itinerario' : 'Guardar (requiere cuenta)'}
+              disabled={isSaving}
+              title={savedOk ? 'Quitar itinerario guardado' : userId ? 'Guardar itinerario' : 'Guardar (requiere cuenta)'}
               className="p-2.5 rounded-xl border border-[#1A4D2E] bg-white hover:bg-[#E0F2F1] transition-colors disabled:opacity-50"
             >
               {isSaving
