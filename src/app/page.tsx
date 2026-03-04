@@ -338,27 +338,6 @@ function HomePageInner() {
     }
   };
 
-  const handleLoginRedirect = () => {
-    if (stops.length > 0) {
-      localStorage.setItem('pitzbol_pending_itinerary', JSON.stringify({
-        titulo: meta.title || `Itinerario para ${selectedDate}`,
-        fecha: selectedDate,
-        meta: { budget, groupSize, duration: meta.duration },
-        stops: stops.map(s => ({
-          nombre: s.place.nombre,
-          categoria: s.place.categoria,
-          direccion: s.place.direccion,
-          horaLlegada: s.horaLlegada,
-          horaSalida: s.horaSalida,
-          costo: s.place.costo,
-        })),
-      }));
-    }
-    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
-    const returnTo = encodeURIComponent(window.location.origin);
-    window.location.href = `${frontendUrl}/login?returnTo=${returnTo}&pendingSave=1`;
-  };
-
   const handleAuthSuccess = (uid: string, nombre: string) => {
     setUserId(uid);
     sessionStorage.setItem('pitzbol_uid', uid);
