@@ -16,9 +16,23 @@ export async function POST(req: NextRequest) {
     }
 
     const roleCollection = getRoleCollection(role || 'turista');
-    // Path: usuarios/{roleCollection}/{uid}/{autoId}
-    const ref = adminDb.collection('usuarios').doc(roleCollection).collection(uid);
-    const docRef = await ref.add({
+
+    // Buscar el documento del usuario en usuarios/{roleCollection}/lista donde ui == uid
+    const snapshot = await adminDb
+      .collection('usuarios')
+      .doc(roleCollection)
+      .collection('lista')
+      .where('ui', '==', uid)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return NextResponse.json({ error: 'Usuario no encontrado en Firestore' }, { status: 404 });
+    }
+
+    const userDocRef = snapshot.docs[0].ref;
+    // Path final: usuarios/{roleCollection}/lista/{nombre_apellido}/itinerarios/{autoId}
+    const docRef = await userDocRef.collection('itinerarios').add({
       titulo,
       fecha,
       meta,
