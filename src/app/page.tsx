@@ -236,7 +236,7 @@ function HomePageInner() {
         }
       }
     } else {
-      // Solo usar sessionStorage si localStorage tiene el mismo uid (sesión activa)
+      // Primero intentar sessionStorage (debe coincidir con localStorage)
       const savedUid = sessionStorage.getItem('pitzbol_uid');
       if (savedUid) {
         try {
@@ -246,6 +246,16 @@ function HomePageInner() {
             setUserRole(stored.role || 'turista');
           } else {
             sessionStorage.removeItem('pitzbol_uid'); // uid obsoleto, limpiar
+          }
+        } catch {}
+      } else {
+        // Sin sessionStorage: leer localStorage directamente (registrado en este dominio)
+        try {
+          const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
+          if (stored.uid) {
+            setUserId(stored.uid);
+            setUserRole(stored.role || 'turista');
+            sessionStorage.setItem('pitzbol_uid', stored.uid);
           }
         } catch {}
       }
