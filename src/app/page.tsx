@@ -342,6 +342,7 @@ function HomePageInner() {
           setUserId(null);
           sessionStorage.removeItem('pitzbol_uid');
           localStorage.removeItem('pitzbol_user');
+          window.dispatchEvent(new Event('authStateChanged'));
           setAuthTrigger('save');
           setShowAuthModal(true);
           return;
