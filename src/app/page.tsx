@@ -252,6 +252,13 @@ function HomePageInner() {
     }
   }, [searchParams]);
 
+  // Mostrar AuthModal desde el navbar (icono de perfil sin sesión)
+  useEffect(() => {
+    const handler = () => { setAuthTrigger('profile'); setShowAuthModal(true); };
+    window.addEventListener('openAuthModal', handler);
+    return () => window.removeEventListener('openAuthModal', handler);
+  }, []);
+
   // Cerrar calendario al hacer click fuera
   useEffect(() => {
     const handle = (e: MouseEvent) => {

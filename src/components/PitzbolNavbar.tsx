@@ -62,13 +62,13 @@ export default function PitzbolNavbar() {
                         <FiUser size={22} />
                     </a>
                 ) : (
-                    <a
-                        href={`${FRONTEND_URL}/login`}
+                    <button
+                        onClick={() => window.dispatchEvent(new Event('openAuthModal'))}
                         className="hover:text-[#F00808] transition-colors"
                         title="Iniciar sesión"
                     >
                         <FiUser size={22} />
-                    </a>
+                    </button>
                 )}
             </div>
         </nav>
