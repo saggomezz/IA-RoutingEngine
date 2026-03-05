@@ -348,11 +348,7 @@ function HomePageInner() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (res.status === 404) {
-          // Usuario no encontrado en Firestore: limpiar sesión obsoleta y pedir login
-          setUserId(null);
-          sessionStorage.removeItem('pitzbol_uid');
-          localStorage.removeItem('pitzbol_user');
-          window.dispatchEvent(new Event('authStateChanged'));
+          // No debería ocurrir con el upsert, pero por seguridad mostrar AuthModal sin borrar sesión
           setAuthTrigger('save');
           setShowAuthModal(true);
           return;

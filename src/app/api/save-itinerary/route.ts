@@ -26,11 +26,17 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .get();
 
+    // Si no existe documento del usuario, crearlo (usuarios que se registraron desde pitzbol-web)
+    let userDocRef;
     if (snapshot.empty) {
-      return NextResponse.json({ error: 'Usuario no encontrado en Firestore' }, { status: 404 });
+      userDocRef = await adminDb
+        .collection('usuarios')
+        .doc(roleCollection)
+        .collection('lista')
+        .add({ ui: uid, creadoEn: new Date().toISOString() });
+    } else {
+      userDocRef = snapshot.docs[0].ref;
     }
-
-    const userDocRef = snapshot.docs[0].ref;
     // Path final: usuarios/{roleCollection}/lista/{nombre_apellido}/itinerarios/{autoId}
     const docRef = await userDocRef.collection('itinerarios').add({
       titulo,
