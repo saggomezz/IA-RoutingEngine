@@ -13,10 +13,19 @@ export default function PitzbolNavbar() {
     const [profileHref, setProfileHref] = useState(`${FRONTEND_URL}/login`);
 
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem('pitzbol_user');
-            if (raw) setProfileHref(`${FRONTEND_URL}/perfil`);
-        } catch {}
+        const update = () => {
+            try {
+                const raw = localStorage.getItem('pitzbol_user');
+                setProfileHref(raw ? `${FRONTEND_URL}/perfil` : `${FRONTEND_URL}/login`);
+            } catch {}
+        };
+        update();
+        window.addEventListener('storage', update);
+        window.addEventListener('authStateChanged', update);
+        return () => {
+            window.removeEventListener('storage', update);
+            window.removeEventListener('authStateChanged', update);
+        };
     }, []);
 
     return (
