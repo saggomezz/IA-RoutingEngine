@@ -337,6 +337,15 @@ function HomePageInner() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 404) {
+          // Usuario no encontrado en Firestore: limpiar sesión obsoleta y pedir login
+          setUserId(null);
+          sessionStorage.removeItem('pitzbol_uid');
+          localStorage.removeItem('pitzbol_user');
+          setAuthTrigger('save');
+          setShowAuthModal(true);
+          return;
+        }
         throw new Error(data.error || 'Respuesta no exitosa');
       }
       const data = await res.json();
@@ -344,7 +353,6 @@ function HomePageInner() {
       setSavedOk(true);
     } catch (err: any) {
       console.error('Error al guardar:', err);
-      alert(`Error al guardar: ${err?.message || 'Intenta de nuevo'}`);
     } finally {
       setIsSaving(false);
     }
