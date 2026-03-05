@@ -347,8 +347,8 @@ function HomePageInner() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (res.status === 404) {
-          // No debería ocurrir con el upsert, pero por seguridad mostrar AuthModal sin borrar sesión
+        if (res.status === 404 && !userId) {
+          // Solo mostrar AuthModal si NO hay usuario logueado
           setAuthTrigger('save');
           setShowAuthModal(true);
           return;

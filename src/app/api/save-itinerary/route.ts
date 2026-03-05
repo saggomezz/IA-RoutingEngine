@@ -22,18 +22,18 @@ export async function POST(req: NextRequest) {
       .collection('usuarios')
       .doc(roleCollection)
       .collection('lista')
-      .where('ui', '==', uid)
+      .where('uid', '==', uid)
       .limit(1)
       .get();
 
-    // Si no existe documento del usuario, crearlo (usuarios que se registraron desde pitzbol-web)
-    let userDocRef;
+    // Si no existe documento del usuario, crearlo (usuarios que no tienen doc en Firestore aún)
+    let userDocRef: FirebaseFirestore.DocumentReference;
     if (snapshot.empty) {
       userDocRef = await adminDb
         .collection('usuarios')
         .doc(roleCollection)
         .collection('lista')
-        .add({ ui: uid, creadoEn: new Date().toISOString() });
+        .add({ uid, creadoEn: new Date().toISOString() });
     } else {
       userDocRef = snapshot.docs[0].ref;
     }

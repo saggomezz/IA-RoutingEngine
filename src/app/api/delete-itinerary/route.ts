@@ -18,7 +18,7 @@ export async function DELETE(req: NextRequest) {
       .collection('usuarios')
       .doc(roleCollection)
       .collection('lista')
-      .where('ui', '==', uid)
+      .where('uid', '==', uid)
       .limit(1)
       .get();
 
