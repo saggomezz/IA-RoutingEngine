@@ -218,6 +218,14 @@ function HomePageInner() {
       setUserId(uid);
       sessionStorage.setItem('pitzbol_uid', uid);
       readRoleFromStorage(uid);
+      // Sincronizar localStorage en este dominio para que el navbar sepa que hay sesión
+      try {
+        const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
+        if (stored.uid !== uid) {
+          localStorage.setItem('pitzbol_user', JSON.stringify({ uid, role: stored.role || 'turista' }));
+          window.dispatchEvent(new Event('authStateChanged'));
+        }
+      } catch {}
       if (pendingSave === '1') {
         const raw = localStorage.getItem('pitzbol_pending_itinerary');
         if (raw) {
