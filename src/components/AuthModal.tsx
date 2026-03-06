@@ -144,7 +144,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm p-0 md:p-4">
+    <div className="fixed inset-0 z-[300] flex items-end md:items-center justify-center p-0 md:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <motion.div
         initial={{ y: "100%" }}
         animate={{ y: 0 }}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 
 function getRoleCollection(role: string): string {
-  const map: Record<string, string> = { turista: 'turistas', guia: 'guias', admin: 'admins' };
+  const map: Record<string, string> = { turista: 'turistas', guia: 'guias', admin: 'admins', negociante: 'negocios' };
   return map[role] || 'turistas';
 }
 
