@@ -26,6 +26,7 @@ interface Place {
   costo: string;
   calificacion: string;
   nota: string;
+  imagen: string;
   isMatch?: boolean;
 }
 
@@ -59,6 +60,7 @@ const ESTADIO_AKRON: Place = {
   costo: '$400 – $2,500',
   calificacion: '5',
   nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona y alrededores del estadio — considera transporte público o salir con mucha anticipación.',
+  imagen: '',
   isMatch: true,
 };
 
@@ -431,6 +433,7 @@ function HomePageInner() {
         costo: p['Costo Estimado'] || 'No disponible',
         calificacion: p['Calificacion'] || '',
         nota: p['Nota para IA'] || '',
+        imagen: p['Imagen']?.trim() || '',
       })).filter(p => p.nombre);
 
       let filtered = places.filter(p =>
