@@ -27,6 +27,8 @@ interface Place {
   calificacion: string;
   nota: string;
   imagen: string;
+  lat?: number;
+  lng?: number;
   isMatch?: boolean;
 }
 
@@ -63,6 +65,68 @@ const ESTADIO_AKRON: Place = {
   imagen: '',
   isMatch: true,
 };
+
+// ---- Geo helpers ----
+function parseCoord(s: string): number | null {
+  if (!s) return null;
+  // European decimal comma: "20,6817764" → 20.6817764
+  const cleaned = s.replace(',', '.');
+  // Reject clearly malformed values (more than one dot after cleanup)
+  if ((cleaned.match(/\./g) || []).length > 1) return null;
+  const val = parseFloat(cleaned);
+  return isNaN(val) ? null : val;
+}
+
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Nearest-neighbour sort so the route stays geographically compact
+function sortByProximity(places: Place[]): Place[] {
+  if (places.length <= 2) return places;
+  const withCoords = places.filter(p => p.lat != null && p.lng != null);
+  if (withCoords.length < 2) return places;
+  const remaining = [...places];
+  const result: Place[] = [remaining.splice(0, 1)[0]];
+  while (remaining.length > 0) {
+    const last = result[result.length - 1];
+    if (last.lat == null || last.lng == null) { result.push(remaining.splice(0, 1)[0]); continue; }
+    let minDist = Infinity, minIdx = 0;
+    remaining.forEach((p, i) => {
+      if (p.lat != null && p.lng != null) {
+        const d = haversine(last.lat!, last.lng!, p.lat, p.lng);
+        if (d < minDist) { minDist = d; minIdx = i; }
+      }
+    });
+    result.push(remaining.splice(minIdx, 1)[0]);
+  }
+  return result;
+}
+
+// Reparar dos gastros consecutivos tras el sort geográfico
+function repairConsecutiveGastro(places: Place[]): Place[] {
+  const arr = [...places];
+  for (let i = 0; i < arr.length - 1; i++) {
+    if (matchesInterest(arr[i].categoria, 'gastronomia') && matchesInterest(arr[i + 1].categoria, 'gastronomia')) {
+      // Buscar el no-gastro más cercano para intercalar
+      let swapIdx = -1;
+      for (let j = i + 2; j < arr.length; j++) {
+        if (!matchesInterest(arr[j].categoria, 'gastronomia')) { swapIdx = j; break; }
+      }
+      if (swapIdx >= 0) {
+        const tmp = arr[swapIdx];
+        arr.splice(swapIdx, 1);
+        arr.splice(i + 1, 0, tmp);
+        i = Math.max(0, i - 1); // re-check from previous position
+      }
+    }
+  }
+  return arr;
+}
 
 // ---- Helpers ----
 function addMinutes(time: string, mins: number): string {
@@ -409,8 +473,8 @@ function HomePageInner() {
   };
 
   const generateItinerary = async () => {
-    if (!selectedDate || selectedInterests.length === 0) {
-      alert('Por favor selecciona una fecha e intereses');
+    if (!selectedDate || selectedInterests.length < 2) {
+      alert('Por favor selecciona una fecha y al menos 2 intereses para un itinerario más variado');
       return;
     }
     // Límite para invitados: 1 itinerario sin cuenta
@@ -434,9 +498,14 @@ function HomePageInner() {
         calificacion: p['Calificacion'] || '',
         nota: p['Nota para IA'] || '',
         imagen: p['Imagen']?.trim() || '',
+        lat: parseCoord(p['Latitud']) ?? undefined,
+        lng: parseCoord(p['Longitud']) ?? undefined,
       })).filter(p => p.nombre);
 
+      // Excluir Estadio Akron del pool regular — se agrega solo si asiste al partido
+      const AKRON_KEY = 'akron';
       let filtered = places.filter(p =>
+        !norm(p.nombre).includes(AKRON_KEY) &&
         selectedInterests.some(interest => matchesInterest(p.categoria, interest))
       );
 
@@ -466,14 +535,32 @@ function HomePageInner() {
 
       // Priorizar gastronomía según horario; balancear con otros intereses
       const mealContext = getMealContext(startTime);
-      const isGastroOnly = selectedInterests.length === 1 && selectedInterests[0] === 'gastronomia';
+      const hasGastro = selectedInterests.includes('gastronomia');
       const hasNocturna = selectedInterests.includes('vida-nocturna');
 
-      // Max restaurantes según duración del tour
-      const maxGastro = isGastroOnly ? 99
-        : duration === 'rapido' ? 1
+      // Límite de lugares por duración: calidad > cantidad
+      // rapido=3, medio-dia=4, dia-completo=5
+      const maxPlaces = duration === 'rapido' ? 3 : duration === 'medio-dia' ? 4 : 5;
+
+      const startHour = parseInt(startTime.split(':')[0]);
+
+      // Max restaurantes según duración y hora de inicio
+      // dia-completo antes 11am: desayuno + comida + cena = 3
+      // dia-completo desde 11am: comida + cena = 2 (postre se añade aparte)
+      // Vida nocturna activa: gastro solo hasta las 7pm, nocturna toma el resto
+      const maxGastro = duration === 'rapido' ? 1
         : duration === 'medio-dia' ? 2
-        : 3;
+        : startHour < 11 ? 3 : 2;
+
+      // Pool de postres (nieves / helados / dulces) — solo si usuario eligió gastronomía
+      // Solo lugares cuya categoría PRINCIPAL es postre y no son restaurantes completos
+      const postrePool = hasGastro
+        ? places.filter(p =>
+            !norm(p.nombre).includes(AKRON_KEY) &&
+            norm(p.categoria).includes('postre') &&
+            !matchesInterest(p.categoria, 'gastronomia')
+          ).sort(() => Math.random() - 0.5)
+        : [];
 
       const gastroPool = filtered
         .filter(p => matchesInterest(p.categoria, 'gastronomia'))
@@ -491,8 +578,8 @@ function HomePageInner() {
 
       // Intercalar gastro con otros para evitar dos restaurantes seguidos
       const buildInterleavedPool = (): Place[] => {
-        if (isGastroOnly) return [...gastroPool];
         const others = (attendsMatch && hasNocturna) ? othersPool : [...othersPool, ...nocturnaPool];
+        if (gastroPool.length === 0) return others;
         const gap = others.length > 0 && maxGastro > 0 ? Math.max(2, Math.floor(others.length / maxGastro)) : 2;
         const result: Place[] = [];
         let gi = 0, oi = 0;
@@ -512,9 +599,21 @@ function HomePageInner() {
       const usedFoodTypes = new Set<string>();
 
       for (const place of mainPool) {
+        if (selected.length >= maxPlaces) break;
         const isGastro = matchesInterest(place.categoria, 'gastronomia');
-        // No dos gastro seguidos cuando hay otros intereses
-        if (isGastro && lastWasGastro && !isGastroOnly) continue;
+        const isNocturna = matchesInterest(place.categoria, 'vida-nocturna');
+
+        // Calcular hora estimada de llegada a este lugar
+        const estimatedArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? 15 : 0));
+        const arrivalHour = parseInt(estimatedArrival.split(':')[0]);
+
+        // Si hay vida nocturna: gastro solo antes de las 19:00; después solo nocturna
+        if (isGastro && hasNocturna && arrivalHour >= 19) continue;
+        // Si hay vida nocturna: no agregar nocturna antes de las 19:00 (reservar para la noche)
+        if (isNocturna && hasNocturna && !attendsMatch && arrivalHour < 19) continue;
+
+        // No dos gastro seguidos
+        if (isGastro && lastWasGastro) continue;
         if (isGastro) {
           if (gastroCount >= maxGastro) continue;
           const foodType = getFoodType(place);
@@ -528,7 +627,6 @@ function HomePageInner() {
           totalTime += timeNeeded;
           lastWasGastro = isGastro;
         }
-        if (selected.length >= 8) break;
       }
 
       if (selected.length === 0) selected.push(mainPool[0] ?? filtered[0]);
@@ -537,12 +635,52 @@ function HomePageInner() {
       if (attendsMatch) selected.push(ESTADIO_AKRON);
       for (const p of afterMatchPool.slice(0, 2)) selected.push(p);
 
-      // Gastro-solo: más espacio entre paradas (no comer cada 15 min)
-      const transit = isGastroOnly ? 75 : 15;
+      // Ordenar por proximidad geográfica para una ruta compacta
+      // (excluir el estadio del sorting si está al final)
+      const matchStop = selected.find(p => p.isMatch);
+      const afterMatchStops = selected.filter(p => !p.isMatch && attendsMatch && afterMatchPool.includes(p));
+      const regularStops = selected.filter(p => !p.isMatch && !afterMatchStops.includes(p));
+      const sortedRegular = repairConsecutiveGastro(sortByProximity(regularStops));
+
+      // Insertar postre DESPUÉS del sorting para respetar el orden final de la ruta
+      // Busca el último gastro en horario de almuerzo (comida) en el array ya ordenado
+      if (hasGastro && postrePool.length > 0) {
+        let simMins = 0;
+        let sortedLastGastroComidaIdx = -1;
+        for (let i = 0; i < sortedRegular.length; i++) {
+          const arrivalTime = addMinutes(startTime, simMins);
+          if (matchesInterest(sortedRegular[i].categoria, 'gastronomia') && getMealContext(arrivalTime) === 'comida') {
+            sortedLastGastroComidaIdx = i;
+          }
+          simMins += sortedRegular[i].tiempoEstancia + (i < sortedRegular.length - 1 ? 15 : 0);
+        }
+        if (sortedLastGastroComidaIdx >= 0) {
+          const refPlace = sortedRegular[sortedLastGastroComidaIdx];
+          let bestPostre: Place | null = null;
+          let bestDist = Infinity;
+          for (const p of postrePool) {
+            if (refPlace.lat != null && refPlace.lng != null && p.lat != null && p.lng != null) {
+              const d = haversine(refPlace.lat, refPlace.lng, p.lat, p.lng);
+              if (d < bestDist) { bestDist = d; bestPostre = p; }
+            } else if (!bestPostre) {
+              bestPostre = p;
+            }
+          }
+          if (bestPostre && sortedRegular.length < maxPlaces + 1) {
+            sortedRegular.splice(sortedLastGastroComidaIdx + 1, 0, bestPostre);
+          }
+        }
+      }
+
+      const finalSelected = matchStop
+        ? [...sortedRegular, matchStop, ...afterMatchStops]
+        : sortedRegular;
+
+      const transit = 15;
       setTransitTime(transit);
       setAllPlaces(filtered);
 
-      const schedule = buildSchedule(selected, startTime, transit);
+      const schedule = buildSchedule(finalSelected, startTime, transit);
       setStops(schedule);
 
       const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', {
@@ -838,6 +976,12 @@ function HomePageInner() {
                   );
                 })}
               </div>
+              <p className={`mt-2 text-xs ${selectedInterests.length < 2 ? 'text-amber-600' : 'text-gray-400'}`}>
+                {selectedInterests.length < 2
+                  ? `Selecciona al menos 2 intereses (${selectedInterests.length}/2)`
+                  : `${selectedInterests.length} interés${selectedInterests.length > 1 ? 'es' : ''} seleccionado${selectedInterests.length > 1 ? 's' : ''}`
+                }
+              </p>
             </div>
 
             {/* Tipo de comida — solo si gastronomia está seleccionada */}
@@ -909,7 +1053,7 @@ function HomePageInner() {
             {/* Botón generar */}
             <button
               type="submit"
-              disabled={isGenerating || selectedInterests.length === 0}
+              disabled={isGenerating || selectedInterests.length < 2}
               className="w-full bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white py-4 px-8 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md transition-all duration-200"
             >
               {isGenerating ? (
@@ -1007,16 +1151,26 @@ function HomePageInner() {
                           <h3 className="font-bold text-[#1A4D2E] text-sm leading-snug">
                             {stop.place.nombre}
                           </h3>
-                          {norm(stop.place.categoria).includes('calle') && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 rounded-md px-1.5 py-0.5 mt-0.5">
-                              🌮 Comida callejera
-                            </span>
-                          )}
-                          {norm(stop.place.categoria).includes('vegana') && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 rounded-md px-1.5 py-0.5 mt-0.5 ml-1">
-                              🌱 Vegano
-                            </span>
-                          )}
+                          {/* Etiquetas de intereses del usuario */}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {interestOptions
+                              .filter(opt => selectedInterests.includes(opt.id) && matchesInterest(stop.place.categoria, opt.id))
+                              .map(opt => (
+                                <span key={opt.id} className="text-[10px] font-semibold bg-[#E0F2F1] text-[#1A4D2E] px-1.5 py-0.5 rounded-md">
+                                  {opt.name}
+                                </span>
+                              ))
+                            }
+                            {norm(stop.place.categoria).includes('postre') && (
+                              <span className="text-[10px] font-semibold bg-pink-50 text-pink-700 border border-pink-100 px-1.5 py-0.5 rounded-md">🍦 Postre</span>
+                            )}
+                            {norm(stop.place.categoria).includes('calle') && (
+                              <span className="text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded-md">🌮 Callejero</span>
+                            )}
+                            {norm(stop.place.categoria).includes('vegana') && (
+                              <span className="text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-md">🌱 Vegano</span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500 mt-0.5">
                             📍 {stop.place.direccion}
                           </p>
