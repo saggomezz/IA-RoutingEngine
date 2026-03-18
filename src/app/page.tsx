@@ -149,7 +149,7 @@ function matchesInterest(categoria: string, interest: string): boolean {
   const cat = norm(categoria);
   const map: Record<string, string[]> = {
     futbol: ['futbol', 'deportes'],
-    gastronomia: ['gastronomia', 'mexicana', 'comida', 'restaurante', 'vegana', 'calle'],
+    gastronomia: ['gastronomia', 'mexicana', 'comida', 'restaurante', 'vegana', 'calle', 'cafeteria'],
     'vida-nocturna': ['nocturna', 'bar', 'cantina'],
     cultura: ['cultura', 'museo', 'teatro', 'historia'],
     compras: ['compras', 'comercial', 'eventos', 'tienda'],
@@ -260,6 +260,8 @@ function HomePageInner() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
   const [savedItineraryId, setSavedItineraryId] = useState<string | null>(null);
+  const [calAddedOk, setCalAddedOk] = useState(false);
+  const [calendarUrl, setCalendarUrl] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarView, setCalendarView] = useState(() => {
     const d = new Date();
@@ -376,6 +378,7 @@ function HomePageInner() {
     { id: 'mix', name: 'Variado', desc: 'Tradicional + internacional' },
     { id: 'internacional', name: 'Internacional', desc: 'Comida familiar/internacional' },
     { id: 'vegetariano', name: 'Vegana', desc: 'Opciones veganas' },
+    { id: 'nocturna', name: 'Vida Nocturna', desc: 'Bares y restaurantes con ambiente' },
   ];
 
   const toggleInterest = (id: string) => {
@@ -432,10 +435,35 @@ function HomePageInner() {
       const data = await res.json();
       setSavedItineraryId(data.id || null);
       setSavedOk(true);
+      // También preparar URL del calendario
+      prepareCalendarUrl();
     } catch (err: any) {
       console.error('Error al guardar:', err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const prepareCalendarUrl = () => {
+    try {
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://69.30.204.56:3000';
+      const entry = {
+        id: Date.now().toString(),
+        fecha: selectedDate,
+        meta,
+        stops: stops.map(s => ({
+          n: s.place.nombre,
+          d: s.place.direccion,
+          c: s.place.costo,
+          m: s.place.isMatch || false,
+          a: s.horaLlegada,
+          z: s.horaSalida,
+        })),
+      };
+      const hash = encodeURIComponent(JSON.stringify(entry));
+      setCalendarUrl(`${frontendUrl}/calendario#${hash}`);
+    } catch (err) {
+      console.error('Error preparando calendario:', err);
     }
   };
 
@@ -456,6 +484,11 @@ function HomePageInner() {
     } catch (err) {
       console.error('Error al eliminar itinerario:', err);
     }
+  };
+
+  const addToCalendar = () => {
+    prepareCalendarUrl();
+    setCalAddedOk(true);
   };
 
   const handleAuthSuccess = (uid: string, _nombre: string) => {
@@ -519,6 +552,15 @@ function HomePageInner() {
           if (matchesInterest(p.categoria, 'gastronomia')) {
             return norm(p.categoria).includes('vegana') ||
               norm(p.nota).includes('vegeta') || norm(p.nota).includes('sano');
+          }
+          return true;
+        });
+      }
+
+      if (foodPreference === 'nocturna') {
+        filtered = filtered.filter(p => {
+          if (matchesInterest(p.categoria, 'gastronomia')) {
+            return matchesInterest(p.categoria, 'vida-nocturna');
           }
           return true;
         });
@@ -695,6 +737,7 @@ function HomePageInner() {
       });
       setShowResults(true);
       setSavedOk(false);
+      setCalAddedOk(false);
       // Incrementar contador de invitado si no tiene cuenta
       if (!userId) {
         const prev = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
@@ -1105,6 +1148,14 @@ function HomePageInner() {
                   : <FaRegBookmark className="text-[#1A4D2E] w-5 h-5" />
               }
             </button>
+            {calendarUrl && (
+              <a
+                href={calendarUrl}
+                className="px-5 py-2 rounded-xl text-sm font-bold transition-colors bg-[#81C784] text-white hover:bg-[#66bb6a]"
+              >
+                📅 Ver calendario
+              </a>
+            )}
             <button
               onClick={() => window.print()}
               className="bg-[#1A4D2E] text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-[#0D601E] transition-colors"
@@ -1237,7 +1288,15 @@ function HomePageInner() {
             </div>
           )}
 
-          <div className="mt-8 pt-6 border-t border-[#E0F2F1] flex justify-center print:hidden">
+          <div className="mt-8 pt-6 border-t border-[#E0F2F1] flex justify-center gap-3 print:hidden">
+            {calendarUrl && (
+              <a
+                href={calendarUrl}
+                className="bg-[#81C784] text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-[#66bb6a] transition-all"
+              >
+                📅 Ver mi calendario
+              </a>
+            )}
             <button
               onClick={() => window.print()}
               className="bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white px-8 py-3 rounded-xl font-bold text-sm hover:shadow-md transition-all"

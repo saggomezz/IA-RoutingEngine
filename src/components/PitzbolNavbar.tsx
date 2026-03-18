@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { FiHome, FiUser } from "react-icons/fi";
+import { FiCalendar, FiHome, FiUser } from "react-icons/fi";
 import imglogo from "./logoPitzbol.png";
 import imgPasto from "./pastoVerde.png";
 
@@ -11,6 +11,7 @@ const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://69.30.204.5
 export default function PitzbolNavbar() {
     const [isLogoHovered, setIsLogoHovered] = useState(false);
     const [profileHref, setProfileHref] = useState(`${FRONTEND_URL}/login`);
+    const [calCount, setCalCount] = useState(0);
 
     useEffect(() => {
         const update = () => {
@@ -19,12 +20,23 @@ export default function PitzbolNavbar() {
                 setProfileHref(raw ? `${FRONTEND_URL}/perfil` : `${FRONTEND_URL}/login`);
             } catch {}
         };
+        const updateCal = () => {
+            try {
+                const cal = JSON.parse(localStorage.getItem('pitzbol_calendario') || '[]');
+                setCalCount(cal.length);
+            } catch {}
+        };
         update();
+        updateCal();
         window.addEventListener('storage', update);
         window.addEventListener('authStateChanged', update);
+        window.addEventListener('storage', updateCal);
+        window.addEventListener('calendarUpdated', updateCal);
         return () => {
             window.removeEventListener('storage', update);
             window.removeEventListener('authStateChanged', update);
+            window.removeEventListener('storage', updateCal);
+            window.removeEventListener('calendarUpdated', updateCal);
         };
     }, []);
 
@@ -56,6 +68,14 @@ export default function PitzbolNavbar() {
             <div className="flex items-center gap-4">
                 <Link href={FRONTEND_URL} className="hover:text-[#F00808] transition-colors" title="Inicio">
                     <FiHome size={22} />
+                </Link>
+                <Link href={`${FRONTEND_URL}/calendario`} className="relative hover:text-[#F00808] transition-colors" title="Mi calendario">
+                    <FiCalendar size={22} />
+                    {calCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-[#F00808] text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            {calCount}
+                        </span>
+                    )}
                 </Link>
                 {profileHref.includes('/perfil') ? (
                     <a href={profileHref} className="hover:text-[#F00808] transition-colors" title="Mi perfil">
