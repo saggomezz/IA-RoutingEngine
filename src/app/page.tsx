@@ -26,7 +26,7 @@ interface Place {
   costo: string;
   calificacion: string;
   nota: string;
-  imagen: string;
+  fotos: string[];
   lat?: number;
   lng?: number;
   isMatch?: boolean;
@@ -62,7 +62,7 @@ const ESTADIO_AKRON: Place = {
   costo: '$400 – $2,500',
   calificacion: '5',
   nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona y alrededores del estadio — considera transporte público o salir con mucha anticipación.',
-  imagen: '',
+  fotos: [],
   isMatch: true,
 };
 
@@ -600,7 +600,7 @@ function HomePageInner() {
     setGenerating(true);
     try {
       const res = await fetch('/api/places');
-      const raw: Record<string, string>[] = await res.json();
+      const raw: Record<string, any>[] = await res.json();
 
       const places: Place[] = raw.map(p => ({
         nombre: p['Nombre del Lugar'] || '',
@@ -610,7 +610,7 @@ function HomePageInner() {
         costo: p['Costo Estimado'] || 'No disponible',
         calificacion: p['Calificacion'] || '',
         nota: p['Nota para IA'] || '',
-        imagen: p['Imagen']?.trim() || '',
+        fotos: Array.isArray(p['fotos']) ? p['fotos'] : [],
         lat: parseCoord(p['Latitud']) ?? undefined,
         lng: parseCoord(p['Longitud']) ?? undefined,
       })).filter(p => p.nombre);
@@ -1331,6 +1331,16 @@ function HomePageInner() {
                             </button>
                           )}
                         </div>
+
+                        {stop.place.fotos[0] && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={stop.place.fotos[0]}
+                            alt={stop.place.nombre}
+                            className="w-16 h-16 rounded-xl object-cover shrink-0 print:hidden"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
 
                         <div className="flex flex-col gap-1 print:hidden shrink-0">
                           <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
