@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND = process.env.BACKEND_INTERNAL_URL || 'http://localhost:3001';
+const BACKEND = process.env.BACKEND_INTERNAL_URL || 'https://api.pitzbol.me:8443';
 
 export async function POST(req: NextRequest) {
   try {
