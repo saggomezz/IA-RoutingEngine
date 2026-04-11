@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+const BACKEND = process.env.BACKEND_INTERNAL_URL || 'https://api.pitzbol.me:8443';
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
@@ -20,18 +22,49 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
+function normName(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+async function fetchFotosMap(): Promise<Record<string, string[]>> {
+  try {
+    const res = await fetch(`${BACKEND}/api/lugares`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return {};
+    const data = await res.json();
+    const map: Record<string, string[]> = {};
+    for (const lugar of (data.lugares || [])) {
+      if (lugar.nombre && Array.isArray(lugar.fotos) && lugar.fotos.length > 0) {
+        map[normName(lugar.nombre)] = lugar.fotos;
+      }
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 export async function GET() {
   try {
     const csvPath = join(process.cwd(), 'datosLugares.csv');
     const csvText = readFileSync(csvPath, 'utf-8');
     const lines = csvText.split('\n').filter(l => l.trim());
     const headers = parseCSVLine(lines[0]);
+
+    const fotosMap = await fetchFotosMap();
+
     const places = lines.slice(1).map(line => {
       const values = parseCSVLine(line);
-      const place: Record<string, string> = {};
+      const place: Record<string, any> = {};
       headers.forEach((h, i) => { place[h] = values[i] || ''; });
+
+      const nombre = place['Nombre del Lugar'] || '';
+      const fotosBackend = fotosMap[normName(nombre)] || [];
+      const fotoCsv = place['Imagen']?.trim();
+      place['fotos'] = fotosBackend.length > 0 ? fotosBackend : (fotoCsv ? [fotoCsv] : []);
+
       return place;
     }).filter(p => p['Nombre del Lugar']);
+
     return NextResponse.json(places);
   } catch (error) {
     console.error('Error reading CSV:', error);
