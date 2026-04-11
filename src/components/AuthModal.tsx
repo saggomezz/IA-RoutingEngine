@@ -213,7 +213,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     </button>
                   </div>
                   <div className="text-right mt-2 px-4">
-                    <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || "http://69.30.204.56:3000"}/forgot-password`}
+                    <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || "https://pitzbol.me"}/forgot-password`}
                       className="text-[11px] md:text-[13px] text-gray-500 hover:text-[#0D601E] transition-colors italic">
                       ¿Olvidaste tu contraseña?
                     </a>

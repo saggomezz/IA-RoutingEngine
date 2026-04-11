@@ -238,8 +238,84 @@ export default function HomePage() {
   );
 }
 
+const TRANSLATIONS = {
+  es: {
+    title: 'Generador de Itinerarios',
+    subtitle: 'Planea tu día perfecto en Guadalajara',
+    date: 'Fecha',
+    startTime: 'Hora de inicio',
+    duration: 'Duración del tour',
+    fullDay: 'Día completo (~8 h)',
+    halfDay: 'Medio día (~4 h)',
+    budget: 'Presupuesto',
+    group: 'Tamaño del grupo',
+    interests: 'Intereses',
+    matchDay: '⚽ Día de partido',
+    matchQuestion: '¿Asistirás al partido?',
+    yes: 'Sí, tengo boleto',
+    no: 'No, solo explorar',
+    generate: 'Generar itinerario',
+    generating: 'Generando...',
+    save: 'Guardar itinerario',
+    saved: 'Guardado',
+    download: 'Descargar PDF',
+    addCalendar: 'Agregar al calendario',
+    restart: 'Nuevo itinerario',
+    people: 'personas',
+    minInterests: 'Selecciona al menos 2 intereses',
+    matchNote: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso — considera transporte público.',
+    worldCupMatch: '⚽ ¡Hay partido del Mundial este día!',
+    arrival: 'Llegada',
+    departure: 'Salida',
+    transit: 'Traslado',
+    cost: 'Costo',
+    rating: 'Rating',
+    stayTime: 'Estancia',
+    minutes: 'min',
+    hours: 'h',
+    saveRequiresAccount: 'Guardar (requiere cuenta)',
+  },
+  en: {
+    title: 'Itinerary Generator',
+    subtitle: 'Plan your perfect day in Guadalajara',
+    date: 'Date',
+    startTime: 'Start time',
+    duration: 'Tour duration',
+    fullDay: 'Full day (~8 h)',
+    halfDay: 'Half day (~4 h)',
+    budget: 'Budget',
+    group: 'Group size',
+    interests: 'Interests',
+    matchDay: '⚽ Match day',
+    matchQuestion: 'Will you attend the match?',
+    yes: 'Yes, I have a ticket',
+    no: 'No, just exploring',
+    generate: 'Generate itinerary',
+    generating: 'Generating...',
+    save: 'Save itinerary',
+    saved: 'Saved',
+    download: 'Download PDF',
+    addCalendar: 'Add to calendar',
+    restart: 'New itinerary',
+    people: 'people',
+    minInterests: 'Select at least 2 interests',
+    matchNote: '⚽ Arrive at least 90 min before the match. Heavy traffic expected — consider public transport.',
+    worldCupMatch: '⚽ There\'s a World Cup match today!',
+    arrival: 'Arrival',
+    departure: 'Departure',
+    transit: 'Transit',
+    cost: 'Cost',
+    rating: 'Rating',
+    stayTime: 'Stay',
+    minutes: 'min',
+    hours: 'h',
+    saveRequiresAccount: 'Save (requires account)',
+  },
+};
+
 function HomePageInner() {
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateStr());
+  const [lang, setLang] = useState<'es' | 'en'>('es');
   const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState('dia-completo');
   const [budget, setBudget] = useState(1500);
@@ -271,9 +347,13 @@ function HomePageInner() {
 
   const searchParams = useSearchParams();
 
+  const t = TRANSLATIONS[lang];
+
   useEffect(() => {
     const uid = searchParams.get('uid');
     const pendingSave = searchParams.get('pendingSave');
+    const langParam = searchParams.get('lang');
+    if (langParam === 'en' || langParam === 'es') setLang(langParam);
 
     const readRoleFromStorage = (uid: string) => {
       try {
@@ -446,7 +526,7 @@ function HomePageInner() {
 
   const prepareCalendarUrl = () => {
     try {
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://69.30.204.56:3000';
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://pitzbol.me';
       const entry = {
         id: Date.now().toString(),
         fecha: selectedDate,
@@ -930,7 +1010,7 @@ function HomePageInner() {
 
                         {/* Leyenda */}
                         <div className="px-4 pb-3 pt-1 flex items-center gap-4 text-[10px] text-gray-400 border-t border-[#E0F2F1]">
-                          <span className="flex items-center gap-1">⚽ Día de partido</span>
+                          <span className="flex items-center gap-1">{t.matchDay}</span>
                           <span className="flex items-center gap-1">
                             <span className="w-3 h-3 rounded-full border-2 border-[#81C784] inline-block" />
                             Hoy
@@ -942,7 +1022,7 @@ function HomePageInner() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Hora de inicio</label>
+                  <label className={labelClass}>{t.startTime}</label>
                   <select
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
@@ -955,15 +1035,15 @@ function HomePageInner() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Duración del tour</label>
+                  <label className={labelClass}>{t.duration}</label>
                   <select
                     value={duration}
                     onChange={(e) => setDuration(e.target.value)}
                     className={inputClass}
                   >
-                    <option value="rapido">Rápido (2–3 hrs)</option>
-                    <option value="medio-dia">Medio día (4–6 hrs)</option>
-                    <option value="dia-completo">Día completo (8–10 hrs)</option>
+                    <option value="rapido">{lang === 'en' ? 'Quick (2–3 hrs)' : 'Rápido (2–3 hrs)'}</option>
+                    <option value="medio-dia">{lang === 'en' ? 'Half day (4–6 hrs)' : 'Medio día (4–6 hrs)'}</option>
+                    <option value="dia-completo">{lang === 'en' ? 'Full day (8–10 hrs)' : 'Día completo (8–10 hrs)'}</option>
                   </select>
                 </div>
               </div>
@@ -971,7 +1051,7 @@ function HomePageInner() {
               <div className="space-y-4 mt-4">
                 <div>
                   <label className={labelClass}>
-                    Presupuesto:{" "}
+                    {t.budget}:{" "}
                     <span className="font-bold">${budget.toLocaleString('es-MX')} MXN</span>
                     <span className="text-gray-400 font-normal ml-2">
                       (~${Math.round(budget / MXN_TO_USD).toLocaleString('en-US')} USD)
@@ -986,7 +1066,7 @@ function HomePageInner() {
 
                 <div>
                   <label className={labelClass}>
-                    Tamaño del grupo: <span className="font-bold">{groupSize} persona{groupSize > 1 ? 's' : ''}</span>
+                    {t.group}: <span className="font-bold">{groupSize} {t.people}</span>
                   </label>
                   <input
                     type="range" min="1" max="10" value={groupSize}
@@ -999,7 +1079,7 @@ function HomePageInner() {
 
             {/* Intereses */}
             <div>
-              <p className={sectionTitleClass}>Intereses</p>
+              <p className={sectionTitleClass}>{t.interests}</p>
               <div className="grid grid-cols-2 gap-3">
                 {interestOptions.map((opt) => {
                   const isSelected = selectedInterests.includes(opt.id);
@@ -1055,12 +1135,12 @@ function HomePageInner() {
             {matchInfo && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
                 <p className="text-sm font-bold text-amber-800 mb-1">
-                  ⚽ ¡Hay partido del Mundial este día!
+                  {t.worldCupMatch}
                 </p>
                 <p className="text-sm text-amber-700 font-semibold">{matchInfo.equipos}</p>
                 <p className="text-xs text-amber-600 mb-4">{matchInfo.partido} · Estadio Akron</p>
 
-                <p className={`text-sm font-semibold text-[#1A4D2E] mb-3`}>¿Asistirás al partido?</p>
+                <p className={`text-sm font-semibold text-[#1A4D2E] mb-3`}>{t.matchQuestion}</p>
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -1071,7 +1151,7 @@ function HomePageInner() {
                         : 'bg-white text-[#1A4D2E] border-[#E0F2F1] hover:border-[#81C784]'
                       }`}
                   >
-                    Sí, asistiré
+                    {t.yes}
                   </button>
                   <button
                     type="button"
@@ -1082,12 +1162,12 @@ function HomePageInner() {
                         : 'bg-white text-[#1A4D2E] border-[#E0F2F1] hover:border-[#81C784]'
                       }`}
                   >
-                    No, solo turismo
+                    {t.no}
                   </button>
                 </div>
                 {attendsMatch === true && (
                   <p className="text-xs text-amber-700 mt-3">
-                    El Estadio Akron se incluirá en tu itinerario con tiempo de traslado estimado.
+                    {lang === 'en' ? 'Estadio Akron will be included in your itinerary with estimated transit time.' : 'El Estadio Akron se incluirá en tu itinerario con tiempo de traslado estimado.'}
                   </p>
                 )}
               </div>
@@ -1102,9 +1182,9 @@ function HomePageInner() {
               {isGenerating ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  <span>Creando tu itinerario...</span>
+                  <span>{t.generating}</span>
                 </div>
-              ) : 'Generar itinerario'}
+              ) : t.generate}
             </button>
           </form>
         </div>
@@ -1128,7 +1208,7 @@ function HomePageInner() {
             onClick={() => setShowResults(false)}
             className="text-[#1A4D2E] text-sm font-medium hover:underline"
           >
-            ← Modificar búsqueda
+            ← {lang === 'en' ? 'Modify search' : 'Modificar búsqueda'}
           </button>
           <div className="flex gap-2">
             <button
@@ -1138,7 +1218,7 @@ function HomePageInner() {
                 else saveItinerary();
               }}
               disabled={isSaving}
-              title={savedOk ? 'Quitar itinerario guardado' : userId ? 'Guardar itinerario' : 'Guardar (requiere cuenta)'}
+              title={savedOk ? (lang === 'en' ? 'Remove saved itinerary' : 'Quitar itinerario guardado') : userId ? t.save : t.saveRequiresAccount}
               className="p-2.5 rounded-xl border border-[#1A4D2E] bg-white hover:bg-[#E0F2F1] transition-colors disabled:opacity-50"
             >
               {isSaving
@@ -1153,14 +1233,14 @@ function HomePageInner() {
                 href={calendarUrl}
                 className="px-5 py-2 rounded-xl text-sm font-bold transition-colors bg-[#81C784] text-white hover:bg-[#66bb6a]"
               >
-                📅 Ver calendario
+                📅 {lang === 'en' ? 'View calendar' : 'Ver calendario'}
               </a>
             )}
             <button
               onClick={() => window.print()}
               className="bg-[#1A4D2E] text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-[#0D601E] transition-colors"
             >
-              Imprimir
+              {lang === 'en' ? 'Print' : 'Imprimir'}
             </button>
           </div>
         </div>
@@ -1172,7 +1252,7 @@ function HomePageInner() {
               <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">💰 {meta.budget}</span>
               <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">👥 {meta.groupSize}</span>
               <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">⏱ {meta.duration}</span>
-              <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">{stops.length} lugares</span>
+              <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">{stops.length} {lang === 'en' ? 'places' : 'lugares'}</span>
             </div>
           </div>
 

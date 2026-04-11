@@ -6,7 +6,7 @@ import { FiCalendar, FiHome, FiUser } from "react-icons/fi";
 import imglogo from "./logoPitzbol.png";
 import imgPasto from "./pastoVerde.png";
 
-const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://69.30.204.56:3000';
+const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://pitzbol.me';
 
 export default function PitzbolNavbar() {
     const [isLogoHovered, setIsLogoHovered] = useState(false);
