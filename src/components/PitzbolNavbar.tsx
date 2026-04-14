@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { FiCalendar, FiHome, FiUser, FiGlobe } from "react-icons/fi";
+import { FiCalendar, FiHome, FiUser } from "react-icons/fi";
 import imglogo from "./logoPitzbol.png";
 import imgPasto from "./pastoVerde.png";
 
@@ -12,13 +12,6 @@ export default function PitzbolNavbar() {
     const [isLogoHovered, setIsLogoHovered] = useState(false);
     const [profileHref, setProfileHref] = useState(`${FRONTEND_URL}/login`);
     const [calCount, setCalCount] = useState(0);
-    const [lang, setLang] = useState<'es' | 'en'>('es');
-
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const l = params.get('lang');
-        if (l === 'en' || l === 'es') setLang(l);
-    }, []);
 
     useEffect(() => {
         const update = () => {
@@ -73,20 +66,7 @@ export default function PitzbolNavbar() {
 
             {/* ICONOS */}
             <div className="flex items-center gap-4">
-                <button
-                    onClick={() => {
-                        const next = lang === 'es' ? 'en' : 'es';
-                        const params = new URLSearchParams(window.location.search);
-                        params.set('lang', next);
-                        window.location.search = params.toString();
-                    }}
-                    className="flex items-center gap-1.5 hover:text-[#F00808] transition-colors"
-                    title={lang === 'es' ? 'Change language' : 'Cambiar idioma'}
-                >
-                    <FiGlobe size={20} />
-                    <span className="text-xs font-bold hidden md:inline">{lang === 'es' ? '🇪🇸 ES' : '🇺🇸 EN'}</span>
-                </button>
-                <Link href={FRONTEND_URL} className="hover:text-[#F00808] transition-colors" title="Inicio">
+<Link href={FRONTEND_URL} className="hover:text-[#F00808] transition-colors" title="Inicio">
                     <FiHome size={22} />
                 </Link>
                 <Link href={`${FRONTEND_URL}/calendario`} className="relative hover:text-[#F00808] transition-colors" title="Mi calendario">
