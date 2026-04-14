@@ -661,18 +661,15 @@ function HomePageInner() {
       const hasNocturna = selectedInterests.includes('vida-nocturna');
 
       // Límite de lugares por duración: calidad > cantidad
-      // rapido=3, medio-dia=4, dia-completo=5
-      const maxPlaces = duration === 'rapido' ? 3 : duration === 'medio-dia' ? 4 : 5;
+      // rapido=2, medio-dia=3, dia-completo=4
+      const maxPlaces = duration === 'rapido' ? 2 : duration === 'medio-dia' ? 3 : 4;
 
       const startHour = parseInt(startTime.split(':')[0]);
 
       // Max restaurantes según duración y hora de inicio
-      // dia-completo antes 11am: desayuno + comida + cena = 3
-      // dia-completo desde 11am: comida + cena = 2 (postre se añade aparte)
-      // Vida nocturna activa: gastro solo hasta las 7pm, nocturna toma el resto
       const maxGastro = duration === 'rapido' ? 1
-        : duration === 'medio-dia' ? 2
-        : startHour < 11 ? 3 : 2;
+        : duration === 'medio-dia' ? 1
+        : startHour < 11 ? 2 : 1;
 
       // Pool de postres (nieves / helados / dulces) — solo si usuario eligió gastronomía
       // Solo lugares cuya categoría PRINCIPAL es postre y no son restaurantes completos
@@ -753,16 +750,29 @@ function HomePageInner() {
 
       if (selected.length === 0) selected.push(mainPool[0] ?? filtered[0]);
 
-      // Estadio y vida nocturna post-partido
+      // Estadio y 1 lugar nocturno post-partido máximo
       if (attendsMatch) selected.push(ESTADIO_AKRON);
-      for (const p of afterMatchPool.slice(0, 2)) selected.push(p);
+      if (afterMatchPool.length > 0) selected.push(afterMatchPool[0]);
 
       // Ordenar por proximidad geográfica para una ruta compacta
       // (excluir el estadio del sorting si está al final)
       const matchStop = selected.find(p => p.isMatch);
       const afterMatchStops = selected.filter(p => !p.isMatch && attendsMatch && afterMatchPool.includes(p));
       const regularStops = selected.filter(p => !p.isMatch && !afterMatchStops.includes(p));
-      const sortedRegular = repairConsecutiveGastro(sortByProximity(regularStops));
+
+      // Separar nocturna para que SIEMPRE quede al final del itinerario diurno.
+      // Si se mezcla con el sort geográfico, puede aparecer a las 11am siendo un bar.
+      const nocturnaRegularStops = hasNocturna
+        ? regularStops.filter(p =>
+            matchesInterest(p.categoria, 'vida-nocturna') &&
+            !matchesInterest(p.categoria, 'gastronomia')
+          )
+        : [];
+      const dayRegularStops = regularStops.filter(p => !nocturnaRegularStops.includes(p));
+      const sortedRegular = [
+        ...repairConsecutiveGastro(sortByProximity(dayRegularStops)),
+        ...nocturnaRegularStops,
+      ];
 
       // Insertar postre DESPUÉS del sorting para respetar el orden final de la ruta
       // Busca el último gastro en horario de almuerzo (comida) en el array ya ordenado
@@ -788,7 +798,9 @@ function HomePageInner() {
               bestPostre = p;
             }
           }
-          if (bestPostre && sortedRegular.length < maxPlaces + 1) {
+          // Postre se permite como stop extra solo si el total no supera maxPlaces + 1
+          // (es una parada rápida de 15 min, no cuenta como lugar completo)
+          if (bestPostre && sortedRegular.length <= maxPlaces) {
             sortedRegular.splice(sortedLastGastroComidaIdx + 1, 0, bestPostre);
           }
         }

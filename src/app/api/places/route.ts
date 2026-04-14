@@ -34,13 +34,19 @@ async function fetchFotosMap(): Promise<Record<string, string[]>> {
     const map: Record<string, string[]> = {};
     for (const lugar of (data.lugares || [])) {
       if (lugar.nombre && Array.isArray(lugar.fotos) && lugar.fotos.length > 0) {
-        map[normName(lugar.nombre)] = lugar.fotos;
+        const key = normName(lugar.nombre);
+        map[key] = lugar.fotos;
       }
     }
     return map;
   } catch {
     return {};
   }
+}
+
+// Strip city suffix ", guadalajara" (or similar) added in CSV names
+function stripCity(name: string): string {
+  return name.replace(/,\s*(guadalajara|zapopan|tlaquepaque|tonala)[^,]*$/i, '').trim();
 }
 
 export async function GET() {
@@ -58,7 +64,11 @@ export async function GET() {
       headers.forEach((h, i) => { place[h] = values[i] || ''; });
 
       const nombre = place['Nombre del Lugar'] || '';
-      const fotosBackend = fotosMap[normName(nombre)] || [];
+      // Try full name first, then without city suffix (e.g. "Estadio Akron, Guadalajara" → "Estadio Akron")
+      const fotosBackend =
+        fotosMap[normName(nombre)] ||
+        fotosMap[normName(stripCity(nombre))] ||
+        [];
       const fotoCsv = place['Imagen']?.trim();
       place['fotos'] = fotosBackend.length > 0 ? fotosBackend : (fotoCsv ? [fotoCsv] : []);
 
