@@ -148,18 +148,18 @@ function norm(s: string): string {
 function matchesInterest(categoria: string, interest: string): boolean {
   const cat = norm(categoria);
   const map: Record<string, string[]> = {
-    futbol: ['futbol', 'deportes'],
-    gastronomia: ['gastronomia', 'mexicana', 'comida', 'restaurante', 'vegana', 'calle', 'cafeteria'],
+    futbol: ['futbol'],
+    gastronomia: ['gastronomia', 'mexicana', 'postre', 'vegana', 'comida calle', 'cafeteria'],
     'vida-nocturna': ['nocturna', 'bar', 'cantina'],
-    cultura: ['cultura', 'museo', 'teatro', 'historia'],
-    compras: ['compras', 'comercial', 'eventos', 'tienda'],
-    naturaleza: ['parque', 'naturaleza', 'verde', 'jardin'],
-    aventura: ['aventura', 'deporte', 'extremo'],
-    fotografia: ['mirador', 'vista', 'fotografia'],
+    cultura: ['cultura', 'museos', 'arte e historia', 'arquitectura'],
+    compras: ['compras'],
+    naturaleza: ['naturaleza', 'parque', 'verde'],
+    aventura: ['aventura'],
+    fotografia: ['fotografia', 'mirador', 'vista'],
     arquitectura: ['arquitectura', 'historico', 'patrimonio'],
-    musica: ['musica', 'concierto', 'entretenimiento'],
-    arte: ['arte', 'galeria'],
-    mercados: ['mercado', 'tianguis', 'artesania'],
+    musica: ['musica', 'concierto'],
+    arte: ['arte e historia', 'arte'],
+    mercados: ['mercados locales', 'mercado', 'tianguis'],
   };
   return (map[interest] || []).some(kw => cat.includes(kw));
 }
