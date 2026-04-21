@@ -2,9 +2,13 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
+import {
+  FiCalendar, FiClock, FiDollarSign, FiUsers, FiMapPin,
+  FiZap, FiSun, FiCoffee, FiPrinter, FiRefreshCw,
+} from 'react-icons/fi';
 import AuthModal from '@/components/AuthModal';
 
-const MXN_TO_USD = 17.50; // Tipo de cambio MXN → USD
+const MXN_TO_USD = 17.50;
 
 // ---- Calendar helpers ----
 function getLocalDateStr(d: Date = new Date()) {
@@ -61,7 +65,7 @@ const ESTADIO_AKRON: Place = {
   tiempoEstancia: 180,
   costo: '$400 – $2,500',
   calificacion: '5',
-  nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona y alrededores del estadio — considera transporte público o salir con mucha anticipación.',
+  nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona — considera transporte público o salir con mucha anticipación.',
   fotos: [],
   isMatch: true,
 };
@@ -69,9 +73,7 @@ const ESTADIO_AKRON: Place = {
 // ---- Geo helpers ----
 function parseCoord(s: string): number | null {
   if (!s) return null;
-  // European decimal comma: "20,6817764" → 20.6817764
   const cleaned = s.replace(',', '.');
-  // Reject clearly malformed values (more than one dot after cleanup)
   if ((cleaned.match(/\./g) || []).length > 1) return null;
   const val = parseFloat(cleaned);
   return isNaN(val) ? null : val;
@@ -85,7 +87,6 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Nearest-neighbour sort so the route stays geographically compact
 function sortByProximity(places: Place[]): Place[] {
   if (places.length <= 2) return places;
   const withCoords = places.filter(p => p.lat != null && p.lng != null);
@@ -107,12 +108,10 @@ function sortByProximity(places: Place[]): Place[] {
   return result;
 }
 
-// Reparar dos gastros consecutivos tras el sort geográfico
 function repairConsecutiveGastro(places: Place[]): Place[] {
   const arr = [...places];
   for (let i = 0; i < arr.length - 1; i++) {
     if (matchesInterest(arr[i].categoria, 'gastronomia') && matchesInterest(arr[i + 1].categoria, 'gastronomia')) {
-      // Buscar el no-gastro más cercano para intercalar
       let swapIdx = -1;
       for (let j = i + 2; j < arr.length; j++) {
         if (!matchesInterest(arr[j].categoria, 'gastronomia')) { swapIdx = j; break; }
@@ -121,7 +120,7 @@ function repairConsecutiveGastro(places: Place[]): Place[] {
         const tmp = arr[swapIdx];
         arr.splice(swapIdx, 1);
         arr.splice(i + 1, 0, tmp);
-        i = Math.max(0, i - 1); // re-check from previous position
+        i = Math.max(0, i - 1);
       }
     }
   }
@@ -229,89 +228,41 @@ function buildSchedule(places: Place[], startTime: string, defaultTransit = 15):
   });
 }
 
+// ---- Interest options with icons ----
+const INTEREST_OPTIONS = [
+  { id: 'cultura', name: 'Cultura', emoji: '🏛️' },
+  { id: 'gastronomia', name: 'Gastronomía', emoji: '🍽️' },
+  { id: 'arquitectura', name: 'Arquitectura', emoji: '🏗️' },
+  { id: 'arte', name: 'Arte e historia', emoji: '🎨' },
+  { id: 'mercados', name: 'Mercados', emoji: '🏪' },
+  { id: 'naturaleza', name: 'Naturaleza', emoji: '🌿' },
+  { id: 'fotografia', name: 'Fotografía', emoji: '📷' },
+  { id: 'compras', name: 'Compras', emoji: '🛍️' },
+  { id: 'musica', name: 'Música', emoji: '🎵' },
+  { id: 'aventura', name: 'Aventura', emoji: '🧗' },
+  { id: 'vida-nocturna', name: 'Vida nocturna', emoji: '🌙' },
+  { id: 'futbol', name: 'Fútbol', emoji: '⚽' },
+];
+
+const FOOD_PREFS = [
+  { id: 'tradicional', name: 'Tapatío tradicional', emoji: '🌮', desc: 'Birria, torta ahogada, pozole' },
+  { id: 'mix', name: 'Variado', emoji: '🍴', desc: 'Tradicional + internacional' },
+  { id: 'vegetariano', name: 'Vegano / saludable', emoji: '🌱', desc: 'Opciones plant-based' },
+  { id: 'nocturna', name: 'Ambiente nocturno', emoji: '🍸', desc: 'Bares y cantinas con estilo' },
+];
+
 // ---- Component ----
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fafafa] flex items-center justify-center text-[#1A4D2E] font-bold">Cargando...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0D1F14] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    }>
       <HomePageInner />
     </Suspense>
   );
 }
-
-const TRANSLATIONS = {
-  es: {
-    title: 'Generador de Itinerarios',
-    subtitle: 'Planea tu día perfecto en Guadalajara',
-    date: 'Fecha',
-    startTime: 'Hora de inicio',
-    duration: 'Duración del tour',
-    fullDay: 'Día completo (~8 h)',
-    halfDay: 'Medio día (~4 h)',
-    budget: 'Presupuesto',
-    group: 'Tamaño del grupo',
-    interests: 'Intereses',
-    matchDay: '⚽ Día de partido',
-    matchQuestion: '¿Asistirás al partido?',
-    yes: 'Sí, tengo boleto',
-    no: 'No, solo explorar',
-    generate: 'Generar itinerario',
-    generating: 'Generando...',
-    save: 'Guardar itinerario',
-    saved: 'Guardado',
-    download: 'Descargar PDF',
-    addCalendar: 'Agregar al calendario',
-    restart: 'Nuevo itinerario',
-    people: 'personas',
-    minInterests: 'Selecciona al menos 2 intereses',
-    matchNote: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso — considera transporte público.',
-    worldCupMatch: '⚽ ¡Hay partido del Mundial este día!',
-    arrival: 'Llegada',
-    departure: 'Salida',
-    transit: 'Traslado',
-    cost: 'Costo',
-    rating: 'Rating',
-    stayTime: 'Estancia',
-    minutes: 'min',
-    hours: 'h',
-    saveRequiresAccount: 'Guardar (requiere cuenta)',
-  },
-  en: {
-    title: 'Itinerary Generator',
-    subtitle: 'Plan your perfect day in Guadalajara',
-    date: 'Date',
-    startTime: 'Start time',
-    duration: 'Tour duration',
-    fullDay: 'Full day (~8 h)',
-    halfDay: 'Half day (~4 h)',
-    budget: 'Budget',
-    group: 'Group size',
-    interests: 'Interests',
-    matchDay: '⚽ Match day',
-    matchQuestion: 'Will you attend the match?',
-    yes: 'Yes, I have a ticket',
-    no: 'No, just exploring',
-    generate: 'Generate itinerary',
-    generating: 'Generating...',
-    save: 'Save itinerary',
-    saved: 'Saved',
-    download: 'Download PDF',
-    addCalendar: 'Add to calendar',
-    restart: 'New itinerary',
-    people: 'people',
-    minInterests: 'Select at least 2 interests',
-    matchNote: '⚽ Arrive at least 90 min before the match. Heavy traffic expected — consider public transport.',
-    worldCupMatch: '⚽ There\'s a World Cup match today!',
-    arrival: 'Arrival',
-    departure: 'Departure',
-    transit: 'Transit',
-    cost: 'Cost',
-    rating: 'Rating',
-    stayTime: 'Stay',
-    minutes: 'min',
-    hours: 'h',
-    saveRequiresAccount: 'Save (requires account)',
-  },
-};
 
 function HomePageInner() {
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateStr());
@@ -323,6 +274,8 @@ function HomePageInner() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [foodPreference, setFoodPreference] = useState('');
   const [attendsMatch, setAttendsMatch] = useState<boolean | null>(null);
+  const [ritmo, setRitmo] = useState<'tranquilo' | 'normal' | 'activo'>('normal');
+  const [transporte, setTransporte] = useState<'a-pie' | 'taxi' | 'auto'>('taxi');
   const [isGenerating, setGenerating] = useState(false);
   const [stops, setStops] = useState<Stop[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -336,7 +289,6 @@ function HomePageInner() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
   const [savedItineraryId, setSavedItineraryId] = useState<string | null>(null);
-  const [calAddedOk, setCalAddedOk] = useState(false);
   const [calendarUrl, setCalendarUrl] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarView, setCalendarView] = useState(() => {
@@ -344,10 +296,7 @@ function HomePageInner() {
     return { year: d.getFullYear(), month: d.getMonth() };
   });
   const calendarRef = useRef<HTMLDivElement>(null);
-
   const searchParams = useSearchParams();
-
-  const t = TRANSLATIONS[lang];
 
   useEffect(() => {
     const uid = searchParams.get('uid');
@@ -366,7 +315,6 @@ function HomePageInner() {
       setUserId(uid);
       sessionStorage.setItem('pitzbol_uid', uid);
       readRoleFromStorage(uid);
-      // Sincronizar localStorage en este dominio para que el navbar sepa que hay sesión
       try {
         const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
         if (stored.uid !== uid) {
@@ -392,7 +340,6 @@ function HomePageInner() {
         }
       }
     } else {
-      // Primero intentar sessionStorage (debe coincidir con localStorage)
       const savedUid = sessionStorage.getItem('pitzbol_uid');
       if (savedUid) {
         try {
@@ -401,11 +348,10 @@ function HomePageInner() {
             setUserId(savedUid);
             setUserRole(stored.role || 'turista');
           } else {
-            sessionStorage.removeItem('pitzbol_uid'); // uid obsoleto, limpiar
+            sessionStorage.removeItem('pitzbol_uid');
           }
         } catch {}
       } else {
-        // Sin sessionStorage: leer localStorage directamente (registrado en este dominio)
         try {
           const stored = JSON.parse(localStorage.getItem('pitzbol_user') || '{}');
           if (stored.uid) {
@@ -418,14 +364,12 @@ function HomePageInner() {
     }
   }, [searchParams]);
 
-  // Mostrar AuthModal desde el navbar (icono de perfil sin sesión)
   useEffect(() => {
     const handler = () => { setAuthTrigger('profile'); setShowAuthModal(true); };
     window.addEventListener('openAuthModal', handler);
     return () => window.removeEventListener('openAuthModal', handler);
   }, []);
 
-  // Cerrar calendario al hacer click fuera
   useEffect(() => {
     const handle = (e: MouseEvent) => {
       if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
@@ -437,29 +381,6 @@ function HomePageInner() {
   }, []);
 
   const matchInfo = MATCH_DAYS[selectedDate] ?? null;
-
-  const interestOptions = [
-    { id: 'futbol', name: 'Fútbol' },
-    { id: 'gastronomia', name: 'Gastronomía' },
-    { id: 'vida-nocturna', name: 'Vida nocturna' },
-    { id: 'cultura', name: 'Cultura' },
-    { id: 'compras', name: 'Compras' },
-    { id: 'naturaleza', name: 'Naturaleza' },
-    { id: 'aventura', name: 'Aventura' },
-    { id: 'fotografia', name: 'Fotografía' },
-    { id: 'arquitectura', name: 'Arquitectura' },
-    { id: 'musica', name: 'Música' },
-    { id: 'arte', name: 'Arte e historia' },
-    { id: 'mercados', name: 'Mercados locales' },
-  ];
-
-  const foodPreferences = [
-    { id: 'tradicional', name: '100% tradicional', desc: 'Solo comida típica tapatía' },
-    { id: 'mix', name: 'Variado', desc: 'Tradicional + internacional' },
-    { id: 'internacional', name: 'Internacional', desc: 'Comida familiar/internacional' },
-    { id: 'vegetariano', name: 'Vegana', desc: 'Opciones veganas' },
-    { id: 'nocturna', name: 'Vida Nocturna', desc: 'Bares y restaurantes con ambiente' },
-  ];
 
   const toggleInterest = (id: string) => {
     setSelectedInterests(prev => {
@@ -487,8 +408,7 @@ function HomePageInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          uid,
-          role,
+          uid, role,
           titulo: meta.title,
           fecha: selectedDate,
           meta: { budget, groupSize, duration: meta.duration },
@@ -505,7 +425,6 @@ function HomePageInner() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (res.status === 404 && !userId) {
-          // Solo mostrar AuthModal si NO hay usuario logueado
           setAuthTrigger('save');
           setShowAuthModal(true);
           return;
@@ -515,7 +434,6 @@ function HomePageInner() {
       const data = await res.json();
       setSavedItineraryId(data.id || null);
       setSavedOk(true);
-      // También preparar URL del calendario
       prepareCalendarUrl();
     } catch (err: any) {
       console.error('Error al guardar:', err);
@@ -532,19 +450,13 @@ function HomePageInner() {
         fecha: selectedDate,
         meta,
         stops: stops.map(s => ({
-          n: s.place.nombre,
-          d: s.place.direccion,
-          c: s.place.costo,
-          m: s.place.isMatch || false,
-          a: s.horaLlegada,
-          z: s.horaSalida,
+          n: s.place.nombre, d: s.place.direccion, c: s.place.costo,
+          m: s.place.isMatch || false, a: s.horaLlegada, z: s.horaSalida,
         })),
       };
       const hash = encodeURIComponent(JSON.stringify(entry));
       setCalendarUrl(`${frontendUrl}/calendario#${hash}`);
-    } catch (err) {
-      console.error('Error preparando calendario:', err);
-    }
+    } catch {}
   };
 
   const unsaveItinerary = async () => {
@@ -557,18 +469,8 @@ function HomePageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid, role, id: savedItineraryId }),
       });
-      if (res.ok) {
-        setSavedOk(false);
-        setSavedItineraryId(null);
-      }
-    } catch (err) {
-      console.error('Error al eliminar itinerario:', err);
-    }
-  };
-
-  const addToCalendar = () => {
-    prepareCalendarUrl();
-    setCalAddedOk(true);
+      if (res.ok) { setSavedOk(false); setSavedItineraryId(null); }
+    } catch {}
   };
 
   const handleAuthSuccess = (uid: string, _nombre: string) => {
@@ -579,18 +481,15 @@ function HomePageInner() {
       if (stored.uid === uid) setUserRole(stored.role || 'turista');
     } catch {}
     setShowAuthModal(false);
-    if (authTrigger === 'save' && stops.length > 0) {
-      saveItinerary(uid);
-    }
+    if (authTrigger === 'save' && stops.length > 0) saveItinerary(uid);
     setAuthTrigger(null);
   };
 
   const generateItinerary = async () => {
     if (!selectedDate || selectedInterests.length < 2) {
-      alert('Por favor selecciona una fecha y al menos 2 intereses para un itinerario más variado');
+      alert('Selecciona una fecha y al menos 2 intereses para un itinerario variado');
       return;
     }
-    // Límite para invitados: 1 itinerario sin cuenta
     const guestCount = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
     if (!userId && guestCount >= 1) {
       setAuthTrigger('limit');
@@ -615,7 +514,6 @@ function HomePageInner() {
         lng: parseCoord(p['Longitud']) ?? undefined,
       })).filter(p => p.nombre);
 
-      // Excluir Estadio Akron del pool regular — se agrega solo si asiste al partido
       const AKRON_KEY = 'akron';
       let filtered = places.filter(p =>
         !norm(p.nombre).includes(AKRON_KEY) &&
@@ -626,6 +524,16 @@ function HomePageInner() {
         const min = parseCostMin(p.costo);
         return min === 0 || min <= budget;
       });
+
+      // Filtro por transporte: si va a pie, priorizar lugares centrales (bajo radio)
+      if (transporte === 'a-pie') {
+        const CENTRO_LAT = 20.6736, CENTRO_LNG = -103.3440;
+        const withCoords = filtered.filter(p =>
+          p.lat != null && p.lng != null &&
+          haversine(CENTRO_LAT, CENTRO_LNG, p.lat!, p.lng!) <= 3
+        );
+        if (withCoords.length >= 3) filtered = withCoords;
+      }
 
       if (foodPreference === 'vegetariano') {
         filtered = filtered.filter(p => {
@@ -647,32 +555,31 @@ function HomePageInner() {
       }
 
       if (filtered.length === 0) {
-        alert('No encontramos lugares que coincidan con tu selección. Intenta con otras categorías o aumenta el presupuesto.');
+        alert('No encontramos lugares que coincidan con tu selección. Prueba con otros intereses o aumenta el presupuesto.');
         return;
       }
 
-      // Si va al partido, reservar tiempo para el estadio (180 min + 45 transit)
+      // Ajuste de ritmo: afecta tiempo en cada lugar y número de paradas
+      const ritmoMult = ritmo === 'tranquilo' ? 1.3 : ritmo === 'activo' ? 0.8 : 1;
+      const adjustedPlaces = filtered.map(p => ({
+        ...p,
+        tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult),
+      }));
+
       const matchReservedMins = attendsMatch ? 180 + 45 : 0;
       const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 600) - matchReservedMins;
 
-      // Priorizar gastronomía según horario; balancear con otros intereses
       const mealContext = getMealContext(startTime);
       const hasGastro = selectedInterests.includes('gastronomia');
       const hasNocturna = selectedInterests.includes('vida-nocturna');
 
-      // Límite de lugares por duración: calidad > cantidad
-      // rapido=2, medio-dia=3, dia-completo=4
-      const maxPlaces = duration === 'rapido' ? 2 : duration === 'medio-dia' ? 3 : 4;
+      // Ritmo afecta el número máximo de paradas
+      const basePlaces = duration === 'rapido' ? 2 : duration === 'medio-dia' ? 3 : 4;
+      const maxPlaces = ritmo === 'activo' ? basePlaces + 1 : ritmo === 'tranquilo' ? Math.max(2, basePlaces - 1) : basePlaces;
 
       const startHour = parseInt(startTime.split(':')[0]);
+      const maxGastro = duration === 'rapido' ? 1 : duration === 'medio-dia' ? 1 : startHour < 11 ? 2 : 1;
 
-      // Max restaurantes según duración y hora de inicio
-      const maxGastro = duration === 'rapido' ? 1
-        : duration === 'medio-dia' ? 1
-        : startHour < 11 ? 2 : 1;
-
-      // Pool de postres (nieves / helados / dulces) — solo si usuario eligió gastronomía
-      // Solo lugares cuya categoría PRINCIPAL es postre y no son restaurantes completos
       const postrePool = hasGastro
         ? places.filter(p =>
             !norm(p.nombre).includes(AKRON_KEY) &&
@@ -681,21 +588,20 @@ function HomePageInner() {
           ).sort(() => Math.random() - 0.5)
         : [];
 
-      const gastroPool = filtered
+      const gastroPool = adjustedPlaces
         .filter(p => matchesInterest(p.categoria, 'gastronomia'))
         .sort((a, b) => mealScore(b, mealContext) - mealScore(a, mealContext));
 
-      const nocturnaPool = filtered
+      const nocturnaPool = adjustedPlaces
         .filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia'))
         .sort(() => Math.random() - 0.5);
 
-      const othersPool = filtered
+      const othersPool = adjustedPlaces
         .filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna'))
         .sort(() => Math.random() - 0.5);
 
       const afterMatchPool = attendsMatch && hasNocturna ? nocturnaPool : [];
 
-      // Intercalar gastro con otros para evitar dos restaurantes seguidos
       const buildInterleavedPool = (): Place[] => {
         const others = (attendsMatch && hasNocturna) ? othersPool : [...othersPool, ...nocturnaPool];
         if (gastroPool.length === 0) return others;
@@ -710,28 +616,25 @@ function HomePageInner() {
       };
 
       const mainPool = buildInterleavedPool();
-
       const selected: Place[] = [];
       let totalTime = 0;
       let gastroCount = 0;
       let lastWasGastro = false;
       const usedFoodTypes = new Set<string>();
 
+      // Tiempo de traslado según transporte
+      const transitMins = transporte === 'a-pie' ? 10 : transporte === 'auto' ? 20 : 15;
+
       for (const place of mainPool) {
         if (selected.length >= maxPlaces) break;
         const isGastro = matchesInterest(place.categoria, 'gastronomia');
         const isNocturna = matchesInterest(place.categoria, 'vida-nocturna');
 
-        // Calcular hora estimada de llegada a este lugar
-        const estimatedArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? 15 : 0));
+        const estimatedArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
         const arrivalHour = parseInt(estimatedArrival.split(':')[0]);
 
-        // Si hay vida nocturna: gastro solo antes de las 19:00; después solo nocturna
         if (isGastro && hasNocturna && arrivalHour >= 19) continue;
-        // Si hay vida nocturna: no agregar nocturna antes de las 19:00 (reservar para la noche)
         if (isNocturna && hasNocturna && !attendsMatch && arrivalHour < 19) continue;
-
-        // No dos gastro seguidos
         if (isGastro && lastWasGastro) continue;
         if (isGastro) {
           if (gastroCount >= maxGastro) continue;
@@ -740,7 +643,7 @@ function HomePageInner() {
           usedFoodTypes.add(foodType);
           gastroCount++;
         }
-        const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? 15 : 0);
+        const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? transitMins : 0);
         if (totalTime + timeNeeded <= targetMins) {
           selected.push(place);
           totalTime += timeNeeded;
@@ -749,19 +652,13 @@ function HomePageInner() {
       }
 
       if (selected.length === 0) selected.push(mainPool[0] ?? filtered[0]);
-
-      // Estadio y 1 lugar nocturno post-partido máximo
       if (attendsMatch) selected.push(ESTADIO_AKRON);
       if (afterMatchPool.length > 0) selected.push(afterMatchPool[0]);
 
-      // Ordenar por proximidad geográfica para una ruta compacta
-      // (excluir el estadio del sorting si está al final)
       const matchStop = selected.find(p => p.isMatch);
       const afterMatchStops = selected.filter(p => !p.isMatch && attendsMatch && afterMatchPool.includes(p));
       const regularStops = selected.filter(p => !p.isMatch && !afterMatchStops.includes(p));
 
-      // Separar nocturna para que SIEMPRE quede al final del itinerario diurno.
-      // Si se mezcla con el sort geográfico, puede aparecer a las 11am siendo un bar.
       const nocturnaRegularStops = hasNocturna
         ? regularStops.filter(p =>
             matchesInterest(p.categoria, 'vida-nocturna') &&
@@ -774,8 +671,6 @@ function HomePageInner() {
         ...nocturnaRegularStops,
       ];
 
-      // Insertar postre DESPUÉS del sorting para respetar el orden final de la ruta
-      // Busca el último gastro en horario de almuerzo (comida) en el array ya ordenado
       if (hasGastro && postrePool.length > 0) {
         let simMins = 0;
         let sortedLastGastroComidaIdx = -1;
@@ -784,7 +679,7 @@ function HomePageInner() {
           if (matchesInterest(sortedRegular[i].categoria, 'gastronomia') && getMealContext(arrivalTime) === 'comida') {
             sortedLastGastroComidaIdx = i;
           }
-          simMins += sortedRegular[i].tiempoEstancia + (i < sortedRegular.length - 1 ? 15 : 0);
+          simMins += sortedRegular[i].tiempoEstancia + (i < sortedRegular.length - 1 ? transitMins : 0);
         }
         if (sortedLastGastroComidaIdx >= 0) {
           const refPlace = sortedRegular[sortedLastGastroComidaIdx];
@@ -794,12 +689,8 @@ function HomePageInner() {
             if (refPlace.lat != null && refPlace.lng != null && p.lat != null && p.lng != null) {
               const d = haversine(refPlace.lat, refPlace.lng, p.lat, p.lng);
               if (d < bestDist) { bestDist = d; bestPostre = p; }
-            } else if (!bestPostre) {
-              bestPostre = p;
-            }
+            } else if (!bestPostre) { bestPostre = p; }
           }
-          // Postre se permite como stop extra solo si el total no supera maxPlaces + 1
-          // (es una parada rápida de 15 min, no cuenta como lugar completo)
           if (bestPostre && sortedRegular.length <= maxPlaces) {
             sortedRegular.splice(sortedLastGastroComidaIdx + 1, 0, bestPostre);
           }
@@ -810,11 +701,9 @@ function HomePageInner() {
         ? [...sortedRegular, matchStop, ...afterMatchStops]
         : sortedRegular;
 
-      const transit = 15;
-      setTransitTime(transit);
+      setTransitTime(transitMins);
       setAllPlaces(filtered);
-
-      const schedule = buildSchedule(finalSelected, startTime, transit);
+      const schedule = buildSchedule(finalSelected, startTime, transitMins);
       setStops(schedule);
 
       const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', {
@@ -823,14 +712,12 @@ function HomePageInner() {
 
       setMeta({
         title: `Itinerario ${dateLabel}`,
-        budget: `$${budget} MXN por persona`,
+        budget: `$${budget.toLocaleString('es-MX')} MXN`,
         groupSize: `${groupSize} persona${groupSize > 1 ? 's' : ''}`,
         duration: duration === 'rapido' ? '2–3 hrs' : duration === 'medio-dia' ? '4–6 hrs' : '8–10 hrs',
       });
       setShowResults(true);
       setSavedOk(false);
-      setCalAddedOk(false);
-      // Incrementar contador de invitado si no tiene cuenta
       if (!userId) {
         const prev = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
         sessionStorage.setItem('pitzbol_guest_count', String(prev + 1));
@@ -845,15 +732,13 @@ function HomePageInner() {
 
   const moveUp = (i: number) => {
     if (i === 0) return;
-    const arr = [...stops];
-    [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+    const arr = [...stops]; [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
     setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime));
   };
 
   const moveDown = (i: number) => {
     if (i === stops.length - 1) return;
-    const arr = [...stops];
-    [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
+    const arr = [...stops]; [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
     setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime));
   };
 
@@ -865,364 +750,408 @@ function HomePageInner() {
   const replaceStop = (i: number) => {
     const current = stops[i].place;
     const usedNames = new Set(stops.map(s => s.place.nombre));
-    const matchingInterest = selectedInterests.find(int => matchesInterest(current.categoria, int))
-      || selectedInterests[0];
-    const candidates = allPlaces.filter(p =>
-      !usedNames.has(p.nombre) &&
-      matchesInterest(p.categoria, matchingInterest)
-    );
+    const matchingInterest = selectedInterests.find(int => matchesInterest(current.categoria, int)) || selectedInterests[0];
+    const candidates = allPlaces.filter(p => !usedNames.has(p.nombre) && matchesInterest(p.categoria, matchingInterest));
     if (candidates.length === 0) return;
     const newPlace = candidates[Math.floor(Math.random() * candidates.length)];
     const newPlaces = stops.map((s, idx) => idx === i ? newPlace : s.place);
     setStops(buildSchedule(newPlaces, startTime, transitTime));
   };
 
-  // Clases reutilizables
-  const labelClass = "block text-sm font-semibold text-[#1A4D2E] mb-2";
-  const sectionTitleClass = "text-sm font-semibold text-[#1A4D2E] mb-4";
-  const inputClass = "w-full p-3 border border-[#E0F2F1] rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-[#0D601E]/20 focus:border-[#0D601E] transition-all bg-white";
-
-  // ---- FORM ----
+  // ===== FORM =====
   if (!showResults) {
     return (
-      <div className="min-h-screen bg-[#fafafa]">
+      <div className="min-h-screen bg-[#F7F9F4]">
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
 
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={handleAuthSuccess}
-        />
-
-        <div className="max-w-4xl mx-auto p-4 md:p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-black text-[#1A4D2E] tracking-tight mb-1">
-              IA de Itinerarios
+        {/* Hero */}
+        <div className="bg-gradient-to-br from-[#0D1F14] via-[#1A4D2E] to-[#2E6B40] text-white py-14 px-4 text-center relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10"
+            style={{ backgroundImage: 'radial-gradient(circle at 20% 80%, #81C784 0%, transparent 50%), radial-gradient(circle at 80% 20%, #FFD700 0%, transparent 50%)' }} />
+          <div className="relative z-10 max-w-lg mx-auto">
+            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-semibold mb-5 backdrop-blur-sm">
+              <span>🏆</span>
+              <span>Mundial 2026 · Guadalajara, México</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-black leading-tight mb-3 tracking-tight">
+              Tu día perfecto<br />
+              <span className="text-[#81C784]">en Guadalajara</span>
             </h1>
-            <p className="text-[#769C7B] text-xs">
-              Powered by <span className="font-semibold text-[#1A4D2E]">PitzBot</span>
-              <span className="mx-2">·</span>Mundial 2026 · Guadalajara
+            <p className="text-white/70 text-sm max-w-sm mx-auto leading-relaxed">
+              Cuéntanos cómo eres y generamos un itinerario personalizado — lugares locales, gastronomía auténtica y experiencias únicas.
             </p>
+            {/* Language toggle */}
+            <div className="flex items-center justify-center gap-1 mt-6">
+              {(['es', 'en'] as const).map(l => (
+                <button key={l} onClick={() => setLang(l)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${lang === l ? 'bg-white text-[#1A4D2E]' : 'text-white/50 hover:text-white'}`}
+                >
+                  {l === 'es' ? 'Español' : 'English'}
+                </button>
+              ))}
+            </div>
           </div>
+        </div>
 
-          <form
-            onSubmit={(e) => { e.preventDefault(); generateItinerary(); }}
-            className="max-w-md mx-auto bg-white p-8 rounded-3xl border border-[#E0F2F1] shadow-sm space-y-6"
-          >
-            {/* Información básica */}
-            <div>
-              <p className={sectionTitleClass}>Información básica</p>
-              <div className="space-y-4">
-                <div>
-                  <label className={labelClass}>Fecha de tu visita</label>
-                  <div className="relative" ref={calendarRef}>
-                    {/* Trigger */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!calendarOpen) {
-                          const parts = selectedDate.split('-').map(Number);
-                          if (parts[0]) setCalendarView({ year: parts[0], month: parts[1] - 1 });
-                        }
-                        setCalendarOpen(o => !o);
-                      }}
-                      className="w-full flex items-center gap-3 p-3 border-2 border-[#E0F2F1] rounded-xl text-sm bg-white hover:border-[#1A4D2E] transition-all cursor-pointer text-left"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#1A4D2E] shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                      </svg>
-                      <span className={selectedDate ? 'text-gray-900 capitalize' : 'text-gray-400'}>
-                        {selectedDate
-                          ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-                          : 'Selecciona una fecha'}
+        {/* Form */}
+        <div className="max-w-lg mx-auto px-4 py-8 space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); generateItinerary(); }} className="space-y-4">
+
+            {/* Fecha y hora */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
+                {lang === 'es' ? '📅 ¿Cuándo visitas?' : '📅 When are you visiting?'}
+              </p>
+
+              {/* Calendario */}
+              <div className="relative mb-3" ref={calendarRef}>
+                <button type="button"
+                  onClick={() => {
+                    if (!calendarOpen) {
+                      const parts = selectedDate.split('-').map(Number);
+                      if (parts[0]) setCalendarView({ year: parts[0], month: parts[1] - 1 });
+                    }
+                    setCalendarOpen(o => !o);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 border-2 border-gray-100 rounded-xl text-sm bg-[#F7F9F4] hover:border-[#1A4D2E] transition-all text-left group"
+                >
+                  <FiCalendar className="text-[#1A4D2E] shrink-0" size={16} />
+                  <span className={`flex-1 ${selectedDate ? 'text-gray-800 font-medium capitalize' : 'text-gray-400'}`}>
+                    {selectedDate
+                      ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                      : 'Selecciona una fecha'}
+                  </span>
+                  {MATCH_DAYS[selectedDate] && <span className="text-lg">⚽</span>}
+                  <svg className="w-4 h-4 text-gray-400 group-hover:text-[#1A4D2E] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {calendarOpen && (
+                  <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden w-full">
+                    <div className="bg-[#1A4D2E] px-4 py-3 flex items-center justify-between">
+                      <button type="button"
+                        onClick={() => setCalendarView(v => { const d = new Date(v.year, v.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                        className="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-sm"
+                      >‹</button>
+                      <span className="text-white font-bold text-sm capitalize">
+                        {new Date(calendarView.year, calendarView.month).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
                       </span>
-                      {MATCH_DAYS[selectedDate] && <span className="ml-auto text-base">⚽</span>}
-                    </button>
+                      <button type="button"
+                        onClick={() => setCalendarView(v => { const d = new Date(v.year, v.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                        className="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-sm"
+                      >›</button>
+                    </div>
+                    <div className="grid grid-cols-7 bg-[#F0F7F0]">
+                      {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
+                        <div key={d} className="text-center text-[10px] font-bold text-[#1A4D2E] py-2">{d}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 p-2 gap-0.5">
+                      {(() => {
+                        const todayStr = getLocalDateStr();
+                        const total = getDaysInMonth(calendarView.year, calendarView.month);
+                        const first = getFirstDayOfWeek(calendarView.year, calendarView.month);
+                        const cells = [];
+                        for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} />);
+                        for (let d = 1; d <= total; d++) {
+                          const dateStr = `${calendarView.year}-${String(calendarView.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                          const past = dateStr < todayStr;
+                          const sel = dateStr === selectedDate;
+                          const today = dateStr === todayStr;
+                          const match = dateStr in MATCH_DAYS;
+                          cells.push(
+                            <button key={d} type="button" disabled={past}
+                              onClick={() => { setSelectedDate(dateStr); setAttendsMatch(null); setCalendarOpen(false); }}
+                              className={[
+                                'relative flex flex-col items-center justify-end pb-1 rounded-xl text-xs font-medium h-11 transition-all',
+                                past ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer',
+                                sel ? 'bg-[#1A4D2E] text-white' : '',
+                                !sel && today ? 'border-2 border-[#81C784] text-[#1A4D2E] font-bold' : '',
+                                !sel && !today && !past ? 'hover:bg-[#E8F5E9] text-gray-700' : '',
+                              ].join(' ')}
+                            >
+                              {match && <span className="text-[9px] leading-none mb-0.5">⚽</span>}
+                              <span>{d}</span>
+                            </button>
+                          );
+                        }
+                        return cells;
+                      })()}
+                    </div>
+                    <div className="px-4 pb-3 pt-1 flex items-center gap-4 text-[10px] text-gray-400 border-t border-gray-50">
+                      <span>⚽ Día de partido</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full border-2 border-[#81C784] inline-block" /> Hoy</span>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                    {/* Calendario desplegable */}
-                    {calendarOpen && (
-                      <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-[#E0F2F1] overflow-hidden w-full">
-                        {/* Header verde */}
-                        <div className="bg-[#1A4D2E] px-4 py-3 flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => setCalendarView(v => {
-                              const d = new Date(v.year, v.month - 1);
-                              return { year: d.getFullYear(), month: d.getMonth() };
-                            })}
-                            className="text-white/70 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10"
-                          >◀</button>
-                          <span className="text-white font-bold text-sm capitalize">
-                            {new Date(calendarView.year, calendarView.month).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setCalendarView(v => {
-                              const d = new Date(v.year, v.month + 1);
-                              return { year: d.getFullYear(), month: d.getMonth() };
-                            })}
-                            className="text-white/70 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10"
-                          >▶</button>
-                        </div>
-
-                        {/* Días de la semana */}
-                        <div className="grid grid-cols-7 bg-[#E0F2F1]">
-                          {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
-                            <div key={d} className="text-center text-[10px] font-bold text-[#1A4D2E] py-2">{d}</div>
-                          ))}
-                        </div>
-
-                        {/* Grid de días */}
-                        <div className="grid grid-cols-7 p-2 gap-0.5">
-                          {(() => {
-                            const todayStr = getLocalDateStr();
-                            const total = getDaysInMonth(calendarView.year, calendarView.month);
-                            const first = getFirstDayOfWeek(calendarView.year, calendarView.month);
-                            const cells = [];
-
-                            for (let i = 0; i < first; i++) {
-                              cells.push(<div key={`e${i}`} />);
-                            }
-
-                            for (let d = 1; d <= total; d++) {
-                              const dateStr = `${calendarView.year}-${String(calendarView.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                              const past = dateStr < todayStr;
-                              const sel = dateStr === selectedDate;
-                              const today = dateStr === todayStr;
-                              const match = dateStr in MATCH_DAYS;
-
-                              cells.push(
-                                <button
-                                  key={d}
-                                  type="button"
-                                  disabled={past}
-                                  onClick={() => {
-                                    setSelectedDate(dateStr);
-                                    setAttendsMatch(null);
-                                    setCalendarOpen(false);
-                                  }}
-                                  className={[
-                                    'relative flex flex-col items-center justify-end pb-1 rounded-xl text-xs font-medium h-11 transition-all',
-                                    past ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer',
-                                    sel ? 'bg-[#1A4D2E] text-white' : '',
-                                    !sel && today ? 'border-2 border-[#81C784] text-[#1A4D2E] font-bold' : '',
-                                    !sel && !today && !past ? 'hover:bg-[#E0F2F1] text-gray-700' : '',
-                                    match && !sel ? 'text-[#1A4D2E] font-bold' : '',
-                                  ].join(' ')}
-                                >
-                                  {match && (
-                                    <span className="text-[10px] leading-none mb-0.5">{sel ? '⚽' : '⚽'}</span>
-                                  )}
-                                  <span>{d}</span>
-                                </button>
-                              );
-                            }
-                            return cells;
-                          })()}
-                        </div>
-
-                        {/* Leyenda */}
-                        <div className="px-4 pb-3 pt-1 flex items-center gap-4 text-[10px] text-gray-400 border-t border-[#E0F2F1]">
-                          <span className="flex items-center gap-1">{t.matchDay}</span>
-                          <span className="flex items-center gap-1">
-                            <span className="w-3 h-3 rounded-full border-2 border-[#81C784] inline-block" />
-                            Hoy
-                          </span>
-                        </div>
-                      </div>
-                    )}
+              {/* Hora inicio */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5 font-medium">
+                    {lang === 'es' ? 'Hora de inicio' : 'Start time'}
+                  </label>
+                  <div className="relative">
+                    <FiClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                    <select value={startTime} onChange={e => setStartTime(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E] appearance-none">
+                      {['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'].map(t => (
+                        <option key={t} value={t}>{formatTime12(t)}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-
                 <div>
-                  <label className={labelClass}>{t.startTime}</label>
-                  <select
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className={inputClass}
-                  >
-                    {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'].map(t => (
-                      <option key={t} value={t}>{formatTime12(t)}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>{t.duration}</label>
-                  <select
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="rapido">{lang === 'en' ? 'Quick (2–3 hrs)' : 'Rápido (2–3 hrs)'}</option>
-                    <option value="medio-dia">{lang === 'en' ? 'Half day (4–6 hrs)' : 'Medio día (4–6 hrs)'}</option>
-                    <option value="dia-completo">{lang === 'en' ? 'Full day (8–10 hrs)' : 'Día completo (8–10 hrs)'}</option>
+                  <label className="block text-xs text-gray-500 mb-1.5 font-medium">
+                    {lang === 'es' ? 'Duración' : 'Duration'}
+                  </label>
+                  <select value={duration} onChange={e => setDuration(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E]">
+                    <option value="rapido">Rápido (2–3 h)</option>
+                    <option value="medio-dia">Medio día (4–6 h)</option>
+                    <option value="dia-completo">Día completo (8–10 h)</option>
                   </select>
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-4 mt-4">
-                <div>
-                  <label className={labelClass}>
-                    {t.budget}:{" "}
-                    <span className="font-bold">${budget.toLocaleString('es-MX')} MXN</span>
-                    <span className="text-gray-400 font-normal ml-2">
+            {/* Grupo y presupuesto */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
+                👥 {lang === 'es' ? 'Tu grupo' : 'Your group'}
+              </p>
+
+              {/* Grupo */}
+              <div className="mb-4">
+                <div className="flex justify-between items-baseline mb-2">
+                  <label className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                    <FiUsers size={13} /> {lang === 'es' ? 'Personas' : 'People'}
+                  </label>
+                  <span className="text-sm font-bold text-[#1A4D2E]">{groupSize}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setGroupSize(g => Math.max(1, g - 1))}
+                    className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">
+                    −
+                  </button>
+                  <input type="range" min="1" max="15" value={groupSize}
+                    onChange={e => setGroupSize(Number(e.target.value))}
+                    className="flex-1 h-1.5 bg-gray-100 rounded-full appearance-none cursor-pointer accent-[#0D601E]" />
+                  <button type="button" onClick={() => setGroupSize(g => Math.min(15, g + 1))}
+                    className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Presupuesto */}
+              <div>
+                <div className="flex justify-between items-baseline mb-2">
+                  <label className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                    <FiDollarSign size={13} /> {lang === 'es' ? 'Presupuesto por persona' : 'Budget per person'}
+                  </label>
+                  <span className="text-sm font-bold text-[#1A4D2E]">
+                    ${budget.toLocaleString('es-MX')} MXN
+                    <span className="text-[10px] text-gray-400 font-normal ml-1">
                       (~${Math.round(budget / MXN_TO_USD).toLocaleString('en-US')} USD)
                     </span>
-                  </label>
-                  <input
-                    type="range" min="200" max="15000" step="100" value={budget}
-                    onChange={(e) => setBudget(Number(e.target.value))}
-                    className="w-full h-1.5 bg-[#E0F2F1] rounded-lg appearance-none cursor-pointer accent-[#0D601E]"
-                  />
+                  </span>
                 </div>
+                <input type="range" min="200" max="15000" step="100" value={budget}
+                  onChange={e => setBudget(Number(e.target.value))}
+                  className="w-full h-1.5 bg-gray-100 rounded-full appearance-none cursor-pointer accent-[#0D601E]" />
+                <div className="flex justify-between text-[10px] text-gray-300 mt-1">
+                  <span>$200</span><span>$15,000</span>
+                </div>
+              </div>
+            </div>
 
-                <div>
-                  <label className={labelClass}>
-                    {t.group}: <span className="font-bold">{groupSize} {t.people}</span>
-                  </label>
-                  <input
-                    type="range" min="1" max="10" value={groupSize}
-                    onChange={(e) => setGroupSize(Number(e.target.value))}
-                    className="w-full h-1.5 bg-[#E0F2F1] rounded-lg appearance-none cursor-pointer accent-[#0D601E]"
-                  />
+            {/* Ritmo y transporte */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
+                🚀 {lang === 'es' ? 'Estilo de viaje' : 'Travel style'}
+              </p>
+
+              {/* Ritmo */}
+              <div className="mb-4">
+                <label className="block text-xs text-gray-500 font-medium mb-2">
+                  {lang === 'es' ? 'Ritmo del día' : 'Pace'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'tranquilo', label: lang === 'es' ? 'Tranquilo' : 'Relaxed', emoji: '🌿', desc: lang === 'es' ? 'Más tiempo en cada lugar' : 'More time per place' },
+                    { id: 'normal', label: 'Normal', emoji: '⚡', desc: lang === 'es' ? 'Balance perfecto' : 'Perfect balance' },
+                    { id: 'activo', label: lang === 'es' ? 'Activo' : 'Active', emoji: '🔥', desc: lang === 'es' ? 'Más lugares, más rápido' : 'More stops, faster' },
+                  ].map(opt => (
+                    <button key={opt.id} type="button" onClick={() => setRitmo(opt.id as any)}
+                      className={`p-3 rounded-xl border-2 text-center transition-all ${
+                        ritmo === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
+                      }`}
+                    >
+                      <div className="text-lg mb-1">{opt.emoji}</div>
+                      <div className={`text-xs font-bold ${ritmo === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
+                      <div className="text-[9px] text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Transporte */}
+              <div>
+                <label className="block text-xs text-gray-500 font-medium mb-2">
+                  {lang === 'es' ? 'Cómo te vas a mover' : 'How will you move around'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'a-pie', label: lang === 'es' ? 'A pie' : 'Walking', emoji: '🚶', desc: lang === 'es' ? 'Solo el centro histórico' : 'Historic center only' },
+                    { id: 'taxi', label: 'Uber / Taxi', emoji: '🚗', desc: lang === 'es' ? 'Toda la ciudad' : 'Whole city' },
+                    { id: 'auto', label: lang === 'es' ? 'Auto propio' : 'Own car', emoji: '🚙', desc: lang === 'es' ? 'Libertad total' : 'Total freedom' },
+                  ].map(opt => (
+                    <button key={opt.id} type="button" onClick={() => setTransporte(opt.id as any)}
+                      className={`p-3 rounded-xl border-2 text-center transition-all ${
+                        transporte === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
+                      }`}
+                    >
+                      <div className="text-lg mb-1">{opt.emoji}</div>
+                      <div className={`text-xs font-bold ${transporte === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
+                      <div className="text-[9px] text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
             {/* Intereses */}
-            <div>
-              <p className={sectionTitleClass}>{t.interests}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {interestOptions.map((opt) => {
-                  const isSelected = selectedInterests.includes(opt.id);
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider">
+                  ✨ {lang === 'es' ? '¿Qué te apasiona?' : 'What are you into?'}
+                </p>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${selectedInterests.length >= 2 ? 'bg-[#E8F5E9] text-[#1A4D2E]' : 'bg-amber-50 text-amber-600'}`}>
+                  {selectedInterests.length}/2 min
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {INTEREST_OPTIONS.map(opt => {
+                  const active = selectedInterests.includes(opt.id);
                   return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => toggleInterest(opt.id)}
-                      className={`rounded-xl border transition-all duration-200 p-3 text-left text-sm font-medium
-                        ${isSelected
-                          ? 'border-transparent bg-[#1A4D2E] text-white shadow-md'
-                          : 'border-[#E0F2F1] bg-white text-[#1A4D2E] hover:border-[#81C784] hover:shadow-sm'
-                        }`}
+                    <button key={opt.id} type="button" onClick={() => toggleInterest(opt.id)}
+                      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all ${
+                        active ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200 bg-[#F7F9F4]'
+                      }`}
                     >
-                      {opt.name}
+                      <span className="text-xl">{opt.emoji}</span>
+                      <span className={`text-[10px] font-semibold text-center leading-tight ${active ? 'text-[#1A4D2E]' : 'text-gray-500'}`}>
+                        {opt.name}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-              <p className={`mt-2 text-xs ${selectedInterests.length < 2 ? 'text-amber-600' : 'text-gray-400'}`}>
-                {selectedInterests.length < 2
-                  ? `Selecciona al menos 2 intereses (${selectedInterests.length}/2)`
-                  : `${selectedInterests.length} interés${selectedInterests.length > 1 ? 'es' : ''} seleccionado${selectedInterests.length > 1 ? 's' : ''}`
-                }
-              </p>
             </div>
 
-            {/* Tipo de comida — solo si gastronomia está seleccionada */}
+            {/* Tipo de comida (solo si gastronomía seleccionada) */}
             {selectedInterests.includes('gastronomia') && (
-              <div>
-                <p className={sectionTitleClass}>Tipo de comida</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {foodPreferences.map((pref) => (
-                    <button
-                      key={pref.id}
-                      type="button"
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
+                  🍽️ {lang === 'es' ? '¿Qué tipo de comida?' : 'Food preference'}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {FOOD_PREFS.map(pref => (
+                    <button key={pref.id} type="button"
                       onClick={() => setFoodPreference(foodPreference === pref.id ? '' : pref.id)}
-                      className={`p-3 rounded-xl border transition-all duration-200 text-left
-                        ${foodPreference === pref.id
-                          ? 'border-[#0D601E] bg-[#0D601E] text-white'
-                          : 'border-[#E0F2F1] bg-white text-[#1A4D2E] hover:border-[#81C784]'
-                        }`}
+                      className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                        foodPreference === pref.id
+                          ? 'border-[#1A4D2E] bg-[#E8F5E9]'
+                          : 'border-gray-100 hover:border-gray-200'
+                      }`}
                     >
-                      <div className="font-medium text-sm mb-1">{pref.name}</div>
-                      <div className="text-xs opacity-70">{pref.desc}</div>
+                      <span className="text-xl shrink-0">{pref.emoji}</span>
+                      <div>
+                        <div className={`text-xs font-bold ${foodPreference === pref.id ? 'text-[#1A4D2E]' : 'text-gray-700'}`}>{pref.name}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{pref.desc}</div>
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Sección partido — solo en días de partido */}
+            {/* Partido */}
             {matchInfo && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                <p className="text-sm font-bold text-amber-800 mb-1">
-                  {t.worldCupMatch}
-                </p>
-                <p className="text-sm text-amber-700 font-semibold">{matchInfo.equipos}</p>
-                <p className="text-xs text-amber-600 mb-4">{matchInfo.partido} · Estadio Akron</p>
-
-                <p className={`text-sm font-semibold text-[#1A4D2E] mb-3`}>{t.matchQuestion}</p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAttendsMatch(true)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all
-                      ${attendsMatch === true
-                        ? 'bg-[#1A4D2E] text-white border-transparent'
-                        : 'bg-white text-[#1A4D2E] border-[#E0F2F1] hover:border-[#81C784]'
-                      }`}
-                  >
-                    {t.yes}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAttendsMatch(false)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all
-                      ${attendsMatch === false
-                        ? 'bg-[#1A4D2E] text-white border-transparent'
-                        : 'bg-white text-[#1A4D2E] border-[#E0F2F1] hover:border-[#81C784]'
-                      }`}
-                  >
-                    {t.no}
-                  </button>
+              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-2xl">⚽</span>
+                  <div>
+                    <p className="text-sm font-bold text-amber-900">¡Hay partido este día!</p>
+                    <p className="text-xs text-amber-700 font-semibold">{matchInfo.equipos}</p>
+                    <p className="text-[10px] text-amber-600">{matchInfo.partido} · Estadio Akron</p>
+                  </div>
                 </div>
-                {attendsMatch === true && (
-                  <p className="text-xs text-amber-700 mt-3">
-                    {lang === 'en' ? 'Estadio Akron will be included in your itinerary with estimated transit time.' : 'El Estadio Akron se incluirá en tu itinerario con tiempo de traslado estimado.'}
-                  </p>
-                )}
+                <p className="text-xs font-semibold text-amber-800 mb-2">¿Asistirás al partido?</p>
+                <div className="flex gap-2">
+                  {[
+                    { val: true, label: 'Sí, tengo boleto', emoji: '🎟️' },
+                    { val: false, label: 'No, solo explorar', emoji: '🗺️' },
+                  ].map(opt => (
+                    <button key={String(opt.val)} type="button" onClick={() => setAttendsMatch(opt.val)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
+                        attendsMatch === opt.val
+                          ? 'bg-[#1A4D2E] text-white border-[#1A4D2E]'
+                          : 'bg-white text-amber-800 border-amber-200 hover:border-amber-400'
+                      }`}
+                    >
+                      <span>{opt.emoji}</span> {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
             {/* Botón generar */}
-            <button
-              type="submit"
+            <button type="submit"
               disabled={isGenerating || selectedInterests.length < 2}
-              className="w-full bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white py-4 px-8 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md transition-all duration-200"
+              className="w-full bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#1A4D2E]/20 active:scale-[0.99] transition-all"
             >
               {isGenerating ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  <span>{t.generating}</span>
-                </div>
-              ) : t.generate}
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  Generando tu itinerario...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <FiZap size={16} /> Generar mi itinerario
+                </span>
+              )}
             </button>
+
+            {selectedInterests.length < 2 && (
+              <p className="text-center text-xs text-amber-600 -mt-2">
+                Selecciona al menos 2 intereses para continuar
+              </p>
+            )}
           </form>
         </div>
       </div>
     );
   }
 
-  // ---- RESULTS ----
+  // ===== RESULTS =====
   return (
-    <div className="min-h-screen bg-[#fafafa]">
+    <div className="min-h-screen bg-[#F7F9F4]">
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
 
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={handleAuthSuccess}
-      />
-
-      <div className="max-w-3xl mx-auto p-4 md:p-8">
-        <div className="flex justify-between items-center mb-6 print:hidden">
-          <button
-            onClick={() => setShowResults(false)}
-            className="text-[#1A4D2E] text-sm font-medium hover:underline"
-          >
-            ← {lang === 'en' ? 'Modify search' : 'Modificar búsqueda'}
+      {/* Header resultado */}
+      <div className="bg-gradient-to-r from-[#0D1F14] to-[#1A4D2E] text-white px-4 py-6 print:hidden">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
+          <button onClick={() => setShowResults(false)}
+            className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0">
+            <FiRefreshCw size={14} /> {lang === 'es' ? 'Modificar' : 'Edit'}
           </button>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Guardar */}
             <button
               onClick={() => {
                 if (savedOk && savedItineraryId) unsaveItinerary();
@@ -1230,182 +1159,188 @@ function HomePageInner() {
                 else saveItinerary();
               }}
               disabled={isSaving}
-              title={savedOk ? (lang === 'en' ? 'Remove saved itinerary' : 'Quitar itinerario guardado') : userId ? t.save : t.saveRequiresAccount}
-              className="p-2.5 rounded-xl border border-[#1A4D2E] bg-white hover:bg-[#E0F2F1] transition-colors disabled:opacity-50"
+              title={savedOk ? 'Quitar guardado' : 'Guardar itinerario'}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all disabled:opacity-50"
             >
               {isSaving
-                ? <div className="w-5 h-5 border-2 border-[#1A4D2E] border-t-transparent rounded-full animate-spin" />
+                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 : savedOk
-                  ? <FaBookmark className="text-[#1A4D2E] w-5 h-5" />
-                  : <FaRegBookmark className="text-[#1A4D2E] w-5 h-5" />
+                  ? <><FaBookmark size={13} /> Guardado</>
+                  : <><FaRegBookmark size={13} /> Guardar</>
               }
             </button>
+            {/* Calendario */}
             {calendarUrl && (
-              <a
-                href={calendarUrl}
-                className="px-5 py-2 rounded-xl text-sm font-bold transition-colors bg-[#81C784] text-white hover:bg-[#66bb6a]"
-              >
-                📅 {lang === 'en' ? 'View calendar' : 'Ver calendario'}
+              <a href={calendarUrl}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all">
+                📅 {lang === 'es' ? 'Calendario' : 'Calendar'}
               </a>
             )}
-            <button
-              onClick={() => window.print()}
-              className="bg-[#1A4D2E] text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-[#0D601E] transition-colors"
-            >
-              {lang === 'en' ? 'Print' : 'Imprimir'}
+            {/* Imprimir */}
+            <button onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all">
+              <FiPrinter size={13} /> {lang === 'es' ? 'Imprimir' : 'Print'}
             </button>
           </div>
         </div>
+      </div>
 
-        <div className="bg-white rounded-3xl border border-[#E0F2F1] shadow-sm p-6 md:p-8">
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-[#1A4D2E] mb-3">{meta.title}</h2>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">💰 {meta.budget}</span>
-              <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">👥 {meta.groupSize}</span>
-              <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">⏱ {meta.duration}</span>
-              <span className="bg-[#E0F2F1] text-[#1A4D2E] px-3 py-1 rounded-full">{stops.length} {lang === 'en' ? 'places' : 'lugares'}</span>
-            </div>
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        {/* Meta del itinerario */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+          <h2 className="text-lg font-bold text-[#1A4D2E] mb-3 capitalize">{meta.title}</h2>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { icon: '💰', text: meta.budget },
+              { icon: '👥', text: meta.groupSize },
+              { icon: '⏱️', text: meta.duration },
+              { icon: '📍', text: `${stops.length} ${lang === 'es' ? 'lugares' : 'places'}` },
+              { icon: ritmo === 'tranquilo' ? '🌿' : ritmo === 'activo' ? '🔥' : '⚡', text: ritmo === 'tranquilo' ? 'Tranquilo' : ritmo === 'activo' ? 'Activo' : 'Normal' },
+              { icon: transporte === 'a-pie' ? '🚶' : transporte === 'auto' ? '🚙' : '🚗', text: transporte === 'a-pie' ? 'A pie' : transporte === 'auto' ? 'Auto propio' : 'Uber / Taxi' },
+            ].map((tag, i) => (
+              <span key={i} className="inline-flex items-center gap-1 bg-[#F0F7F0] text-[#1A4D2E] text-xs font-medium px-3 py-1.5 rounded-full">
+                {tag.icon} {tag.text}
+              </span>
+            ))}
           </div>
+        </div>
 
-          {stops.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-8">No hay paradas en el itinerario.</p>
-          ) : (
-            <div className="relative">
-              <div className="absolute left-3 top-3 bottom-3 w-px bg-[#E0F2F1]" />
-              <div className="space-y-4">
-                {stops.map((stop, i) => (
-                  <div key={i} className="relative pl-10">
-                    <div className={`absolute left-0 top-2 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${stop.place.isMatch ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}>
-                      <span className="text-white text-[10px] font-bold">{i + 1}</span>
+        {/* Timeline */}
+        <div className="space-y-3">
+          {stops.map((stop, i) => (
+            <div key={i} className="flex gap-3">
+              {/* Indicador */}
+              <div className="flex flex-col items-center shrink-0">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0 ${stop.place.isMatch ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}>
+                  {i + 1}
+                </div>
+                {i < stops.length - 1 && (
+                  <div className="w-px flex-1 my-1 bg-gray-100 min-h-[24px]" />
+                )}
+              </div>
+
+              {/* Card */}
+              <div className={`flex-1 rounded-2xl border overflow-hidden mb-1 ${stop.place.isMatch ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-white'} shadow-sm`}>
+                {/* Foto y acciones */}
+                <div className="flex">
+                  {stop.place.fotos[0] && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={stop.place.fotos[0]} alt={stop.place.nombre}
+                      className="w-24 h-full object-cover shrink-0 print:hidden"
+                      style={{ maxHeight: 120 }}
+                      referrerPolicy="no-referrer" />
+                  )}
+                  <div className="flex-1 p-4 min-w-0">
+                    {/* Hora */}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-xs font-black ${stop.place.isMatch ? 'text-amber-700' : 'text-[#0D601E]'}`}>
+                        {formatTime12(stop.horaLlegada)}
+                      </span>
+                      <span className="text-[10px] text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
+                      <span className="ml-auto text-[10px] text-gray-400 flex items-center gap-0.5">
+                        <FiClock size={10} /> {stop.place.tiempoEstancia} min
+                      </span>
                     </div>
 
-                    <div className={`rounded-2xl p-4 border ${stop.place.isMatch ? 'bg-amber-50 border-amber-200' : 'bg-[#fafafa] border-[#E0F2F1]'}`}>
-                      <div className="flex justify-between items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[#0D601E] font-bold text-sm">
-                              {formatTime12(stop.horaLlegada)}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              → {formatTime12(stop.horaSalida)}
-                            </span>
-                          </div>
-                          <h3 className="font-bold text-[#1A4D2E] text-sm leading-snug">
-                            {stop.place.nombre}
-                          </h3>
-                          {/* Etiquetas de intereses del usuario */}
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {interestOptions
-                              .filter(opt => selectedInterests.includes(opt.id) && matchesInterest(stop.place.categoria, opt.id))
-                              .map(opt => (
-                                <span key={opt.id} className="text-[10px] font-semibold bg-[#E0F2F1] text-[#1A4D2E] px-1.5 py-0.5 rounded-md">
-                                  {opt.name}
-                                </span>
-                              ))
-                            }
-                            {norm(stop.place.categoria).includes('postre') && (
-                              <span className="text-[10px] font-semibold bg-pink-50 text-pink-700 border border-pink-100 px-1.5 py-0.5 rounded-md">🍦 Postre</span>
-                            )}
-                            {norm(stop.place.categoria).includes('calle') && (
-                              <span className="text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded-md">🌮 Callejero</span>
-                            )}
-                            {norm(stop.place.categoria).includes('vegana') && (
-                              <span className="text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-md">🌱 Vegano</span>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            📍 {stop.place.direccion}
-                          </p>
-                          <div className="flex flex-wrap gap-3 mt-2">
-                            <span className="text-xs text-gray-500">⏱ {stop.place.tiempoEstancia} min</span>
-                            <span className="text-xs text-gray-500">💰 {stop.place.costo}</span>
-                            {stop.place.calificacion && (
-                              <span className="text-xs text-gray-500">⭐ {stop.place.calificacion}/5</span>
-                            )}
-                          </div>
-                          {stop.place.nota && (
-                            <p className="text-xs text-gray-400 mt-1.5 italic leading-snug">
-                              {stop.place.nota}
-                            </p>
-                          )}
-                          {!stop.place.isMatch && (
-                            <button
-                              onClick={() => {
-                                const base = window.location.origin.replace(/:\d+$/, ':3000');
-                                const back = encodeURIComponent(window.location.href);
-                                const url = `${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario&back=${back}`;
-                                window.open(url, '_blank', 'noopener,noreferrer');
-                              }}
-                              className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E0F2F1] transition-colors print:hidden"
-                            >
-                              Ver lugar →
-                            </button>
-                          )}
-                        </div>
+                    {/* Nombre */}
+                    <h3 className={`font-bold text-sm leading-snug ${stop.place.isMatch ? 'text-amber-900' : 'text-[#1A4D2E]'}`}>
+                      {stop.place.nombre}
+                    </h3>
 
-                        {stop.place.fotos[0] && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={stop.place.fotos[0]}
-                            alt={stop.place.nombre}
-                            className="w-16 h-16 rounded-xl object-cover shrink-0 print:hidden"
-                            referrerPolicy="no-referrer"
-                          />
-                        )}
-
-                        <div className="flex flex-col gap-1 print:hidden shrink-0">
-                          <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
-                            className="w-7 h-7 rounded-lg bg-white border border-[#E0F2F1] text-[#1A4D2E] text-xs font-bold disabled:opacity-25 hover:bg-[#E0F2F1] transition-colors flex items-center justify-center">
-                            ↑
-                          </button>
-                          <button onClick={() => moveDown(i)} disabled={i === stops.length - 1} title="Bajar"
-                            className="w-7 h-7 rounded-lg bg-white border border-[#E0F2F1] text-[#1A4D2E] text-xs font-bold disabled:opacity-25 hover:bg-[#E0F2F1] transition-colors flex items-center justify-center">
-                            ↓
-                          </button>
-                          {!stop.place.isMatch && (
-                            <button onClick={() => replaceStop(i)} title="Sugerir otro lugar"
-                              className="w-7 h-7 rounded-lg bg-white border border-[#81C784] text-[#0D601E] text-xs font-bold hover:bg-[#E0F2F1] transition-colors flex items-center justify-center">
-                              ↺
-                            </button>
-                          )}
-                          <button onClick={() => removeStop(i)} title="Eliminar"
-                            className="w-7 h-7 rounded-lg bg-white border border-red-200 text-red-400 text-xs font-bold hover:bg-red-50 transition-colors flex items-center justify-center">
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-
-                      {stop.traslado && (
-                        <div className="mt-2 pt-2 border-t border-[#E0F2F1]">
-                          <span className={`text-xs font-medium ${stop.traslado.includes('estadio') ? 'text-amber-700' : 'text-[#0D601E]'}`}>
-                            🚗 {stop.traslado}
-                          </span>
-                        </div>
+                    {/* Tags de interés */}
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {INTEREST_OPTIONS.filter(opt =>
+                        selectedInterests.includes(opt.id) && matchesInterest(stop.place.categoria, opt.id)
+                      ).map(opt => (
+                        <span key={opt.id} className="text-[10px] font-semibold bg-[#E8F5E9] text-[#1A4D2E] px-1.5 py-0.5 rounded-md">
+                          {opt.emoji} {opt.name}
+                        </span>
+                      ))}
+                      {norm(stop.place.categoria).includes('postre') && (
+                        <span className="text-[10px] font-semibold bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded-md">🍦 Postre</span>
                       )}
                     </div>
+
+                    {/* Dirección */}
+                    <p className="text-[11px] text-gray-400 mt-1.5 flex items-start gap-1">
+                      <FiMapPin size={10} className="shrink-0 mt-0.5" />
+                      {stop.place.direccion}
+                    </p>
+
+                    {/* Costo y rating */}
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="text-[11px] text-gray-500 flex items-center gap-0.5">
+                        <FiDollarSign size={10} /> {stop.place.costo}
+                      </span>
+                      {stop.place.calificacion && (
+                        <span className="text-[11px] text-gray-500">⭐ {stop.place.calificacion}</span>
+                      )}
+                    </div>
+
+                    {/* Nota */}
+                    {stop.place.nota && (
+                      <p className="text-[11px] text-gray-400 mt-1.5 italic leading-snug border-t border-gray-50 pt-1.5">
+                        {stop.place.nota}
+                      </p>
+                    )}
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2 mt-3 print:hidden">
+                      {!stop.place.isMatch && (
+                        <button
+                          onClick={() => {
+                            const base = window.location.origin.replace(/:\d+$/, ':3000');
+                            window.open(`${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="text-[11px] font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E8F5E9] transition-colors"
+                        >
+                          Ver más →
+                        </button>
+                      )}
+                      <div className="ml-auto flex gap-1">
+                        <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
+                          className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↑</button>
+                        <button onClick={() => moveDown(i)} disabled={i === stops.length - 1} title="Bajar"
+                          className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↓</button>
+                        {!stop.place.isMatch && (
+                          <button onClick={() => replaceStop(i)} title="Sugerir otro"
+                            className="w-7 h-7 rounded-lg border border-[#81C784] text-[#0D601E] text-xs hover:bg-[#E8F5E9] transition-colors flex items-center justify-center">↺</button>
+                        )}
+                        <button onClick={() => removeStop(i)} title="Eliminar"
+                          className="w-7 h-7 rounded-lg border border-red-100 text-red-400 text-xs hover:bg-red-50 transition-colors flex items-center justify-center">✕</button>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                {/* Traslado */}
+                {stop.traslado && (
+                  <div className={`px-4 py-2 border-t flex items-center gap-1.5 ${stop.traslado.includes('estadio') ? 'bg-amber-50/50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
+                    <span className="text-sm">
+                      {transporte === 'a-pie' ? '🚶' : '🚗'}
+                    </span>
+                    <span className={`text-[11px] font-medium ${stop.traslado.includes('estadio') ? 'text-amber-700' : 'text-gray-500'}`}>
+                      {stop.traslado}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          ))}
+        </div>
 
-          <div className="mt-8 pt-6 border-t border-[#E0F2F1] flex justify-center gap-3 print:hidden">
-            {calendarUrl && (
-              <a
-                href={calendarUrl}
-                className="bg-[#81C784] text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-[#66bb6a] transition-all"
-              >
-                📅 Ver mi calendario
-              </a>
-            )}
-            <button
-              onClick={() => window.print()}
-              className="bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white px-8 py-3 rounded-xl font-bold text-sm hover:shadow-md transition-all"
-            >
-              Imprimir itinerario
-            </button>
-          </div>
+        {/* Footer acciones */}
+        <div className="mt-6 flex gap-3 print:hidden">
+          {calendarUrl && (
+            <a href={calendarUrl}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#E8F5E9] text-[#1A4D2E] text-sm font-bold hover:bg-[#C8E6C9] transition-all">
+              📅 Ver en calendario
+            </a>
+          )}
+          <button onClick={() => window.print()}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white text-sm font-bold hover:shadow-lg transition-all">
+            <FiPrinter size={15} /> Imprimir itinerario
+          </button>
         </div>
       </div>
     </div>
