@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
 import {
   FiCalendar, FiClock, FiDollarSign, FiUsers, FiMapPin,
-  FiZap, FiSun, FiCoffee, FiPrinter, FiRefreshCw,
+  FiZap, FiPrinter, FiRefreshCw,
 } from 'react-icons/fi';
 import AuthModal from '@/components/AuthModal';
 
@@ -65,7 +66,7 @@ const ESTADIO_AKRON: Place = {
   tiempoEstancia: 180,
   costo: '$400 – $2,500',
   calificacion: '5',
-  nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona — considera transporte público o salir con mucha anticipación.',
+  nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona.',
   fotos: [],
   isMatch: true,
 };
@@ -89,8 +90,6 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 
 function sortByProximity(places: Place[]): Place[] {
   if (places.length <= 2) return places;
-  const withCoords = places.filter(p => p.lat != null && p.lng != null);
-  if (withCoords.length < 2) return places;
   const remaining = [...places];
   const result: Place[] = [remaining.splice(0, 1)[0]];
   while (remaining.length > 0) {
@@ -221,14 +220,14 @@ function buildSchedule(places: Place[], startTime: string, defaultTransit = 15):
     current = addMinutes(horaSalida, transitMins);
     const trasladoLabel = i < places.length - 1
       ? nextIsMatch
-        ? '~45 min en tráfico hasta el estadio (se recomienda salir con tiempo extra)'
+        ? '~45 min en tráfico hasta el estadio'
         : `~${defaultTransit} min en tráfico`
       : '';
     return { place, horaLlegada, horaSalida, traslado: trasladoLabel };
   });
 }
 
-// ---- Interest options with icons ----
+// ---- Interest options ----
 const INTEREST_OPTIONS = [
   { id: 'cultura', name: 'Cultura', emoji: '🏛️' },
   { id: 'gastronomia', name: 'Gastronomía', emoji: '🍽️' },
@@ -251,6 +250,70 @@ const FOOD_PREFS = [
   { id: 'nocturna', name: 'Ambiente nocturno', emoji: '🍸', desc: 'Bares y cantinas con estilo' },
 ];
 
+// ---- Stagger variants ----
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 22 } },
+};
+const stopVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: (i: number) => ({
+    opacity: 1, x: 0,
+    transition: { delay: i * 0.07, type: 'spring', stiffness: 240, damping: 20 },
+  }),
+};
+
+// ---- Print styles ----
+const printStyles = `
+@media print {
+  @page { margin: 1.5cm; size: A4; }
+  body { background: white !important; }
+  .print\\:hidden { display: none !important; }
+  .print-card {
+    break-inside: avoid;
+    border: 1.5px solid #1A4D2E !important;
+    border-radius: 12px !important;
+    margin-bottom: 14px !important;
+    page-break-inside: avoid;
+  }
+  .print-header {
+    background: #1A4D2E !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border-radius: 12px !important;
+    padding: 18px !important;
+    margin-bottom: 20px !important;
+  }
+  .print-stop-num {
+    background: #1A4D2E !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border-radius: 50% !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 900 !important;
+    font-size: 13px !important;
+  }
+  .print-logo {
+    display: block !important;
+    font-size: 24px;
+    font-weight: 900;
+    color: #1A4D2E !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+`;
+
 // ---- Component ----
 export default function HomePage() {
   return (
@@ -266,7 +329,6 @@ export default function HomePage() {
 
 function HomePageInner() {
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateStr());
-  const [lang, setLang] = useState<'es' | 'en'>('es');
   const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState('dia-completo');
   const [budget, setBudget] = useState(1500);
@@ -301,8 +363,6 @@ function HomePageInner() {
   useEffect(() => {
     const uid = searchParams.get('uid');
     const pendingSave = searchParams.get('pendingSave');
-    const langParam = searchParams.get('lang');
-    if (langParam === 'en' || langParam === 'es') setLang(langParam);
 
     const readRoleFromStorage = (uid: string) => {
       try {
@@ -525,7 +585,6 @@ function HomePageInner() {
         return min === 0 || min <= budget;
       });
 
-      // Filtro por transporte: si va a pie, priorizar lugares centrales (bajo radio)
       if (transporte === 'a-pie') {
         const CENTRO_LAT = 20.6736, CENTRO_LNG = -103.3440;
         const withCoords = filtered.filter(p =>
@@ -559,7 +618,6 @@ function HomePageInner() {
         return;
       }
 
-      // Ajuste de ritmo: afecta tiempo en cada lugar y número de paradas
       const ritmoMult = ritmo === 'tranquilo' ? 1.3 : ritmo === 'activo' ? 0.8 : 1;
       const adjustedPlaces = filtered.map(p => ({
         ...p,
@@ -567,18 +625,19 @@ function HomePageInner() {
       }));
 
       const matchReservedMins = attendsMatch ? 180 + 45 : 0;
-      const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 600) - matchReservedMins;
+      // targetMins es el tiempo real que debe llenarse
+      const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 540) - matchReservedMins;
 
       const mealContext = getMealContext(startTime);
       const hasGastro = selectedInterests.includes('gastronomia');
       const hasNocturna = selectedInterests.includes('vida-nocturna');
 
-      // Ritmo afecta el número máximo de paradas
-      const basePlaces = duration === 'rapido' ? 2 : duration === 'medio-dia' ? 3 : 4;
-      const maxPlaces = ritmo === 'activo' ? basePlaces + 1 : ritmo === 'tranquilo' ? Math.max(2, basePlaces - 1) : basePlaces;
+      // Número máximo de paradas ajustado para llenar el tiempo real
+      const basePlaces = duration === 'rapido' ? 3 : duration === 'medio-dia' ? 6 : 10;
+      const maxPlaces = ritmo === 'activo' ? basePlaces + 2 : ritmo === 'tranquilo' ? Math.max(2, basePlaces - 1) : basePlaces;
 
       const startHour = parseInt(startTime.split(':')[0]);
-      const maxGastro = duration === 'rapido' ? 1 : duration === 'medio-dia' ? 1 : startHour < 11 ? 2 : 1;
+      const maxGastro = duration === 'rapido' ? 1 : duration === 'medio-dia' ? 2 : startHour < 11 ? 3 : 2;
 
       const postrePool = hasGastro
         ? places.filter(p =>
@@ -621,12 +680,13 @@ function HomePageInner() {
       let gastroCount = 0;
       let lastWasGastro = false;
       const usedFoodTypes = new Set<string>();
+      const usedNames = new Set<string>();
 
-      // Tiempo de traslado según transporte
       const transitMins = transporte === 'a-pie' ? 10 : transporte === 'auto' ? 20 : 15;
 
       for (const place of mainPool) {
         if (selected.length >= maxPlaces) break;
+        if (usedNames.has(place.nombre)) continue;
         const isGastro = matchesInterest(place.categoria, 'gastronomia');
         const isNocturna = matchesInterest(place.categoria, 'vida-nocturna');
 
@@ -646,8 +706,23 @@ function HomePageInner() {
         const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? transitMins : 0);
         if (totalTime + timeNeeded <= targetMins) {
           selected.push(place);
+          usedNames.add(place.nombre);
           totalTime += timeNeeded;
           lastWasGastro = isGastro;
+        }
+      }
+
+      // Si quedó tiempo libre (más de 30 min), intentar agregar más lugares
+      if (totalTime < targetMins - 30 && selected.length < maxPlaces) {
+        for (const place of [...othersPool, ...gastroPool]) {
+          if (selected.length >= maxPlaces) break;
+          if (usedNames.has(place.nombre)) continue;
+          const timeNeeded = place.tiempoEstancia + transitMins;
+          if (totalTime + timeNeeded <= targetMins) {
+            selected.push(place);
+            usedNames.add(place.nombre);
+            totalTime += timeNeeded;
+          }
         }
       }
 
@@ -714,7 +789,7 @@ function HomePageInner() {
         title: `Itinerario ${dateLabel}`,
         budget: `$${budget.toLocaleString('es-MX')} MXN`,
         groupSize: `${groupSize} persona${groupSize > 1 ? 's' : ''}`,
-        duration: duration === 'rapido' ? '2–3 hrs' : duration === 'medio-dia' ? '4–6 hrs' : '8–10 hrs',
+        duration: duration === 'rapido' ? '2–3 hrs' : duration === 'medio-dia' ? '5–6 hrs' : '8–9 hrs',
       });
       setShowResults(true);
       setSavedOk(false);
@@ -762,376 +837,464 @@ function HomePageInner() {
   if (!showResults) {
     return (
       <div className="min-h-screen bg-[#F7F9F4]">
+        <style>{printStyles}</style>
         <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
+
+        {/* Loading overlay con logo animado */}
+        <AnimatePresence>
+          {isGenerating && (
+            <motion.div
+              className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0D1F14]/96 backdrop-blur-md"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, transition: { duration: 0.4 } }}
+            >
+              <motion.div
+                animate={{ y: [0, -22, 0], rotate: [0, 8, -8, 0] }}
+                transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
+                className="text-7xl mb-5 select-none"
+              >
+                ⚽
+              </motion.div>
+              <motion.div
+                animate={{ scale: [1, 1.04, 1] }}
+                transition={{ repeat: Infinity, duration: 1.4 }}
+              >
+                <span className="text-3xl font-black text-white tracking-tight">Pitzbol</span>
+              </motion.div>
+              <motion.p
+                className="text-white/60 text-sm mt-3 font-medium"
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ repeat: Infinity, duration: 1.8 }}
+              >
+                Creando tu itinerario perfecto...
+              </motion.p>
+              <div className="flex gap-1.5 mt-6">
+                {[0, 1, 2].map(i => (
+                  <motion.div
+                    key={i}
+                    className="w-2 h-2 rounded-full bg-[#81C784]"
+                    animate={{ scale: [1, 1.6, 1], opacity: [0.4, 1, 0.4] }}
+                    transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.2 }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Hero */}
         <div className="bg-gradient-to-br from-[#0D1F14] via-[#1A4D2E] to-[#2E6B40] text-white py-14 px-4 text-center relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: 'radial-gradient(circle at 20% 80%, #81C784 0%, transparent 50%), radial-gradient(circle at 80% 20%, #FFD700 0%, transparent 50%)' }} />
-          <div className="relative z-10 max-w-lg mx-auto">
-            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-semibold mb-5 backdrop-blur-sm">
+          <motion.div
+            className="absolute inset-0 opacity-10"
+            style={{ backgroundImage: 'radial-gradient(circle at 20% 80%, #81C784 0%, transparent 50%), radial-gradient(circle at 80% 20%, #FFD700 0%, transparent 50%)' }}
+            animate={{ opacity: [0.08, 0.15, 0.08] }}
+            transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
+          />
+          <motion.div
+            className="relative z-10 max-w-lg mx-auto"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          >
+            <motion.div
+              className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-semibold mb-5 backdrop-blur-sm"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
               <span>🏆</span>
               <span>Mundial 2026 · Guadalajara, México</span>
-            </div>
-            <h1 className="text-4xl md:text-5xl font-black leading-tight mb-3 tracking-tight">
+            </motion.div>
+            <motion.h1
+              className="text-4xl md:text-5xl font-black leading-tight mb-3 tracking-tight"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
               Tu día perfecto<br />
               <span className="text-[#81C784]">en Guadalajara</span>
-            </h1>
-            <p className="text-white/70 text-sm max-w-sm mx-auto leading-relaxed">
+            </motion.h1>
+            <motion.p
+              className="text-white/70 text-sm max-w-sm mx-auto leading-relaxed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.45 }}
+            >
               Cuéntanos cómo eres y generamos un itinerario personalizado — lugares locales, gastronomía auténtica y experiencias únicas.
-            </p>
-            {/* Language toggle */}
-            <div className="flex items-center justify-center gap-1 mt-6">
-              {(['es', 'en'] as const).map(l => (
-                <button key={l} onClick={() => setLang(l)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${lang === l ? 'bg-white text-[#1A4D2E]' : 'text-white/50 hover:text-white'}`}
-                >
-                  {l === 'es' ? 'Español' : 'English'}
-                </button>
-              ))}
-            </div>
-          </div>
+            </motion.p>
+          </motion.div>
         </div>
 
         {/* Form */}
-        <div className="max-w-lg mx-auto px-4 py-8 space-y-4">
-          <form onSubmit={(e) => { e.preventDefault(); generateItinerary(); }} className="space-y-4">
+        <div className="max-w-lg mx-auto px-4 py-8">
+          <form onSubmit={(e) => { e.preventDefault(); generateItinerary(); }}>
+            <motion.div
+              className="space-y-4"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              {/* Fecha y hora */}
+              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                  📅 ¿Cuándo visitas?
+                </p>
 
-            {/* Fecha y hora */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
-                {lang === 'es' ? '📅 ¿Cuándo visitas?' : '📅 When are you visiting?'}
-              </p>
+                <div className="relative mb-3" ref={calendarRef}>
+                  <button type="button"
+                    onClick={() => {
+                      if (!calendarOpen) {
+                        const parts = selectedDate.split('-').map(Number);
+                        if (parts[0]) setCalendarView({ year: parts[0], month: parts[1] - 1 });
+                      }
+                      setCalendarOpen(o => !o);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 border-2 border-gray-100 rounded-xl text-sm bg-[#F7F9F4] hover:border-[#1A4D2E] transition-all text-left group"
+                  >
+                    <FiCalendar className="text-[#1A4D2E] shrink-0" size={16} />
+                    <span className={`flex-1 ${selectedDate ? 'text-gray-800 font-medium capitalize' : 'text-gray-400'}`}>
+                      {selectedDate
+                        ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                        : 'Selecciona una fecha'}
+                    </span>
+                    {MATCH_DAYS[selectedDate] && <span className="text-lg">⚽</span>}
+                    <svg className="w-4 h-4 text-gray-400 group-hover:text-[#1A4D2E] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
 
-              {/* Calendario */}
-              <div className="relative mb-3" ref={calendarRef}>
-                <button type="button"
-                  onClick={() => {
-                    if (!calendarOpen) {
-                      const parts = selectedDate.split('-').map(Number);
-                      if (parts[0]) setCalendarView({ year: parts[0], month: parts[1] - 1 });
-                    }
-                    setCalendarOpen(o => !o);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 border-2 border-gray-100 rounded-xl text-sm bg-[#F7F9F4] hover:border-[#1A4D2E] transition-all text-left group"
-                >
-                  <FiCalendar className="text-[#1A4D2E] shrink-0" size={16} />
-                  <span className={`flex-1 ${selectedDate ? 'text-gray-800 font-medium capitalize' : 'text-gray-400'}`}>
-                    {selectedDate
-                      ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-                      : 'Selecciona una fecha'}
-                  </span>
-                  {MATCH_DAYS[selectedDate] && <span className="text-lg">⚽</span>}
-                  <svg className="w-4 h-4 text-gray-400 group-hover:text-[#1A4D2E] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                  <AnimatePresence>
+                    {calendarOpen && (
+                      <motion.div
+                        className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden w-full"
+                        initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        transition={{ duration: 0.18 }}
+                      >
+                        <div className="bg-[#1A4D2E] px-4 py-3 flex items-center justify-between">
+                          <button type="button"
+                            onClick={() => setCalendarView(v => { const d = new Date(v.year, v.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                            className="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-sm"
+                          >‹</button>
+                          <span className="text-white font-bold text-sm capitalize">
+                            {new Date(calendarView.year, calendarView.month).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                          </span>
+                          <button type="button"
+                            onClick={() => setCalendarView(v => { const d = new Date(v.year, v.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                            className="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-sm"
+                          >›</button>
+                        </div>
+                        <div className="grid grid-cols-7 bg-[#F0F7F0]">
+                          {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
+                            <div key={d} className="text-center text-xs font-bold text-[#1A4D2E] py-2">{d}</div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-7 p-2 gap-0.5">
+                          {(() => {
+                            const todayStr = getLocalDateStr();
+                            const total = getDaysInMonth(calendarView.year, calendarView.month);
+                            const first = getFirstDayOfWeek(calendarView.year, calendarView.month);
+                            const cells = [];
+                            for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} />);
+                            for (let d = 1; d <= total; d++) {
+                              const dateStr = `${calendarView.year}-${String(calendarView.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                              const past = dateStr < todayStr;
+                              const sel = dateStr === selectedDate;
+                              const today = dateStr === todayStr;
+                              const match = dateStr in MATCH_DAYS;
+                              cells.push(
+                                <button key={d} type="button" disabled={past}
+                                  onClick={() => { setSelectedDate(dateStr); setAttendsMatch(null); setCalendarOpen(false); }}
+                                  className={[
+                                    'relative flex flex-col items-center justify-end pb-1 rounded-xl text-xs font-medium h-11 transition-all',
+                                    past ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer',
+                                    sel ? 'bg-[#1A4D2E] text-white' : '',
+                                    !sel && today ? 'border-2 border-[#81C784] text-[#1A4D2E] font-bold' : '',
+                                    !sel && !today && !past ? 'hover:bg-[#E8F5E9] text-gray-700' : '',
+                                  ].join(' ')}
+                                >
+                                  {match && <span className="text-[9px] leading-none mb-0.5">⚽</span>}
+                                  <span>{d}</span>
+                                </button>
+                              );
+                            }
+                            return cells;
+                          })()}
+                        </div>
+                        <div className="px-4 pb-3 pt-1 flex items-center gap-4 text-xs text-gray-400 border-t border-gray-50">
+                          <span>⚽ Día de partido</span>
+                          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full border-2 border-[#81C784] inline-block" /> Hoy</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
-                {calendarOpen && (
-                  <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden w-full">
-                    <div className="bg-[#1A4D2E] px-4 py-3 flex items-center justify-between">
-                      <button type="button"
-                        onClick={() => setCalendarView(v => { const d = new Date(v.year, v.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
-                        className="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-sm"
-                      >‹</button>
-                      <span className="text-white font-bold text-sm capitalize">
-                        {new Date(calendarView.year, calendarView.month).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
-                      </span>
-                      <button type="button"
-                        onClick={() => setCalendarView(v => { const d = new Date(v.year, v.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
-                        className="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-sm"
-                      >›</button>
-                    </div>
-                    <div className="grid grid-cols-7 bg-[#F0F7F0]">
-                      {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
-                        <div key={d} className="text-center text-[10px] font-bold text-[#1A4D2E] py-2">{d}</div>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-7 p-2 gap-0.5">
-                      {(() => {
-                        const todayStr = getLocalDateStr();
-                        const total = getDaysInMonth(calendarView.year, calendarView.month);
-                        const first = getFirstDayOfWeek(calendarView.year, calendarView.month);
-                        const cells = [];
-                        for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} />);
-                        for (let d = 1; d <= total; d++) {
-                          const dateStr = `${calendarView.year}-${String(calendarView.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                          const past = dateStr < todayStr;
-                          const sel = dateStr === selectedDate;
-                          const today = dateStr === todayStr;
-                          const match = dateStr in MATCH_DAYS;
-                          cells.push(
-                            <button key={d} type="button" disabled={past}
-                              onClick={() => { setSelectedDate(dateStr); setAttendsMatch(null); setCalendarOpen(false); }}
-                              className={[
-                                'relative flex flex-col items-center justify-end pb-1 rounded-xl text-xs font-medium h-11 transition-all',
-                                past ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer',
-                                sel ? 'bg-[#1A4D2E] text-white' : '',
-                                !sel && today ? 'border-2 border-[#81C784] text-[#1A4D2E] font-bold' : '',
-                                !sel && !today && !past ? 'hover:bg-[#E8F5E9] text-gray-700' : '',
-                              ].join(' ')}
-                            >
-                              {match && <span className="text-[9px] leading-none mb-0.5">⚽</span>}
-                              <span>{d}</span>
-                            </button>
-                          );
-                        }
-                        return cells;
-                      })()}
-                    </div>
-                    <div className="px-4 pb-3 pt-1 flex items-center gap-4 text-[10px] text-gray-400 border-t border-gray-50">
-                      <span>⚽ Día de partido</span>
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full border-2 border-[#81C784] inline-block" /> Hoy</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5 font-medium">Hora de inicio</label>
+                    <div className="relative">
+                      <FiClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                      <select value={startTime} onChange={e => setStartTime(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E] appearance-none">
+                        {['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'].map(t => (
+                          <option key={t} value={t}>{formatTime12(t)}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                )}
-              </div>
-
-              {/* Hora inicio */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5 font-medium">
-                    {lang === 'es' ? 'Hora de inicio' : 'Start time'}
-                  </label>
-                  <div className="relative">
-                    <FiClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                    <select value={startTime} onChange={e => setStartTime(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E] appearance-none">
-                      {['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'].map(t => (
-                        <option key={t} value={t}>{formatTime12(t)}</option>
-                      ))}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5 font-medium">Duración</label>
+                    <select value={duration} onChange={e => setDuration(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E]">
+                      <option value="rapido">Rápido (2–3 h)</option>
+                      <option value="medio-dia">Medio día (5–6 h)</option>
+                      <option value="dia-completo">Día completo (8–9 h)</option>
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5 font-medium">
-                    {lang === 'es' ? 'Duración' : 'Duration'}
-                  </label>
-                  <select value={duration} onChange={e => setDuration(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E]">
-                    <option value="rapido">Rápido (2–3 h)</option>
-                    <option value="medio-dia">Medio día (4–6 h)</option>
-                    <option value="dia-completo">Día completo (8–10 h)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+              </motion.div>
 
-            {/* Grupo y presupuesto */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
-                👥 {lang === 'es' ? 'Tu grupo' : 'Your group'}
-              </p>
-
-              {/* Grupo */}
-              <div className="mb-4">
-                <div className="flex justify-between items-baseline mb-2">
-                  <label className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
-                    <FiUsers size={13} /> {lang === 'es' ? 'Personas' : 'People'}
-                  </label>
-                  <span className="text-sm font-bold text-[#1A4D2E]">{groupSize}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => setGroupSize(g => Math.max(1, g - 1))}
-                    className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">
-                    −
-                  </button>
-                  <input type="range" min="1" max="15" value={groupSize}
-                    onChange={e => setGroupSize(Number(e.target.value))}
-                    className="flex-1 h-1.5 bg-gray-100 rounded-full appearance-none cursor-pointer accent-[#0D601E]" />
-                  <button type="button" onClick={() => setGroupSize(g => Math.min(15, g + 1))}
-                    className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Presupuesto */}
-              <div>
-                <div className="flex justify-between items-baseline mb-2">
-                  <label className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
-                    <FiDollarSign size={13} /> {lang === 'es' ? 'Presupuesto por persona' : 'Budget per person'}
-                  </label>
-                  <span className="text-sm font-bold text-[#1A4D2E]">
-                    ${budget.toLocaleString('es-MX')} MXN
-                    <span className="text-[10px] text-gray-400 font-normal ml-1">
-                      (~${Math.round(budget / MXN_TO_USD).toLocaleString('en-US')} USD)
-                    </span>
-                  </span>
-                </div>
-                <input type="range" min="200" max="15000" step="100" value={budget}
-                  onChange={e => setBudget(Number(e.target.value))}
-                  className="w-full h-1.5 bg-gray-100 rounded-full appearance-none cursor-pointer accent-[#0D601E]" />
-                <div className="flex justify-between text-[10px] text-gray-300 mt-1">
-                  <span>$200</span><span>$15,000</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Ritmo y transporte */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
-                🚀 {lang === 'es' ? 'Estilo de viaje' : 'Travel style'}
-              </p>
-
-              {/* Ritmo */}
-              <div className="mb-4">
-                <label className="block text-xs text-gray-500 font-medium mb-2">
-                  {lang === 'es' ? 'Ritmo del día' : 'Pace'}
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'tranquilo', label: lang === 'es' ? 'Tranquilo' : 'Relaxed', emoji: '🌿', desc: lang === 'es' ? 'Más tiempo en cada lugar' : 'More time per place' },
-                    { id: 'normal', label: 'Normal', emoji: '⚡', desc: lang === 'es' ? 'Balance perfecto' : 'Perfect balance' },
-                    { id: 'activo', label: lang === 'es' ? 'Activo' : 'Active', emoji: '🔥', desc: lang === 'es' ? 'Más lugares, más rápido' : 'More stops, faster' },
-                  ].map(opt => (
-                    <button key={opt.id} type="button" onClick={() => setRitmo(opt.id as any)}
-                      className={`p-3 rounded-xl border-2 text-center transition-all ${
-                        ritmo === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
-                      }`}
-                    >
-                      <div className="text-lg mb-1">{opt.emoji}</div>
-                      <div className={`text-xs font-bold ${ritmo === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
-                      <div className="text-[9px] text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Transporte */}
-              <div>
-                <label className="block text-xs text-gray-500 font-medium mb-2">
-                  {lang === 'es' ? 'Cómo te vas a mover' : 'How will you move around'}
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'a-pie', label: lang === 'es' ? 'A pie' : 'Walking', emoji: '🚶', desc: lang === 'es' ? 'Solo el centro histórico' : 'Historic center only' },
-                    { id: 'taxi', label: 'Uber / Taxi', emoji: '🚗', desc: lang === 'es' ? 'Toda la ciudad' : 'Whole city' },
-                    { id: 'auto', label: lang === 'es' ? 'Auto propio' : 'Own car', emoji: '🚙', desc: lang === 'es' ? 'Libertad total' : 'Total freedom' },
-                  ].map(opt => (
-                    <button key={opt.id} type="button" onClick={() => setTransporte(opt.id as any)}
-                      className={`p-3 rounded-xl border-2 text-center transition-all ${
-                        transporte === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
-                      }`}
-                    >
-                      <div className="text-lg mb-1">{opt.emoji}</div>
-                      <div className={`text-xs font-bold ${transporte === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
-                      <div className="text-[9px] text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Intereses */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider">
-                  ✨ {lang === 'es' ? '¿Qué te apasiona?' : 'What are you into?'}
+              {/* Grupo y presupuesto */}
+              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                  👥 Tu grupo
                 </p>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${selectedInterests.length >= 2 ? 'bg-[#E8F5E9] text-[#1A4D2E]' : 'bg-amber-50 text-amber-600'}`}>
-                  {selectedInterests.length}/2 min
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {INTEREST_OPTIONS.map(opt => {
-                  const active = selectedInterests.includes(opt.id);
-                  return (
-                    <button key={opt.id} type="button" onClick={() => toggleInterest(opt.id)}
-                      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all ${
-                        active ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200 bg-[#F7F9F4]'
-                      }`}
-                    >
-                      <span className="text-xl">{opt.emoji}</span>
-                      <span className={`text-[10px] font-semibold text-center leading-tight ${active ? 'text-[#1A4D2E]' : 'text-gray-500'}`}>
-                        {opt.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Tipo de comida (solo si gastronomía seleccionada) */}
-            {selectedInterests.includes('gastronomia') && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <p className="text-xs font-bold text-[#1A4D2E] uppercase tracking-wider mb-4">
-                  🍽️ {lang === 'es' ? '¿Qué tipo de comida?' : 'Food preference'}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {FOOD_PREFS.map(pref => (
-                    <button key={pref.id} type="button"
-                      onClick={() => setFoodPreference(foodPreference === pref.id ? '' : pref.id)}
-                      className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                        foodPreference === pref.id
-                          ? 'border-[#1A4D2E] bg-[#E8F5E9]'
-                          : 'border-gray-100 hover:border-gray-200'
-                      }`}
-                    >
-                      <span className="text-xl shrink-0">{pref.emoji}</span>
-                      <div>
-                        <div className={`text-xs font-bold ${foodPreference === pref.id ? 'text-[#1A4D2E]' : 'text-gray-700'}`}>{pref.name}</div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">{pref.desc}</div>
-                      </div>
+                <div className="mb-4">
+                  <div className="flex justify-between items-baseline mb-2">
+                    <label className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                      <FiUsers size={13} /> Personas
+                    </label>
+                    <span className="text-sm font-bold text-[#1A4D2E]">{groupSize}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setGroupSize(g => Math.max(1, g - 1))}
+                      className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">
+                      −
                     </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Partido */}
-            {matchInfo && (
-              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-2xl">⚽</span>
-                  <div>
-                    <p className="text-sm font-bold text-amber-900">¡Hay partido este día!</p>
-                    <p className="text-xs text-amber-700 font-semibold">{matchInfo.equipos}</p>
-                    <p className="text-[10px] text-amber-600">{matchInfo.partido} · Estadio Akron</p>
+                    <input type="range" min="1" max="15" value={groupSize}
+                      onChange={e => setGroupSize(Number(e.target.value))}
+                      className="flex-1 h-1.5 bg-gray-100 rounded-full appearance-none cursor-pointer accent-[#0D601E]" />
+                    <button type="button" onClick={() => setGroupSize(g => Math.min(15, g + 1))}
+                      className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 font-bold hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">
+                      +
+                    </button>
                   </div>
                 </div>
-                <p className="text-xs font-semibold text-amber-800 mb-2">¿Asistirás al partido?</p>
-                <div className="flex gap-2">
-                  {[
-                    { val: true, label: 'Sí, tengo boleto', emoji: '🎟️' },
-                    { val: false, label: 'No, solo explorar', emoji: '🗺️' },
-                  ].map(opt => (
-                    <button key={String(opt.val)} type="button" onClick={() => setAttendsMatch(opt.val)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
-                        attendsMatch === opt.val
-                          ? 'bg-[#1A4D2E] text-white border-[#1A4D2E]'
-                          : 'bg-white text-amber-800 border-amber-200 hover:border-amber-400'
-                      }`}
-                    >
-                      <span>{opt.emoji}</span> {opt.label}
-                    </button>
-                  ))}
+
+                <div>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <label className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                      <FiDollarSign size={13} /> Presupuesto por persona
+                    </label>
+                    <span className="text-sm font-bold text-[#1A4D2E]">
+                      ${budget.toLocaleString('es-MX')} MXN
+                      <span className="text-xs text-gray-400 font-normal ml-1">
+                        (~${Math.round(budget / MXN_TO_USD).toLocaleString('en-US')} USD)
+                      </span>
+                    </span>
+                  </div>
+                  <input type="range" min="200" max="15000" step="100" value={budget}
+                    onChange={e => setBudget(Number(e.target.value))}
+                    className="w-full h-1.5 bg-gray-100 rounded-full appearance-none cursor-pointer accent-[#0D601E]" />
+                  <div className="flex justify-between text-xs text-gray-300 mt-1">
+                    <span>$200</span><span>$15,000</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              </motion.div>
 
-            {/* Botón generar */}
-            <button type="submit"
-              disabled={isGenerating || selectedInterests.length < 2}
-              className="w-full bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#1A4D2E]/20 active:scale-[0.99] transition-all"
-            >
-              {isGenerating ? (
+              {/* Estilo de viaje */}
+              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                  🚀 Estilo de viaje
+                </p>
+
+                <div className="mb-4">
+                  <label className="block text-xs text-gray-500 font-medium mb-2">Ritmo del día</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'tranquilo', label: 'Tranquilo', emoji: '🌿', desc: 'Más tiempo en cada lugar' },
+                      { id: 'normal', label: 'Normal', emoji: '⚡', desc: 'Balance perfecto' },
+                      { id: 'activo', label: 'Activo', emoji: '🔥', desc: 'Más lugares, más rápido' },
+                    ].map(opt => (
+                      <motion.button
+                        key={opt.id} type="button" onClick={() => setRitmo(opt.id as any)}
+                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          ritmo === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
+                        }`}
+                      >
+                        <div className="text-xl mb-1">{opt.emoji}</div>
+                        <div className={`text-xs font-bold ${ritmo === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
+                        <div className="text-xs text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 font-medium mb-2">Cómo te vas a mover</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'a-pie', label: 'A pie', emoji: '🚶', desc: 'Solo el centro histórico' },
+                      { id: 'taxi', label: 'Uber / Taxi', emoji: '🚗', desc: 'Toda la ciudad' },
+                      { id: 'auto', label: 'Auto propio', emoji: '🚙', desc: 'Libertad total' },
+                    ].map(opt => (
+                      <motion.button
+                        key={opt.id} type="button" onClick={() => setTransporte(opt.id as any)}
+                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          transporte === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
+                        }`}
+                      >
+                        <div className="text-xl mb-1">{opt.emoji}</div>
+                        <div className={`text-xs font-bold ${transporte === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
+                        <div className="text-xs text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Intereses */}
+              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm font-bold text-[#1A4D2E] tracking-wide">
+                    ✨ ¿Qué te apasiona?
+                  </p>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${selectedInterests.length >= 2 ? 'bg-[#E8F5E9] text-[#1A4D2E]' : 'bg-amber-50 text-amber-600'}`}>
+                    {selectedInterests.length}/2 mín.
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {INTEREST_OPTIONS.map(opt => {
+                    const active = selectedInterests.includes(opt.id);
+                    return (
+                      <motion.button
+                        key={opt.id} type="button" onClick={() => toggleInterest(opt.id)}
+                        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+                        className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all ${
+                          active ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200 bg-[#F7F9F4]'
+                        }`}
+                      >
+                        <span className="text-2xl">{opt.emoji}</span>
+                        <span className={`text-xs font-semibold text-center leading-tight ${active ? 'text-[#1A4D2E]' : 'text-gray-500'}`}>
+                          {opt.name}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+
+              {/* Tipo de comida */}
+              <AnimatePresence>
+                {selectedInterests.includes('gastronomia') && (
+                  <motion.div
+                    key="food-prefs"
+                    variants={cardVariants}
+                    initial="hidden" animate="visible" exit={{ opacity: 0, height: 0 }}
+                    className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden"
+                  >
+                    <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                      🍽️ ¿Qué tipo de comida?
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {FOOD_PREFS.map(pref => (
+                        <motion.button
+                          key={pref.id} type="button"
+                          onClick={() => setFoodPreference(foodPreference === pref.id ? '' : pref.id)}
+                          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                          className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                            foodPreference === pref.id
+                              ? 'border-[#1A4D2E] bg-[#E8F5E9]'
+                              : 'border-gray-100 hover:border-gray-200'
+                          }`}
+                        >
+                          <span className="text-2xl shrink-0">{pref.emoji}</span>
+                          <div>
+                            <div className={`text-xs font-bold ${foodPreference === pref.id ? 'text-[#1A4D2E]' : 'text-gray-700'}`}>{pref.name}</div>
+                            <div className="text-xs text-gray-400 mt-0.5">{pref.desc}</div>
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Partido */}
+              <AnimatePresence>
+                {matchInfo && (
+                  <motion.div
+                    key="match-card"
+                    initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 16, scale: 0.97 }}
+                    className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-5"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <motion.span
+                        className="text-2xl"
+                        animate={{ rotate: [0, 15, -15, 0] }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                      >⚽</motion.span>
+                      <div>
+                        <p className="text-sm font-bold text-amber-900">¡Hay partido este día!</p>
+                        <p className="text-xs text-amber-700 font-semibold">{matchInfo.equipos}</p>
+                        <p className="text-xs text-amber-600">{matchInfo.partido} · Estadio Akron</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-semibold text-amber-800 mb-2">¿Asistirás al partido?</p>
+                    <div className="flex gap-2">
+                      {[
+                        { val: true, label: 'Sí, tengo boleto', emoji: '🎟️' },
+                        { val: false, label: 'No, solo explorar', emoji: '🗺️' },
+                      ].map(opt => (
+                        <motion.button
+                          key={String(opt.val)} type="button" onClick={() => setAttendsMatch(opt.val)}
+                          whileTap={{ scale: 0.97 }}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
+                            attendsMatch === opt.val
+                              ? 'bg-[#1A4D2E] text-white border-[#1A4D2E]'
+                              : 'bg-white text-amber-800 border-amber-200 hover:border-amber-400'
+                          }`}
+                        >
+                          <span>{opt.emoji}</span> {opt.label}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Botón generar */}
+              <motion.button
+                type="submit"
+                variants={cardVariants}
+                disabled={isGenerating || selectedInterests.length < 2}
+                whileHover={selectedInterests.length >= 2 ? { scale: 1.02, boxShadow: '0 8px 32px rgba(13,96,30,0.3)' } : {}}
+                whileTap={selectedInterests.length >= 2 ? { scale: 0.98 } : {}}
+                className="w-full bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
                 <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  Generando tu itinerario...
+                  <FiZap size={17} /> Generar mi itinerario
                 </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <FiZap size={16} /> Generar mi itinerario
-                </span>
+              </motion.button>
+
+              {selectedInterests.length < 2 && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center text-xs text-amber-600 -mt-2"
+                >
+                  Selecciona al menos 2 intereses para continuar
+                </motion.p>
               )}
-            </button>
-
-            {selectedInterests.length < 2 && (
-              <p className="text-center text-xs text-amber-600 -mt-2">
-                Selecciona al menos 2 intereses para continuar
-              </p>
-            )}
+            </motion.div>
           </form>
         </div>
       </div>
@@ -1141,18 +1304,26 @@ function HomePageInner() {
   // ===== RESULTS =====
   return (
     <div className="min-h-screen bg-[#F7F9F4]">
+      <style>{printStyles}</style>
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
 
       {/* Header resultado */}
-      <div className="bg-gradient-to-r from-[#0D1F14] to-[#1A4D2E] text-white px-4 py-6 print:hidden">
+      <motion.div
+        className="bg-gradient-to-r from-[#0D1F14] to-[#1A4D2E] text-white px-4 py-6 print:hidden"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
-          <button onClick={() => setShowResults(false)}
-            className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0">
-            <FiRefreshCw size={14} /> {lang === 'es' ? 'Modificar' : 'Edit'}
-          </button>
+          <motion.button
+            onClick={() => setShowResults(false)}
+            className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0"
+            whileHover={{ x: -3 }}
+          >
+            <FiRefreshCw size={14} /> Modificar
+          </motion.button>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Guardar */}
-            <button
+            <motion.button
               onClick={() => {
                 if (savedOk && savedItineraryId) unsaveItinerary();
                 else if (!userId) { setAuthTrigger('save'); setShowAuthModal(true); }
@@ -1161,6 +1332,7 @@ function HomePageInner() {
               disabled={isSaving}
               title={savedOk ? 'Quitar guardado' : 'Guardar itinerario'}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all disabled:opacity-50"
+              whileTap={{ scale: 0.95 }}
             >
               {isSaving
                 ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -1168,60 +1340,92 @@ function HomePageInner() {
                   ? <><FaBookmark size={13} /> Guardado</>
                   : <><FaRegBookmark size={13} /> Guardar</>
               }
-            </button>
-            {/* Calendario */}
+            </motion.button>
             {calendarUrl && (
               <a href={calendarUrl}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all">
-                📅 {lang === 'es' ? 'Calendario' : 'Calendar'}
+                📅 Calendario
               </a>
             )}
-            {/* Imprimir */}
-            <button onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all">
-              <FiPrinter size={13} /> {lang === 'es' ? 'Imprimir' : 'Print'}
-            </button>
+            <motion.button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <FiPrinter size={13} /> Imprimir
+            </motion.button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
+        {/* Print header — visible solo al imprimir */}
+        <div className="hidden print:block print-header mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <span style={{ fontSize: 28 }}>⚽</span>
+            <span className="print-logo">Pitzbol</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>· Mundial 2026 Guadalajara</span>
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>{meta.title}</div>
+        </div>
+
         {/* Meta del itinerario */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+        <motion.div
+          className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
           <h2 className="text-lg font-bold text-[#1A4D2E] mb-3 capitalize">{meta.title}</h2>
           <div className="flex flex-wrap gap-2">
             {[
               { icon: '💰', text: meta.budget },
               { icon: '👥', text: meta.groupSize },
               { icon: '⏱️', text: meta.duration },
-              { icon: '📍', text: `${stops.length} ${lang === 'es' ? 'lugares' : 'places'}` },
+              { icon: '📍', text: `${stops.length} lugares` },
               { icon: ritmo === 'tranquilo' ? '🌿' : ritmo === 'activo' ? '🔥' : '⚡', text: ritmo === 'tranquilo' ? 'Tranquilo' : ritmo === 'activo' ? 'Activo' : 'Normal' },
               { icon: transporte === 'a-pie' ? '🚶' : transporte === 'auto' ? '🚙' : '🚗', text: transporte === 'a-pie' ? 'A pie' : transporte === 'auto' ? 'Auto propio' : 'Uber / Taxi' },
             ].map((tag, i) => (
-              <span key={i} className="inline-flex items-center gap-1 bg-[#F0F7F0] text-[#1A4D2E] text-xs font-medium px-3 py-1.5 rounded-full">
+              <motion.span
+                key={i}
+                className="inline-flex items-center gap-1 bg-[#F0F7F0] text-[#1A4D2E] text-xs font-medium px-3 py-1.5 rounded-full"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05 }}
+              >
                 {tag.icon} {tag.text}
-              </span>
+              </motion.span>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Timeline */}
         <div className="space-y-3">
           {stops.map((stop, i) => (
-            <div key={i} className="flex gap-3">
+            <motion.div
+              key={i}
+              custom={i}
+              variants={stopVariants}
+              initial="hidden"
+              animate="visible"
+              className="flex gap-3"
+            >
               {/* Indicador */}
               <div className="flex flex-col items-center shrink-0">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0 ${stop.place.isMatch ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}>
+                <motion.div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0 print-stop-num ${stop.place.isMatch ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}
+                  whileHover={{ scale: 1.15 }}
+                >
                   {i + 1}
-                </div>
+                </motion.div>
                 {i < stops.length - 1 && (
                   <div className="w-px flex-1 my-1 bg-gray-100 min-h-[24px]" />
                 )}
               </div>
 
               {/* Card */}
-              <div className={`flex-1 rounded-2xl border overflow-hidden mb-1 ${stop.place.isMatch ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-white'} shadow-sm`}>
-                {/* Foto y acciones */}
+              <div className={`flex-1 rounded-2xl border overflow-hidden mb-1 print-card ${stop.place.isMatch ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-white'} shadow-sm`}>
                 <div className="flex">
                   {stop.place.fotos[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1231,71 +1435,65 @@ function HomePageInner() {
                       referrerPolicy="no-referrer" />
                   )}
                   <div className="flex-1 p-4 min-w-0">
-                    {/* Hora */}
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`text-xs font-black ${stop.place.isMatch ? 'text-amber-700' : 'text-[#0D601E]'}`}>
+                      <span className={`text-sm font-black ${stop.place.isMatch ? 'text-amber-700' : 'text-[#0D601E]'}`}>
                         {formatTime12(stop.horaLlegada)}
                       </span>
-                      <span className="text-[10px] text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
-                      <span className="ml-auto text-[10px] text-gray-400 flex items-center gap-0.5">
+                      <span className="text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
+                      <span className="ml-auto text-xs text-gray-400 flex items-center gap-0.5">
                         <FiClock size={10} /> {stop.place.tiempoEstancia} min
                       </span>
                     </div>
 
-                    {/* Nombre */}
                     <h3 className={`font-bold text-sm leading-snug ${stop.place.isMatch ? 'text-amber-900' : 'text-[#1A4D2E]'}`}>
                       {stop.place.nombre}
                     </h3>
 
-                    {/* Tags de interés */}
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {INTEREST_OPTIONS.filter(opt =>
                         selectedInterests.includes(opt.id) && matchesInterest(stop.place.categoria, opt.id)
                       ).map(opt => (
-                        <span key={opt.id} className="text-[10px] font-semibold bg-[#E8F5E9] text-[#1A4D2E] px-1.5 py-0.5 rounded-md">
+                        <span key={opt.id} className="text-xs font-semibold bg-[#E8F5E9] text-[#1A4D2E] px-1.5 py-0.5 rounded-md">
                           {opt.emoji} {opt.name}
                         </span>
                       ))}
                       {norm(stop.place.categoria).includes('postre') && (
-                        <span className="text-[10px] font-semibold bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded-md">🍦 Postre</span>
+                        <span className="text-xs font-semibold bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded-md">🍦 Postre</span>
                       )}
                     </div>
 
-                    {/* Dirección */}
-                    <p className="text-[11px] text-gray-400 mt-1.5 flex items-start gap-1">
+                    <p className="text-xs text-gray-400 mt-1.5 flex items-start gap-1">
                       <FiMapPin size={10} className="shrink-0 mt-0.5" />
                       {stop.place.direccion}
                     </p>
 
-                    {/* Costo y rating */}
                     <div className="flex items-center gap-3 mt-1.5">
-                      <span className="text-[11px] text-gray-500 flex items-center gap-0.5">
+                      <span className="text-xs text-gray-500 flex items-center gap-0.5">
                         <FiDollarSign size={10} /> {stop.place.costo}
                       </span>
                       {stop.place.calificacion && (
-                        <span className="text-[11px] text-gray-500">⭐ {stop.place.calificacion}</span>
+                        <span className="text-xs text-gray-500">⭐ {stop.place.calificacion}</span>
                       )}
                     </div>
 
-                    {/* Nota */}
                     {stop.place.nota && (
-                      <p className="text-[11px] text-gray-400 mt-1.5 italic leading-snug border-t border-gray-50 pt-1.5">
+                      <p className="text-xs text-gray-400 mt-1.5 italic leading-snug border-t border-gray-50 pt-1.5">
                         {stop.place.nota}
                       </p>
                     )}
 
-                    {/* Acciones */}
                     <div className="flex items-center gap-2 mt-3 print:hidden">
                       {!stop.place.isMatch && (
-                        <button
+                        <motion.button
                           onClick={() => {
                             const base = window.location.origin.replace(/:\d+$/, ':3000');
                             window.open(`${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`, '_blank', 'noopener,noreferrer');
                           }}
-                          className="text-[11px] font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E8F5E9] transition-colors"
+                          className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E8F5E9] transition-colors"
+                          whileHover={{ scale: 1.03 }}
                         >
                           Ver más →
-                        </button>
+                        </motion.button>
                       )}
                       <div className="ml-auto flex gap-1">
                         <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
@@ -1313,35 +1511,45 @@ function HomePageInner() {
                   </div>
                 </div>
 
-                {/* Traslado */}
                 {stop.traslado && (
                   <div className={`px-4 py-2 border-t flex items-center gap-1.5 ${stop.traslado.includes('estadio') ? 'bg-amber-50/50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
                     <span className="text-sm">
                       {transporte === 'a-pie' ? '🚶' : '🚗'}
                     </span>
-                    <span className={`text-[11px] font-medium ${stop.traslado.includes('estadio') ? 'text-amber-700' : 'text-gray-500'}`}>
+                    <span className={`text-xs font-medium ${stop.traslado.includes('estadio') ? 'text-amber-700' : 'text-gray-500'}`}>
                       {stop.traslado}
                     </span>
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
 
         {/* Footer acciones */}
-        <div className="mt-6 flex gap-3 print:hidden">
+        <motion.div
+          className="mt-6 flex gap-3 print:hidden"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
           {calendarUrl && (
-            <a href={calendarUrl}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#E8F5E9] text-[#1A4D2E] text-sm font-bold hover:bg-[#C8E6C9] transition-all">
+            <motion.a href={calendarUrl}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#E8F5E9] text-[#1A4D2E] text-sm font-bold hover:bg-[#C8E6C9] transition-all"
+              whileHover={{ scale: 1.02 }}
+            >
               📅 Ver en calendario
-            </a>
+            </motion.a>
           )}
-          <button onClick={() => window.print()}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white text-sm font-bold hover:shadow-lg transition-all">
+          <motion.button
+            onClick={() => window.print()}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white text-sm font-bold hover:shadow-lg transition-all"
+            whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(13,96,30,0.3)' }}
+            whileTap={{ scale: 0.98 }}
+          >
             <FiPrinter size={15} /> Imprimir itinerario
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </div>
     </div>
   );
