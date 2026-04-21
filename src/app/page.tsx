@@ -693,8 +693,10 @@ function HomePageInner() {
         const estimatedArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
         const arrivalHour = parseInt(estimatedArrival.split(':')[0]);
 
+        // Gastronomía nunca después de las 7pm si hay vida nocturna seleccionada
         if (isGastro && hasNocturna && arrivalHour >= 19) continue;
-        if (isNocturna && hasNocturna && !attendsMatch && arrivalHour < 19) continue;
+        // Vida nocturna SIEMPRE después de las 7pm cuando el usuario la seleccionó
+        if (isNocturna && hasNocturna && arrivalHour < 19) continue;
         if (isGastro && lastWasGastro) continue;
         if (isGastro) {
           if (gastroCount >= maxGastro) continue;
@@ -860,7 +862,7 @@ function HomePageInner() {
                 animate={{ scale: [1, 1.04, 1] }}
                 transition={{ repeat: Infinity, duration: 1.4 }}
               >
-                <span className="text-3xl font-black text-white tracking-tight">Pitzbol</span>
+                <span className="text-3xl font-black text-white">Pitzbol</span>
               </motion.div>
               <motion.p
                 className="text-white/60 text-sm mt-3 font-medium"
@@ -907,7 +909,7 @@ function HomePageInner() {
               <span>Mundial 2026 · Guadalajara, México</span>
             </motion.div>
             <motion.h1
-              className="text-4xl md:text-5xl font-black leading-tight mb-3 tracking-tight"
+              className="text-4xl md:text-5xl font-black leading-tight mb-3"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -937,7 +939,7 @@ function HomePageInner() {
             >
               {/* Fecha y hora */}
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                <p className="text-sm font-bold text-[#1A4D2E] mb-4">
                   📅 ¿Cuándo visitas?
                 </p>
 
@@ -1059,7 +1061,7 @@ function HomePageInner() {
 
               {/* Grupo y presupuesto */}
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                <p className="text-sm font-bold text-[#1A4D2E] mb-4">
                   👥 Tu grupo
                 </p>
 
@@ -1108,7 +1110,7 @@ function HomePageInner() {
 
               {/* Estilo de viaje */}
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                <p className="text-sm font-bold text-[#1A4D2E] mb-4">
                   🚀 Estilo de viaje
                 </p>
 
@@ -1162,7 +1164,7 @@ function HomePageInner() {
               {/* Intereses */}
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm font-bold text-[#1A4D2E] tracking-wide">
+                  <p className="text-sm font-bold text-[#1A4D2E]">
                     ✨ ¿Qué te apasiona?
                   </p>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${selectedInterests.length >= 2 ? 'bg-[#E8F5E9] text-[#1A4D2E]' : 'bg-amber-50 text-amber-600'}`}>
@@ -1199,7 +1201,7 @@ function HomePageInner() {
                     initial="hidden" animate="visible" exit={{ opacity: 0, height: 0 }}
                     className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden"
                   >
-                    <p className="text-sm font-bold text-[#1A4D2E] tracking-wide mb-4">
+                    <p className="text-sm font-bold text-[#1A4D2E] mb-4">
                       🍽️ ¿Qué tipo de comida?
                     </p>
                     <div className="grid grid-cols-2 gap-2">
