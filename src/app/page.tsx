@@ -30,7 +30,6 @@ interface Place {
   tiempoEstancia: number;
   costo: string;
   calificacion: string;
-  nota: string;
   fotos: string[];
   lat?: number;
   lng?: number;
@@ -69,7 +68,6 @@ const ESTADIO_AKRON: Place = {
   tiempoEstancia: 180,
   costo: '$400 – $2,500',
   calificacion: '5',
-  nota: '⚽ Llega al menos 90 min antes del partido. Ten en cuenta el tráfico intenso en la zona.',
   fotos: [],
   isMatch: true,
 };
@@ -201,7 +199,7 @@ function getMealContext(time: string): MealContext {
 }
 
 function mealScore(place: Place, meal: MealContext): number {
-  const text = norm(`${place.nombre} ${place.nota} ${place.categoria}`);
+  const text = norm(`${place.nombre} ${place.categoria}`);
   const keywords: Record<MealContext, string[]> = {
     desayuno: ['desayuno', 'cafe', 'cafeteria', 'brunch', 'pan', 'jugo', 'breakfast', 'torta'],
     comida: ['comida', 'birria', 'torta ahogada', 'pozole', 'taco', 'tacos', 'fonda', 'ahogada', 'mexicana', 'lonche'],
@@ -219,7 +217,7 @@ function mealScore(place: Place, meal: MealContext): number {
 }
 
 function getFoodType(place: Place): string {
-  const text = norm(`${place.nombre} ${place.nota}`);
+  const text = norm(`${place.nombre}`);
   if (text.includes('taco')) return 'tacos';
   if (text.includes('birria')) return 'birria';
   if (text.includes('torta')) return 'tortas';
@@ -591,7 +589,6 @@ function HomePageInner() {
         tiempoEstancia: parseInt(p['Tiempo de Estancia']) || 60,
         costo: p['Costo Estimado'] || 'No disponible',
         calificacion: p['Calificacion'] || '',
-        nota: p['Nota para IA'] || '',
         fotos: Array.isArray(p['fotos']) ? p['fotos'] : [],
         lat: parseCoord(p['Latitud']) ?? undefined,
         lng: parseCoord(p['Longitud']) ?? undefined,
@@ -1506,12 +1503,6 @@ function HomePageInner() {
                         <span className="text-xs text-gray-500">⭐ {stop.place.calificacion}</span>
                       )}
                     </div>
-
-                    {stop.place.nota && (
-                      <p className="text-xs text-gray-400 mt-1.5 italic leading-snug border-t border-gray-50 pt-1.5">
-                        {stop.place.nota}
-                      </p>
-                    )}
 
                     <div className="flex items-center gap-2 mt-3 print:hidden">
                       {!stop.place.isMatch && (
