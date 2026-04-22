@@ -685,7 +685,8 @@ function HomePageInner() {
       const afterMatchPool = attendsMatch && hasNocturna ? nocturnaPool : [];
 
       const buildInterleavedPool = (): Place[] => {
-        const others = (attendsMatch && hasNocturna) ? othersPool : [...othersPool, ...nocturnaPool];
+        // Nocturna siempre se maneja por separado cuando el usuario la seleccionó
+        const others = hasNocturna ? othersPool : [...othersPool, ...nocturnaPool];
         if (gastroPool.length === 0) return others;
         const gap = others.length > 0 && maxGastro > 0 ? Math.max(2, Math.floor(others.length / maxGastro)) : 2;
         const result: Place[] = [];
@@ -751,6 +752,20 @@ function HomePageInner() {
             usedNames.add(place.nombre);
             totalTime += timeNeeded;
           }
+        }
+      }
+
+      // Agregar lugares de vida nocturna al final, solo si llega después de las 7pm
+      if (hasNocturna && !attendsMatch) {
+        for (const place of nocturnaPool) {
+          if (selected.length >= maxPlaces) break;
+          if (usedNames.has(place.nombre)) continue;
+          const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
+          if (parseInt(estArrival.split(':')[0]) < 19) continue;
+          if (!isPlaceOpen(place, estArrival, getDayOfWeek(selectedDate))) continue;
+          selected.push(place);
+          usedNames.add(place.nombre);
+          totalTime += place.tiempoEstancia + transitMins;
         }
       }
 
@@ -1375,6 +1390,15 @@ function HomePageInner() {
                 📅 Calendario
               </a>
             )}
+            <motion.button
+              onClick={generateItinerary}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#E8F5E9] text-[#1A4D2E] text-xs font-bold hover:bg-[#c8e6c9] transition-all"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              title="Generar otra versión del itinerario"
+            >
+              ↺ Otra opción
+            </motion.button>
             <motion.button
               onClick={() => window.print()}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all"
