@@ -117,8 +117,8 @@ function isPlaceOpen(place: Place, arrivalTime: string, dayOfWeek: string): bool
   if (!place.horaApertura || !place.horaCierre) return true;
   if (place.horaApertura === '00:00' && place.horaCierre === '23:59') return true;
   if (place.diasCerrado && place.diasCerrado !== 'ninguno') {
-    const closed = place.diasCerrado.split(',').map(d => d.trim());
-    if (closed.includes(dayOfWeek)) return false;
+    const closed = place.diasCerrado.split(',').map(d => norm(d));
+    if (closed.includes(norm(dayOfWeek))) return false;
   }
   const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   const arr = toMins(arrivalTime);
@@ -620,8 +620,8 @@ function HomePageInner() {
       if (foodPreference === 'vegetariano') {
         filtered = filtered.filter(p => {
           if (matchesInterest(p.categoria, 'gastronomia')) {
-            return norm(p.categoria).includes('vegana') ||
-              norm(p.nota).includes('vegeta') || norm(p.nota).includes('sano');
+            const cat = norm(p.categoria);
+            return cat.includes('vegana') || cat.includes('vegetaria') || cat.includes('sano');
           }
           return true;
         });
@@ -661,12 +661,17 @@ function HomePageInner() {
 
       const startHour = parseInt(startTime.split(':')[0]);
       const maxGastro = duration === 'rapido' ? 1 : duration === 'medio-dia' ? 2 : startHour < 11 ? 3 : 2;
+      // Mínimo de minutos entre dos visitas a lugares de gastronomía
+      const MIN_GASTRO_GAP_MINS = 150;
+      const selectedDayOfWeek = getDayOfWeek(selectedDate);
+      const timeToMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
       const postrePool = hasGastro
-        ? places.filter(p =>
+        ? adjustedPlaces.filter(p =>
             !norm(p.nombre).includes(AKRON_KEY) &&
             norm(p.categoria).includes('postre') &&
-            !matchesInterest(p.categoria, 'gastronomia')
+            !matchesInterest(p.categoria, 'gastronomia') &&
+            isPlaceOpen(p, '14:00', selectedDayOfWeek)
           ).sort(() => Math.random() - 0.5)
         : [];
 
@@ -702,7 +707,7 @@ function HomePageInner() {
       const selected: Place[] = [];
       let totalTime = 0;
       let gastroCount = 0;
-      let lastWasGastro = false;
+      let lastGastroEndMins = -MIN_GASTRO_GAP_MINS; // permite primer restaurante de inmediato
       const usedFoodTypes = new Set<string>();
       const usedNames = new Set<string>();
 
@@ -716,28 +721,28 @@ function HomePageInner() {
 
         const estimatedArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
         const arrivalHour = parseInt(estimatedArrival.split(':')[0]);
+        const arrivalMins = timeToMins(estimatedArrival);
 
-        // Filtrar por horario de apertura real
-        if (!isPlaceOpen(place, estimatedArrival, getDayOfWeek(selectedDate))) continue;
-
-        // Gastronomía nunca después de las 7pm si hay vida nocturna seleccionada
+        if (!isPlaceOpen(place, estimatedArrival, selectedDayOfWeek)) continue;
         if (isGastro && hasNocturna && arrivalHour >= 19) continue;
-        // Vida nocturna SIEMPRE después de las 7pm cuando el usuario la seleccionó
         if (isNocturna && hasNocturna && arrivalHour < 19) continue;
-        if (isGastro && lastWasGastro) continue;
+
         if (isGastro) {
           if (gastroCount >= maxGastro) continue;
+          // Mínimo MIN_GASTRO_GAP_MINS entre fin del último gastro y llegada al siguiente
+          if (arrivalMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) continue;
           const foodType = getFoodType(place);
           if (usedFoodTypes.has(foodType)) continue;
           usedFoodTypes.add(foodType);
           gastroCount++;
         }
+
         const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? transitMins : 0);
         if (totalTime + timeNeeded <= targetMins) {
           selected.push(place);
           usedNames.add(place.nombre);
           totalTime += timeNeeded;
-          lastWasGastro = isGastro;
+          if (isGastro) lastGastroEndMins = arrivalMins + place.tiempoEstancia;
         }
       }
 
@@ -746,11 +751,24 @@ function HomePageInner() {
         for (const place of [...othersPool, ...gastroPool]) {
           if (selected.length >= maxPlaces) break;
           if (usedNames.has(place.nombre)) continue;
+          const isGastro = matchesInterest(place.categoria, 'gastronomia');
+          const estArrival = addMinutes(startTime, totalTime + transitMins);
+          const arrivalMins = timeToMins(estArrival);
+          if (isGastro) {
+            if (gastroCount >= maxGastro) continue;
+            if (arrivalMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) continue;
+            const foodType = getFoodType(place);
+            if (usedFoodTypes.has(foodType)) continue;
+            usedFoodTypes.add(foodType);
+            gastroCount++;
+          }
+          if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
           const timeNeeded = place.tiempoEstancia + transitMins;
           if (totalTime + timeNeeded <= targetMins) {
             selected.push(place);
             usedNames.add(place.nombre);
             totalTime += timeNeeded;
+            if (isGastro) lastGastroEndMins = arrivalMins + place.tiempoEstancia;
           }
         }
       }
@@ -762,7 +780,7 @@ function HomePageInner() {
           if (usedNames.has(place.nombre)) continue;
           const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
           if (parseInt(estArrival.split(':')[0]) < 19) continue;
-          if (!isPlaceOpen(place, estArrival, getDayOfWeek(selectedDate))) continue;
+          if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
           selected.push(place);
           usedNames.add(place.nombre);
           totalTime += place.tiempoEstancia + transitMins;
