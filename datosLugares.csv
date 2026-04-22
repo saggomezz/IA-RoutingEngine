@@ -1,6 +1,5 @@
 Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo Estimado,Imagen,horaApertura,horaCierre,diasCerrado
 "Estadio Akron, Guadalajara",Fútbol,Cto. J.V.C. 2800,"20,6817764","-103,4626455",180,"$400 - $2,500",,09:00,22:00,ninguno
-"Glorieta de la Minerva, Guadalajara",Fútbol,Av. Ignacio L Vallarta,"20,6743943","-103,3874128",45,Gratis,,00:00,23:59,ninguno
 "Museo Chivas, Guadalajara",Arquitectura,Cto. J.V.C. 2800,"20,6820","-103,4630",90,$150,,10:30,16:30,ninguno
 "El Gallo Cantina, Guadalajara","Vida Nocturna, Música",Alfredo R. Plascencia 746,"20,6890096","-103,3716708",90,$200 - $500,,12:00,00:00,ninguno
 "La Gran Plaza Fashion Mall, Guadalajara","Eventos, Compras",La Gran Plaza Fashion Mall,"20,6737855","-103,4047841",90,$100,,10:00,19:00,ninguno
