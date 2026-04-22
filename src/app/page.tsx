@@ -35,6 +35,9 @@ interface Place {
   lat?: number;
   lng?: number;
   isMatch?: boolean;
+  horaApertura?: string;
+  horaCierre?: string;
+  diasCerrado?: string;
 }
 
 interface Stop {
@@ -105,6 +108,26 @@ function sortByProximity(places: Place[]): Place[] {
     result.push(remaining.splice(minIdx, 1)[0]);
   }
   return result;
+}
+
+function getDayOfWeek(dateStr: string): string {
+  const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  return days[new Date(dateStr + 'T12:00:00').getDay()];
+}
+
+function isPlaceOpen(place: Place, arrivalTime: string, dayOfWeek: string): boolean {
+  if (!place.horaApertura || !place.horaCierre) return true;
+  if (place.horaApertura === '00:00' && place.horaCierre === '23:59') return true;
+  if (place.diasCerrado && place.diasCerrado !== 'ninguno') {
+    const closed = place.diasCerrado.split(',').map(d => d.trim());
+    if (closed.includes(dayOfWeek)) return false;
+  }
+  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const arr = toMins(arrivalTime);
+  const open = toMins(place.horaApertura);
+  let close = toMins(place.horaCierre);
+  if (close <= open) close += 24 * 60;
+  return arr >= open && arr < close - 20;
 }
 
 function repairConsecutiveGastro(places: Place[]): Place[] {
@@ -572,6 +595,9 @@ function HomePageInner() {
         fotos: Array.isArray(p['fotos']) ? p['fotos'] : [],
         lat: parseCoord(p['Latitud']) ?? undefined,
         lng: parseCoord(p['Longitud']) ?? undefined,
+        horaApertura: p['horaApertura'] || undefined,
+        horaCierre: p['horaCierre'] || undefined,
+        diasCerrado: p['diasCerrado'] || 'ninguno',
       })).filter(p => p.nombre);
 
       const AKRON_KEY = 'akron';
@@ -692,6 +718,9 @@ function HomePageInner() {
 
         const estimatedArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
         const arrivalHour = parseInt(estimatedArrival.split(':')[0]);
+
+        // Filtrar por horario de apertura real
+        if (!isPlaceOpen(place, estimatedArrival, getDayOfWeek(selectedDate))) continue;
 
         // Gastronomía nunca después de las 7pm si hay vida nocturna seleccionada
         if (isGastro && hasNocturna && arrivalHour >= 19) continue;
