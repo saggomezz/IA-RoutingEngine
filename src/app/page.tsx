@@ -829,6 +829,9 @@ function HomePageInner() {
           }
           if (bestPostre && sortedRegular.length <= maxPlaces) {
             sortedRegular.splice(sortedLastGastroComidaIdx + 1, 0, bestPostre);
+            // Re-aplicar repair para evitar dos gastro consecutivas tras insertar el postre
+            const repaired = repairConsecutiveGastro(sortedRegular);
+            sortedRegular.splice(0, sortedRegular.length, ...repaired);
           }
         }
       }
@@ -1541,9 +1544,6 @@ function HomePageInner() {
                       <span className="text-xs text-gray-500 flex items-center gap-0.5">
                         <FiDollarSign size={10} /> {stop.place.costo}
                       </span>
-                      {stop.place.calificacion && (
-                        <span className="text-xs text-gray-500">⭐ {stop.place.calificacion}</span>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-2 mt-3 print:hidden">
