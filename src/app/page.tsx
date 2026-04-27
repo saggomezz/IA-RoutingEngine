@@ -670,7 +670,6 @@ function HomePageInner() {
         ? adjustedPlaces.filter(p =>
             !norm(p.nombre).includes(AKRON_KEY) &&
             norm(p.categoria).includes('postre') &&
-            !matchesInterest(p.categoria, 'gastronomia') &&
             isPlaceOpen(p, '14:00', selectedDayOfWeek)
           ).sort(() => Math.random() - 0.5)
         : [];
@@ -1550,7 +1549,7 @@ function HomePageInner() {
                       {!stop.place.isMatch && (
                         <motion.button
                           onClick={() => {
-                            const base = window.location.origin.replace(/:\d+$/, ':3000');
+                            const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
                             window.open(`${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`, '_blank', 'noopener,noreferrer');
                           }}
                           className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E8F5E9] transition-colors"
