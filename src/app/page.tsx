@@ -54,11 +54,11 @@ interface ItineraryMeta {
 }
 
 // ---- Partidos en Guadalajara ----
-const MATCH_DAYS: Record<string, { partido: string; equipos: string }> = {
-  '2026-06-11': { partido: 'Partido 2 — Grupo A', equipos: 'Corea del Sur vs. Ganador Repechaje' },
-  '2026-06-18': { partido: 'Partido 28 — Grupo A', equipos: 'México vs. Corea del Sur' },
-  '2026-06-23': { partido: 'Partido 48 — Grupo K', equipos: 'Colombia vs. Ganador Repechaje' },
-  '2026-06-26': { partido: 'Partido 66 — Grupo H', equipos: 'Uruguay vs. España' },
+const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: string }> = {
+  '2026-06-11': { partido: 'Grupo A · Estadio Akron', equipos: 'Corea del Sur vs. Chequia', hora: '20:00' },
+  '2026-06-18': { partido: 'Grupo A · Estadio Akron', equipos: 'México vs. Corea del Sur', hora: '19:00' },
+  '2026-06-23': { partido: 'Grupo K · Estadio Akron', equipos: 'Colombia vs. RD Congo', hora: '20:00' },
+  '2026-06-26': { partido: 'Grupo H · Estadio Akron', equipos: 'Uruguay vs. España', hora: '18:00' },
 };
 
 const ESTADIO_AKRON: Place = {
@@ -1313,7 +1313,7 @@ function HomePageInner() {
                       <div>
                         <p className="text-sm font-bold text-amber-900">¡Hay partido este día!</p>
                         <p className="text-xs text-amber-700 font-semibold">{matchInfo.equipos}</p>
-                        <p className="text-xs text-amber-600">{matchInfo.partido} · Estadio Akron</p>
+                        <p className="text-xs text-amber-600">{matchInfo.partido} · {matchInfo.hora} hrs (CDMX)</p>
                       </div>
                     </div>
                     <p className="text-xs font-semibold text-amber-800 mb-2">¿Asistirás al partido?</p>
