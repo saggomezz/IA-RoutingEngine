@@ -1059,7 +1059,7 @@ function HomePageInner() {
               {/* Fecha y hora */}
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <p className="text-sm font-bold text-[#1A4D2E] mb-4">
-                  📅 ¿Cuándo visitas?
+                  ¿Cuándo visitas?
                 </p>
 
                 <div className="relative mb-3" ref={calendarRef}>
@@ -1181,7 +1181,7 @@ function HomePageInner() {
               {/* Grupo y presupuesto */}
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <p className="text-sm font-bold text-[#1A4D2E] mb-4">
-                  👥 Tu grupo
+                  Tu grupo
                 </p>
 
                 <div className="mb-4">
@@ -1230,7 +1230,7 @@ function HomePageInner() {
               {/* Estilo de viaje */}
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <p className="text-sm font-bold text-[#1A4D2E] mb-4">
-                  🚀 Estilo de viaje
+                  Estilo de viaje
                 </p>
 
                 <div className="mb-4">
@@ -1284,7 +1284,7 @@ function HomePageInner() {
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-sm font-bold text-[#1A4D2E]">
-                    ✨ ¿Qué te apasiona?
+                    ¿Qué te apasiona?
                   </p>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${selectedInterests.length >= 2 ? 'bg-[#E8F5E9] text-[#1A4D2E]' : 'bg-amber-50 text-amber-600'}`}>
                     {selectedInterests.length}/2 mín.
@@ -1321,7 +1321,7 @@ function HomePageInner() {
                     className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden"
                   >
                     <p className="text-sm font-bold text-[#1A4D2E] mb-4">
-                      🍽️ ¿Qué tipo de comida?
+                      ¿Qué tipo de comida?
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {FOOD_PREFS.map(pref => (
