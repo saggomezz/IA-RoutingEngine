@@ -1585,12 +1585,11 @@ function HomePageInner() {
               ) : (
               /* Tarjeta normal de lugar */
               <div className="flex-1 rounded-2xl border border-gray-100 bg-white overflow-hidden mb-1 print-card shadow-sm">
-                <div className="flex">
+                <div className="flex items-stretch">
                   {stop.place.fotos[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={stop.place.fotos[0]} alt={stop.place.nombre}
-                      className="w-24 h-full object-cover shrink-0 print:hidden"
-                      style={{ maxHeight: 120 }}
+                      className="w-36 object-cover shrink-0 self-stretch print:hidden"
                       referrerPolicy="no-referrer" />
                   )}
                   <div className="flex-1 p-4 min-w-0">
