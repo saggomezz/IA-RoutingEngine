@@ -68,16 +68,16 @@ const ESTADIO_AKRON: Place = {
   categoria: 'Fútbol',
   direccion: 'Estadio Akron · Cto. J.V.C. 2800, Zapopan, Jalisco',
   tiempoEstancia: 120,
-  costo: '$400 – $2,500',
+  costo: '',
   calificacion: '5',
-  fotos: ['https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Estadio_Omnilife_2010.jpg/1280px-Estadio_Omnilife_2010.jpg'],
+  fotos: ['https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Estadio_Akron_02-07-2022_cabecera_sur_lado_derecho_%283%29.jpg/1200px-Estadio_Akron_02-07-2022_cabecera_sur_lado_derecho_%283%29.jpg'],
   isMatch: true,
 };
 
 const CAMINO_AL_PARTIDO_BASE: Place = {
   nombre: 'Camino al Estadio Akron',
   categoria: 'Fútbol',
-  direccion: 'Dirígete al Estadio Akron — llega con 2 horas de anticipación',
+  direccion: 'Considera prever tráfico',
   tiempoEstancia: 120,
   costo: '',
   calificacion: '',
@@ -1567,10 +1567,17 @@ function HomePageInner() {
                         <FiMapPin size={10} className="shrink-0" />
                         {stop.place.direccion}
                       </p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="text-xs font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full">
-                          <FiDollarSign size={9} className="inline mr-0.5" />{stop.place.costo}
-                        </span>
+                      <div className="mt-2 flex items-center gap-2 print:hidden">
+                        <motion.button
+                          onClick={() => {
+                            const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
+                            window.open(`${base}/informacion/${encodeURIComponent('Estadio Akron, Guadalajara')}?from=itinerario`, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="text-xs font-semibold text-amber-300 border border-amber-400/50 rounded-lg px-2.5 py-1 hover:bg-amber-400/20 transition-colors"
+                          whileHover={{ scale: 1.03 }}
+                        >
+                          Ver más →
+                        </motion.button>
                       </div>
                     </div>
                   </div>
