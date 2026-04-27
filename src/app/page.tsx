@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
 import {
   FiCalendar, FiClock, FiDollarSign, FiUsers, FiMapPin,
-  FiZap, FiPrinter, FiRefreshCw,
+  FiZap, FiDownload, FiRefreshCw,
 } from 'react-icons/fi';
 import AuthModal from '@/components/AuthModal';
 
@@ -71,34 +71,6 @@ const ESTADIO_AKRON: Place = {
   fotos: [],
   isMatch: true,
 };
-
-const AKRON_LAT = 20.6061;
-const AKRON_LNG = -103.4042;
-
-function calcTransitToStadium(
-  fromPlace: Place,
-  userLoc: { lat: number; lng: number } | null,
-  transporte: 'a-pie' | 'taxi' | 'auto'
-): number {
-  const originLat = userLoc?.lat ?? fromPlace.lat;
-  const originLng = userLoc?.lng ?? fromPlace.lng;
-  if (originLat == null || originLng == null) return 45;
-  const distKm = haversine(originLat, originLng, AKRON_LAT, AKRON_LNG);
-  // Velocidad reducida por tráfico de partido (km/h)
-  const speedKmh = transporte === 'a-pie' ? 4 : transporte === 'auto' ? 18 : 16;
-  return Math.max(20, Math.round((distKm / speedKmh) * 60));
-}
-
-function getMatchDayTransitMult(place: Place, nextPlace: Place | null): number {
-  const distToAkron = (p: Place) =>
-    p.lat != null && p.lng != null
-      ? haversine(AKRON_LAT, AKRON_LNG, p.lat, p.lng)
-      : Infinity;
-  const minDist = Math.min(distToAkron(place), nextPlace ? distToAkron(nextPlace) : Infinity);
-  if (minDist <= 5) return 2.0;
-  if (minDist <= 10) return 1.6;
-  return 1.4;
-}
 
 // ---- Geo helpers ----
 function parseCoord(s: string): number | null {
@@ -261,39 +233,15 @@ function getFoodType(place: Place): string {
 function buildSchedule(
   places: Place[],
   startTime: string,
-  defaultTransit = 15,
-  attendsMatch = false,
-  transporte: 'a-pie' | 'taxi' | 'auto' = 'taxi',
-  userLocation: { lat: number; lng: number } | null = null
 ): Stop[] {
+  const TRANSIT = 30;
   let current = startTime;
   return places.map((place, i) => {
     const horaLlegada = current;
     const mins = place.tiempoEstancia || 60;
     const horaSalida = addMinutes(current, mins);
-    const nextPlace = i < places.length - 1 ? places[i + 1] : null;
-    const nextIsMatch = nextPlace?.isMatch ?? false;
-
-    let transitMins: number;
-    let trasladoLabel: string;
-
-    if (!nextPlace) {
-      transitMins = 0;
-      trasladoLabel = '';
-    } else if (nextIsMatch) {
-      transitMins = calcTransitToStadium(place, userLocation, transporte);
-      trasladoLabel = `~${transitMins} min hasta el estadio (tráfico por partido)`;
-    } else if (attendsMatch) {
-      const mult = getMatchDayTransitMult(place, nextPlace);
-      transitMins = Math.round(defaultTransit * mult);
-      trasladoLabel = `~${transitMins} min (tráfico por partido ⚽)`;
-    } else {
-      transitMins = defaultTransit;
-      trasladoLabel = `~${defaultTransit} min en tráfico`;
-    }
-
-    current = addMinutes(horaSalida, transitMins);
-    return { place, horaLlegada, horaSalida, traslado: trasladoLabel };
+    current = addMinutes(horaSalida, i < places.length - 1 ? TRANSIT : 0);
+    return { place, horaLlegada, horaSalida, traslado: '' };
   });
 }
 
@@ -340,9 +288,10 @@ const stopVariants = {
 // ---- Print styles ----
 const printStyles = `
 @media print {
-  @page { margin: 1.5cm; size: A4; }
-  body { background: white !important; }
+  @page { margin: 1cm; size: A4; }
+  body { background: white !important; font-family: Arial, Helvetica, sans-serif !important; }
   .print\\:hidden { display: none !important; }
+  .print\\:block { display: block !important; }
   .print-card {
     break-inside: avoid;
     border: 1.5px solid #1A4D2E !important;
@@ -377,7 +326,7 @@ const printStyles = `
     display: block !important;
     font-size: 24px;
     font-weight: 900;
-    color: #1A4D2E !important;
+    color: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -413,7 +362,6 @@ function HomePageInner() {
   const [showResults, setShowResults] = useState(false);
   const [meta, setMeta] = useState<ItineraryMeta>({ title: '', budget: '', groupSize: '', duration: '' });
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
-  const [transitTime, setTransitTime] = useState(15);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('turista');
@@ -768,7 +716,7 @@ function HomePageInner() {
       const usedFoodTypes = new Set<string>();
       const usedNames = new Set<string>();
 
-      const transitMins = transporte === 'a-pie' ? 10 : transporte === 'auto' ? 20 : 15;
+      const transitMins = 30;
 
       for (const place of mainPool) {
         if (selected.length >= maxPlaces) break;
@@ -897,9 +845,8 @@ function HomePageInner() {
         ? [...sortedRegular, matchStop, ...afterMatchStops]
         : sortedRegular;
 
-      setTransitTime(transitMins);
       setAllPlaces(filtered);
-      const schedule = buildSchedule(finalSelected, startTime, transitMins, attendsMatch === true, transporte, userLocation);
+      const schedule = buildSchedule(finalSelected, startTime);
       setStops(schedule);
 
       const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', {
@@ -929,18 +876,18 @@ function HomePageInner() {
   const moveUp = (i: number) => {
     if (i === 0) return;
     const arr = [...stops]; [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime, attendsMatch === true, transporte, userLocation));
+    setStops(buildSchedule(arr.map(s => s.place), startTime));
   };
 
   const moveDown = (i: number) => {
     if (i === stops.length - 1) return;
     const arr = [...stops]; [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime, attendsMatch === true, transporte, userLocation));
+    setStops(buildSchedule(arr.map(s => s.place), startTime));
   };
 
   const removeStop = (i: number) => {
     const newPlaces = stops.filter((_, idx) => idx !== i).map(s => s.place);
-    setStops(buildSchedule(newPlaces, startTime, transitTime, attendsMatch === true, transporte, userLocation));
+    setStops(buildSchedule(newPlaces, startTime));
   };
 
   const replaceStop = (i: number) => {
@@ -951,7 +898,7 @@ function HomePageInner() {
     if (candidates.length === 0) return;
     const newPlace = candidates[Math.floor(Math.random() * candidates.length)];
     const newPlaces = stops.map((s, idx) => idx === i ? newPlace : s.place);
-    setStops(buildSchedule(newPlaces, startTime, transitTime, attendsMatch === true, transporte, userLocation));
+    setStops(buildSchedule(newPlaces, startTime));
   };
 
   // ===== FORM =====
@@ -1483,7 +1430,7 @@ function HomePageInner() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <FiPrinter size={13} /> Imprimir
+              <FiDownload size={13} /> Descargar PDF
             </motion.button>
           </div>
         </div>
@@ -1502,7 +1449,7 @@ function HomePageInner() {
 
         {/* Meta del itinerario */}
         <motion.div
-          className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4"
+          className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4 print:hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -1632,16 +1579,6 @@ function HomePageInner() {
                   </div>
                 </div>
 
-                {stop.traslado && (
-                  <div className={`px-4 py-2 border-t flex items-center gap-1.5 ${stop.traslado.includes('estadio') ? 'bg-amber-50/50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
-                    <span className="text-sm">
-                      {transporte === 'a-pie' ? '🚶' : '🚗'}
-                    </span>
-                    <span className={`text-xs font-medium ${stop.traslado.includes('estadio') ? 'text-amber-700' : 'text-gray-500'}`}>
-                      {stop.traslado}
-                    </span>
-                  </div>
-                )}
               </div>
             </motion.div>
           ))}
@@ -1668,7 +1605,7 @@ function HomePageInner() {
             whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(13,96,30,0.3)' }}
             whileTap={{ scale: 0.98 }}
           >
-            <FiPrinter size={15} /> Imprimir itinerario
+            <FiDownload size={15} /> Descargar PDF
           </motion.button>
         </motion.div>
       </div>
