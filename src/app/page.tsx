@@ -72,6 +72,34 @@ const ESTADIO_AKRON: Place = {
   isMatch: true,
 };
 
+const AKRON_LAT = 20.6061;
+const AKRON_LNG = -103.4042;
+
+function calcTransitToStadium(
+  fromPlace: Place,
+  userLoc: { lat: number; lng: number } | null,
+  transporte: 'a-pie' | 'taxi' | 'auto'
+): number {
+  const originLat = userLoc?.lat ?? fromPlace.lat;
+  const originLng = userLoc?.lng ?? fromPlace.lng;
+  if (originLat == null || originLng == null) return 45;
+  const distKm = haversine(originLat, originLng, AKRON_LAT, AKRON_LNG);
+  // Velocidad reducida por tráfico de partido (km/h)
+  const speedKmh = transporte === 'a-pie' ? 4 : transporte === 'auto' ? 18 : 16;
+  return Math.max(20, Math.round((distKm / speedKmh) * 60));
+}
+
+function getMatchDayTransitMult(place: Place, nextPlace: Place | null): number {
+  const distToAkron = (p: Place) =>
+    p.lat != null && p.lng != null
+      ? haversine(AKRON_LAT, AKRON_LNG, p.lat, p.lng)
+      : Infinity;
+  const minDist = Math.min(distToAkron(place), nextPlace ? distToAkron(nextPlace) : Infinity);
+  if (minDist <= 5) return 2.0;
+  if (minDist <= 10) return 1.6;
+  return 1.4;
+}
+
 // ---- Geo helpers ----
 function parseCoord(s: string): number | null {
   if (!s) return null;
@@ -230,20 +258,41 @@ function getFoodType(place: Place): string {
   return `unique_${norm(place.nombre)}`;
 }
 
-function buildSchedule(places: Place[], startTime: string, defaultTransit = 15): Stop[] {
+function buildSchedule(
+  places: Place[],
+  startTime: string,
+  defaultTransit = 15,
+  attendsMatch = false,
+  transporte: 'a-pie' | 'taxi' | 'auto' = 'taxi',
+  userLocation: { lat: number; lng: number } | null = null
+): Stop[] {
   let current = startTime;
   return places.map((place, i) => {
     const horaLlegada = current;
     const mins = place.tiempoEstancia || 60;
     const horaSalida = addMinutes(current, mins);
-    const nextIsMatch = i < places.length - 1 && places[i + 1]?.isMatch;
-    const transitMins = nextIsMatch ? 45 : defaultTransit;
+    const nextPlace = i < places.length - 1 ? places[i + 1] : null;
+    const nextIsMatch = nextPlace?.isMatch ?? false;
+
+    let transitMins: number;
+    let trasladoLabel: string;
+
+    if (!nextPlace) {
+      transitMins = 0;
+      trasladoLabel = '';
+    } else if (nextIsMatch) {
+      transitMins = calcTransitToStadium(place, userLocation, transporte);
+      trasladoLabel = `~${transitMins} min hasta el estadio (tráfico por partido)`;
+    } else if (attendsMatch) {
+      const mult = getMatchDayTransitMult(place, nextPlace);
+      transitMins = Math.round(defaultTransit * mult);
+      trasladoLabel = `~${transitMins} min (tráfico por partido ⚽)`;
+    } else {
+      transitMins = defaultTransit;
+      trasladoLabel = `~${defaultTransit} min en tráfico`;
+    }
+
     current = addMinutes(horaSalida, transitMins);
-    const trasladoLabel = i < places.length - 1
-      ? nextIsMatch
-        ? '~45 min en tráfico hasta el estadio'
-        : `~${defaultTransit} min en tráfico`
-      : '';
     return { place, horaLlegada, horaSalida, traslado: trasladoLabel };
   });
 }
@@ -365,6 +414,7 @@ function HomePageInner() {
   const [meta, setMeta] = useState<ItineraryMeta>({ title: '', budget: '', groupSize: '', duration: '' });
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
   const [transitTime, setTransitTime] = useState(15);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('turista');
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -444,6 +494,14 @@ function HomePageInner() {
       }
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {} // sin ubicación, se usa la del último lugar como fallback
+    );
+  }, []);
 
   useEffect(() => {
     const handler = () => { setAuthTrigger('profile'); setShowAuthModal(true); };
@@ -841,7 +899,7 @@ function HomePageInner() {
 
       setTransitTime(transitMins);
       setAllPlaces(filtered);
-      const schedule = buildSchedule(finalSelected, startTime, transitMins);
+      const schedule = buildSchedule(finalSelected, startTime, transitMins, attendsMatch === true, transporte, userLocation);
       setStops(schedule);
 
       const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', {
@@ -871,18 +929,18 @@ function HomePageInner() {
   const moveUp = (i: number) => {
     if (i === 0) return;
     const arr = [...stops]; [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime));
+    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime, attendsMatch === true, transporte, userLocation));
   };
 
   const moveDown = (i: number) => {
     if (i === stops.length - 1) return;
     const arr = [...stops]; [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime));
+    setStops(buildSchedule(arr.map(s => s.place), startTime, transitTime, attendsMatch === true, transporte, userLocation));
   };
 
   const removeStop = (i: number) => {
     const newPlaces = stops.filter((_, idx) => idx !== i).map(s => s.place);
-    setStops(buildSchedule(newPlaces, startTime, transitTime));
+    setStops(buildSchedule(newPlaces, startTime, transitTime, attendsMatch === true, transporte, userLocation));
   };
 
   const replaceStop = (i: number) => {
@@ -893,7 +951,7 @@ function HomePageInner() {
     if (candidates.length === 0) return;
     const newPlace = candidates[Math.floor(Math.random() * candidates.length)];
     const newPlaces = stops.map((s, idx) => idx === i ? newPlace : s.place);
-    setStops(buildSchedule(newPlaces, startTime, transitTime));
+    setStops(buildSchedule(newPlaces, startTime, transitTime, attendsMatch === true, transporte, userLocation));
   };
 
   // ===== FORM =====
