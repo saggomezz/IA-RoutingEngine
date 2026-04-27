@@ -327,13 +327,13 @@ const containerVariants = {
 };
 const cardVariants = {
   hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 22 } },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
 };
 const stopVariants = {
   hidden: { opacity: 0, x: -20 },
   visible: (i: number) => ({
     opacity: 1, x: 0,
-    transition: { delay: i * 0.07, type: 'spring', stiffness: 240, damping: 20 },
+    transition: { delay: i * 0.07, type: 'spring' as const, stiffness: 240, damping: 20 },
   }),
 };
 
