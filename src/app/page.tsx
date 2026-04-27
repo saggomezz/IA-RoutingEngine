@@ -64,21 +64,21 @@ const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: strin
 };
 
 const ESTADIO_AKRON: Place = {
-  nombre: 'Estadio Akron — Partido del Mundial',
+  nombre: 'Llegada al Partido ⚽',
   categoria: 'Fútbol',
-  direccion: 'Cto. J.V.C. 2800, Zapopan, Jalisco',
-  tiempoEstancia: 180,
+  direccion: 'Estadio Akron · Cto. J.V.C. 2800, Zapopan, Jalisco',
+  tiempoEstancia: 120,
   costo: '$400 – $2,500',
   calificacion: '5',
-  fotos: [],
+  fotos: ['https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Estadio_Omnilife_2010.jpg/1280px-Estadio_Omnilife_2010.jpg'],
   isMatch: true,
 };
 
 const CAMINO_AL_PARTIDO_BASE: Place = {
-  nombre: 'Camino al Partido ⚽',
+  nombre: 'Camino al Estadio Akron',
   categoria: 'Fútbol',
-  direccion: 'Dirígete al Estadio Akron con tiempo suficiente',
-  tiempoEstancia: 90,
+  direccion: 'Dirígete al Estadio Akron — llega con 2 horas de anticipación',
+  tiempoEstancia: 120,
   costo: '',
   calificacion: '',
   fotos: [],
@@ -668,7 +668,7 @@ function HomePageInner() {
         tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult),
       }));
 
-      const matchReservedMins = attendsMatch ? 90 + 180 : 0; // camino (90 min) + partido (180 min)
+      const matchReservedMins = attendsMatch ? 120 + 120 : 0; // camino (2 h) + partido (2 h)
       // targetMins es el tiempo real que debe llenarse
       const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 540) - matchReservedMins;
 
@@ -859,7 +859,7 @@ function HomePageInner() {
       if (attendsMatch) {
         const matchInfo = MATCH_DAYS[selectedDate];
         if (matchInfo) {
-          const caminoHora = addMinutes(matchInfo.hora, -90);
+          const caminoHora = addMinutes(matchInfo.hora, -120);
           matchCards.push({ ...CAMINO_AL_PARTIDO_BASE, forcedArrival: caminoHora });
           matchCards.push({ ...ESTADIO_AKRON, forcedArrival: matchInfo.hora });
         } else {
@@ -1528,23 +1528,56 @@ function HomePageInner() {
 
               {/* Card */}
               {stop.place.isCamino ? (
-                // Tarjeta especial "Camino al Partido"
-                <div className="flex-1 rounded-2xl border border-orange-300 bg-gradient-to-r from-orange-50 to-amber-50 overflow-hidden mb-1 shadow-sm print-card">
+                /* Tarjeta naranja: Camino al Estadio */
+                <div className="flex-1 rounded-2xl border-2 border-orange-300 bg-gradient-to-r from-orange-500 to-amber-500 overflow-hidden mb-1 shadow-md print-card">
                   <div className="p-4 flex items-center gap-4">
-                    <div className="text-3xl shrink-0">🚗</div>
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-2xl">🚗</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-black text-orange-600">{formatTime12(stop.horaLlegada)}</span>
-                        <span className="text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-sm font-black text-white">{formatTime12(stop.horaLlegada)}</span>
+                        <span className="text-xs text-white/70">→ {formatTime12(stop.horaSalida)}</span>
+                        <span className="ml-auto text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">2 hrs</span>
                       </div>
-                      <h3 className="font-bold text-sm text-orange-800">{stop.place.nombre}</h3>
-                      <p className="text-xs text-orange-600 mt-0.5">{stop.place.direccion}</p>
+                      <h3 className="font-black text-base text-white">{stop.place.nombre}</h3>
+                      <p className="text-xs text-white/80 mt-0.5">{stop.place.direccion}</p>
                     </div>
-                    <span className="text-xs font-semibold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0">90 min</span>
+                  </div>
+                </div>
+              ) : stop.place.isMatch ? (
+                /* Tarjeta del Estadio Akron */
+                <div className="flex-1 rounded-2xl border-2 border-amber-400 overflow-hidden mb-1 shadow-md print-card bg-[#0D1F14]">
+                  <div className="flex">
+                    {stop.place.fotos[0] && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={stop.place.fotos[0]} alt="Estadio Akron"
+                        className="w-28 object-cover shrink-0 print:hidden"
+                        style={{ maxHeight: 130 }}
+                        referrerPolicy="no-referrer" />
+                    )}
+                    <div className="flex-1 p-4 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-black text-amber-400">{formatTime12(stop.horaLlegada)}</span>
+                        <span className="text-xs text-white/50">→ {formatTime12(stop.horaSalida)}</span>
+                      </div>
+                      <h3 className="font-black text-base text-white leading-tight">{stop.place.nombre}</h3>
+                      {matchInfo && (
+                        <p className="text-xs font-bold text-amber-300 mt-1">⚽ {matchInfo.equipos}</p>
+                      )}
+                      <p className="text-xs text-white/60 mt-1 flex items-center gap-1">
+                        <FiMapPin size={10} className="shrink-0" />
+                        {stop.place.direccion}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full">
+                          <FiDollarSign size={9} className="inline mr-0.5" />{stop.place.costo}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
-              <div className={`flex-1 rounded-2xl border overflow-hidden mb-1 print-card ${stop.place.isMatch ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-white'} shadow-sm`}>
+              /* Tarjeta normal de lugar */
+              <div className="flex-1 rounded-2xl border border-gray-100 bg-white overflow-hidden mb-1 print-card shadow-sm">
                 <div className="flex">
                   {stop.place.fotos[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1555,22 +1588,14 @@ function HomePageInner() {
                   )}
                   <div className="flex-1 p-4 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`text-sm font-black ${stop.place.isMatch ? 'text-amber-700' : 'text-[#0D601E]'}`}>
-                        {formatTime12(stop.horaLlegada)}
-                      </span>
+                      <span className="text-sm font-black text-[#0D601E]">{formatTime12(stop.horaLlegada)}</span>
                       <span className="text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
                       <span className="ml-auto text-xs text-gray-400 flex items-center gap-0.5">
                         <FiClock size={10} /> {stop.place.tiempoEstancia} min
                       </span>
                     </div>
 
-                    <h3 className={`font-bold text-sm leading-snug ${stop.place.isMatch ? 'text-amber-900' : 'text-[#1A4D2E]'}`}>
-                      {stop.place.nombre}
-                    </h3>
-
-                    {stop.place.isMatch && matchInfo && (
-                      <p className="text-xs font-semibold text-amber-700 mt-1">⚽ {matchInfo.equipos} · {matchInfo.hora} hrs</p>
-                    )}
+                    <h3 className="font-bold text-sm leading-snug text-[#1A4D2E]">{stop.place.nombre}</h3>
 
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {INTEREST_OPTIONS.filter(opt =>
@@ -1590,42 +1615,38 @@ function HomePageInner() {
                       {stop.place.direccion}
                     </p>
 
-                    {!stop.place.isMatch && (
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-xs text-gray-500 flex items-center gap-0.5">
-                          <FiDollarSign size={10} /> {stop.place.costo}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="text-xs text-gray-500 flex items-center gap-0.5">
+                        <FiDollarSign size={10} /> {stop.place.costo}
+                      </span>
+                    </div>
 
-                    {!stop.place.isMatch && (
-                      <div className="flex items-center gap-2 mt-3 print:hidden">
-                        <motion.button
-                          onClick={() => {
-                            const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
-                            window.open(`${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`, '_blank', 'noopener,noreferrer');
-                          }}
-                          className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E8F5E9] transition-colors"
-                          whileHover={{ scale: 1.03 }}
-                        >
-                          Ver más →
-                        </motion.button>
-                        <div className="ml-auto flex gap-1">
-                          <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
-                            className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↑</button>
-                          <button onClick={() => moveDown(i)} disabled={i === stops.length - 1} title="Bajar"
-                            className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↓</button>
-                          <button onClick={() => replaceStop(i)} title="Sugerir otro"
-                            className="w-7 h-7 rounded-lg border border-[#81C784] text-[#0D601E] text-xs hover:bg-[#E8F5E9] transition-colors flex items-center justify-center">↺</button>
-                          <button onClick={() => removeStop(i)} title="Eliminar"
-                            className="w-7 h-7 rounded-lg border border-red-100 text-red-400 text-xs hover:bg-red-50 transition-colors flex items-center justify-center">✕</button>
-                        </div>
+                    <div className="flex items-center gap-2 mt-3 print:hidden">
+                      <motion.button
+                        onClick={() => {
+                          const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
+                          window.open(`${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`, '_blank', 'noopener,noreferrer');
+                        }}
+                        className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E8F5E9] transition-colors"
+                        whileHover={{ scale: 1.03 }}
+                      >
+                        Ver más →
+                      </motion.button>
+                      <div className="ml-auto flex gap-1">
+                        <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
+                          className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↑</button>
+                        <button onClick={() => moveDown(i)} disabled={i === stops.length - 1} title="Bajar"
+                          className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↓</button>
+                        <button onClick={() => replaceStop(i)} title="Sugerir otro"
+                          className="w-7 h-7 rounded-lg border border-[#81C784] text-[#0D601E] text-xs hover:bg-[#E8F5E9] transition-colors flex items-center justify-center">↺</button>
+                        <button onClick={() => removeStop(i)} title="Eliminar"
+                          className="w-7 h-7 rounded-lg border border-red-100 text-red-400 text-xs hover:bg-red-50 transition-colors flex items-center justify-center">✕</button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
-              )} {/* fin ternario isCamino */}
+              )} {/* fin ternario isMatch/normal */}
             </motion.div>
           ))}
         </div>
