@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
 import {
   FiCalendar, FiClock, FiDollarSign, FiUsers, FiMapPin,
-  FiZap, FiDownload, FiRefreshCw,
+  FiZap, FiDownload, FiArrowLeft,
 } from 'react-icons/fi';
 import AuthModal from '@/components/AuthModal';
 
@@ -915,6 +915,23 @@ function HomePageInner() {
     setStops(buildSchedule(newPlaces, startTime));
   };
 
+  const addStop = () => {
+    const usedNames = new Set(stops.map(s => s.place.nombre));
+    const candidates = allPlaces.filter(p => !usedNames.has(p.nombre));
+    if (candidates.length === 0) return;
+    const newPlace = candidates[Math.floor(Math.random() * candidates.length)];
+    const regular = stops.filter(s => !s.place.isMatch).map(s => s.place);
+    const match = stops.filter(s => s.place.isMatch).map(s => s.place);
+    setStops(buildSchedule([...regular, newPlace, ...match], startTime));
+  };
+
+  const removeLastStop = () => {
+    const regularIdxs = stops.map((s, i) => i).filter(i => !stops[i].place.isMatch);
+    if (regularIdxs.length <= 1) return;
+    const lastIdx = regularIdxs[regularIdxs.length - 1];
+    setStops(buildSchedule(stops.filter((_, i) => i !== lastIdx).map(s => s.place), startTime));
+  };
+
   const replaceStop = (i: number) => {
     const current = stops[i].place;
     const usedNames = new Set(stops.map(s => s.place.nombre));
@@ -1407,15 +1424,15 @@ function HomePageInner() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <motion.button
             onClick={() => setShowResults(false)}
-            className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0"
             whileHover={{ x: -3 }}
           >
-            <FiRefreshCw size={14} /> Modificar
+            <FiArrowLeft size={16} /> Volver
           </motion.button>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             <motion.button
               onClick={() => {
                 if (savedOk && savedItineraryId) unsaveItinerary();
@@ -1440,14 +1457,22 @@ function HomePageInner() {
                 📅 Calendario
               </a>
             )}
+            {/* Controles de cantidad de paradas */}
+            <div className="flex items-center gap-1 bg-white/10 border border-white/20 rounded-xl px-1 py-1">
+              <button onClick={removeLastStop} title="Quitar último lugar"
+                className="w-6 h-6 rounded-lg text-white/70 hover:text-white hover:bg-white/20 text-sm font-bold transition-all flex items-center justify-center">−</button>
+              <span className="text-xs text-white/60 px-1 font-medium">{stops.filter(s => !s.place.isMatch).length}</span>
+              <button onClick={addStop} title="Agregar lugar"
+                className="w-6 h-6 rounded-lg text-white/70 hover:text-white hover:bg-white/20 text-sm font-bold transition-all flex items-center justify-center">+</button>
+            </div>
             <motion.button
               onClick={generateItinerary}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#E8F5E9] text-[#1A4D2E] text-xs font-bold hover:bg-[#c8e6c9] transition-all"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              title="Generar otra versión del itinerario"
+              title="Generar un itinerario completamente nuevo"
             >
-              ↺ Otra opción
+              ↺ Generar de nuevo
             </motion.button>
             <motion.button
               onClick={() => window.print()}
@@ -1461,7 +1486,7 @@ function HomePageInner() {
         </div>
       </motion.div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-3xl mx-auto px-4 py-6">
         {/* Print header — visible solo al imprimir */}
         <div className="hidden print:block print-header mb-6">
           <div className="flex items-center gap-3 mb-2">
