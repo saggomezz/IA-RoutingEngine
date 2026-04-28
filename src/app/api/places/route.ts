@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { readFileSync } from 'fs';
+import { NextRequest, NextResponse } from 'next/server';
+import { readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 
 const BACKEND = process.env.BACKEND_INTERNAL_URL || 'https://api.pitzbol.me:8443';
@@ -79,5 +79,47 @@ export async function GET() {
   } catch (error) {
     console.error('Error reading CSV:', error);
     return NextResponse.json([], { status: 500 });
+  }
+}
+
+function escapeCsv(val: string): string {
+  if (!val) return '';
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { nombre, categoria, latitud, longitud, horaApertura, horaCierre, diasCerrado, imagen, tiempoEstancia } = body;
+
+    if (!nombre) return NextResponse.json({ error: 'nombre requerido' }, { status: 400 });
+
+    const diasArr: string[] = Array.isArray(diasCerrado) ? diasCerrado : [];
+    const diasStr = diasArr.length > 0 ? diasArr.join(',') : 'ninguno';
+
+    const row = [
+      escapeCsv(nombre),
+      escapeCsv(categoria || ''),
+      '',
+      latitud || '',
+      longitud || '',
+      tiempoEstancia || '60',
+      '',
+      escapeCsv(imagen || ''),
+      horaApertura || '',
+      horaCierre || '',
+      escapeCsv(diasStr),
+    ].join(',');
+
+    const csvPath = join(process.cwd(), 'datosLugares.csv');
+    appendFileSync(csvPath, '\n' + row, 'utf-8');
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('Error writing CSV:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
