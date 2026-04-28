@@ -651,10 +651,12 @@ function HomePageInner() {
       });
 
       if (transporte === 'a-pie') {
-        const CENTRO_LAT = 20.6736, CENTRO_LNG = -103.3440;
+        const refLat = userLocation?.lat ?? 20.6736;
+        const refLng = userLocation?.lng ?? -103.3440;
+        const radius = userLocation ? 2 : 3;
         const withCoords = filtered.filter(p =>
           p.lat != null && p.lng != null &&
-          haversine(CENTRO_LAT, CENTRO_LNG, p.lat!, p.lng!) <= 3
+          haversine(refLat, refLng, p.lat!, p.lng!) <= radius
         );
         if (withCoords.length >= 3) filtered = withCoords;
       }
@@ -1442,7 +1444,7 @@ function HomePageInner() {
 
   // ===== RESULTS =====
   return (
-    <div className="min-h-screen bg-[#F7F9F4]">
+    <div className="h-screen flex flex-col overflow-hidden bg-[#F7F9F4]">
       <style>{printStyles}</style>
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
 
@@ -1511,10 +1513,10 @@ function HomePageInner() {
         </div>
       </motion.div>
 
-      <div className="flex flex-col md:flex-row md:items-start">
+      <div className="flex flex-row items-start flex-1 min-h-0">
 
         {/* ── Columna izquierda: lista de paradas ── */}
-        <div className="w-full md:w-[58%] lg:w-[62%] flex-shrink-0 px-4 py-6 md:overflow-y-auto md:max-h-[calc(100vh-88px)] md:sticky md:top-0">
+        <div className="w-1/3 md:w-[38%] flex-shrink-0 px-1.5 sm:px-3 md:px-4 py-2 md:py-6 overflow-y-auto h-full">
 
         {/* Print header — visible solo al imprimir */}
         <div className="hidden print:block print-header mb-6">
@@ -1528,7 +1530,7 @@ function HomePageInner() {
 
         {/* Meta del itinerario */}
         <motion.div
-          className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4 print:hidden"
+          className="hidden sm:block bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4 print:hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -1565,46 +1567,45 @@ function HomePageInner() {
               variants={stopVariants}
               initial="hidden"
               animate="visible"
-              className="flex gap-3"
+              className="flex gap-1.5 sm:gap-3"
             >
               {/* Indicador */}
               <div className="flex flex-col items-center shrink-0">
                 <motion.div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0 print-stop-num ${stop.place.isMatch ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}
+                  className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-[10px] sm:text-xs font-black shrink-0 print-stop-num ${stop.place.isMatch ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}
                   whileHover={{ scale: 1.15 }}
                 >
                   {i + 1}
                 </motion.div>
                 {i < stops.length - 1 && (
-                  <div className="w-px flex-1 my-1 bg-gray-100 min-h-[24px]" />
+                  <div className="w-px flex-1 my-0.5 sm:my-1 bg-gray-100 min-h-[12px]" />
                 )}
               </div>
 
               {/* Card */}
               {stop.place.isCamino ? (
                 /* Tarjeta naranja: Camino al Estadio */
-                <div className="flex-1 rounded-2xl border-2 border-orange-300 bg-gradient-to-r from-orange-500 to-amber-500 overflow-hidden mb-1 shadow-md print-card">
-                  <div className="p-4 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-2xl">🚗</div>
+                <div className="flex-1 rounded-xl sm:rounded-2xl border-2 border-orange-300 bg-gradient-to-r from-orange-500 to-amber-500 overflow-hidden mb-1 shadow-md print-card">
+                  <div className="p-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-lg sm:text-2xl">🚗</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-black text-white">{formatTime12(stop.horaLlegada)}</span>
-                        <span className="text-xs text-white/70">→ {formatTime12(stop.horaSalida)}</span>
-                        <span className="ml-auto text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">2 hrs</span>
+                      <div className="flex items-center gap-1 sm:gap-2 mb-0.5">
+                        <span className="text-xs sm:text-sm font-black text-white">{formatTime12(stop.horaLlegada)}</span>
+                        <span className="hidden sm:inline text-xs text-white/70">→ {formatTime12(stop.horaSalida)}</span>
                       </div>
-                      <h3 className="font-black text-base text-white">{stop.place.nombre}</h3>
-                      <p className="text-xs text-white/80 mt-0.5">{stop.place.direccion}</p>
+                      <h3 className="font-black text-xs sm:text-base text-white line-clamp-2">{stop.place.nombre}</h3>
+                      <p className="hidden sm:block text-xs text-white/80 mt-0.5">{stop.place.direccion}</p>
                     </div>
                   </div>
                 </div>
               ) : stop.place.isMatch ? (
                 /* Tarjeta del Estadio Akron */
-                <div className="flex-1 rounded-2xl border-2 border-amber-400 overflow-hidden mb-1 shadow-md print-card bg-[#0D1F14]">
+                <div className="flex-1 rounded-xl sm:rounded-2xl border-2 border-amber-400 overflow-hidden mb-1 shadow-md print-card bg-[#0D1F14]">
                   <div className="flex">
                     {stop.place.fotos[0] && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={stop.place.fotos[0]} alt="Estadio Akron"
-                        className="w-28 object-cover shrink-0 print:hidden"
+                        className="hidden sm:block w-28 object-cover shrink-0 print:hidden"
                         style={{ maxHeight: 130 }}
                         referrerPolicy="no-referrer" />
                     )}
@@ -1638,26 +1639,26 @@ function HomePageInner() {
                 </div>
               ) : (
               /* Tarjeta normal de lugar */
-              <div className="flex-1 rounded-2xl border border-gray-100 bg-white overflow-hidden mb-1 print-card shadow-sm">
+              <div className="flex-1 rounded-xl sm:rounded-2xl border border-gray-100 bg-white overflow-hidden mb-1 print-card shadow-sm">
                 <div className="flex items-stretch">
                   {stop.place.fotos[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={stop.place.fotos[0]} alt={stop.place.nombre}
-                      className="w-20 md:w-32 object-cover shrink-0 self-stretch print:hidden"
+                      className="hidden sm:block w-20 md:w-32 object-cover shrink-0 self-stretch print:hidden"
                       referrerPolicy="no-referrer" />
                   )}
-                  <div className="flex-1 p-3 md:p-4 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-sm font-black text-[#0D601E]">{formatTime12(stop.horaLlegada)}</span>
-                      <span className="text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
-                      <span className="ml-auto text-xs text-gray-400 flex items-center gap-0.5">
+                  <div className="flex-1 p-2 sm:p-3 md:p-4 min-w-0">
+                    <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                      <span className="text-xs sm:text-sm font-black text-[#0D601E] leading-none">{formatTime12(stop.horaLlegada)}</span>
+                      <span className="hidden sm:inline text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
+                      <span className="hidden sm:flex ml-auto text-xs text-gray-400 items-center gap-0.5">
                         <FiClock size={10} /> {stop.place.tiempoEstancia} min
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-sm leading-snug text-[#1A4D2E]">{stop.place.nombre}</h3>
+                    <h3 className="font-bold text-xs sm:text-sm leading-snug text-[#1A4D2E] line-clamp-2">{stop.place.nombre}</h3>
 
-                    <div className="flex flex-wrap gap-1 mt-1.5">
+                    <div className="hidden sm:flex flex-wrap gap-1 mt-1.5">
                       {INTEREST_OPTIONS.filter(opt =>
                         selectedInterests.includes(opt.id) && matchesInterest(stop.place.categoria, opt.id)
                       ).map(opt => (
@@ -1670,18 +1671,18 @@ function HomePageInner() {
                       )}
                     </div>
 
-                    <p className="text-xs text-gray-400 mt-1.5 flex items-start gap-1">
+                    <p className="hidden sm:flex text-xs text-gray-400 mt-1.5 items-start gap-1">
                       <FiMapPin size={10} className="shrink-0 mt-0.5" />
                       {stop.place.direccion}
                     </p>
 
-                    <div className="flex items-center gap-3 mt-1.5">
+                    <div className="hidden sm:flex items-center gap-3 mt-1.5">
                       <span className="text-xs text-gray-500 flex items-center gap-0.5">
                         <FiDollarSign size={10} /> {stop.place.costo}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-3 print:hidden">
+                    <div className="hidden sm:flex items-center gap-2 mt-3 print:hidden">
                       <motion.button
                         onClick={() => {
                           const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
@@ -1750,8 +1751,8 @@ function HomePageInner() {
 
         </div>{/* fin columna izquierda */}
 
-        {/* ── Columna derecha: mapa (sticky desktop, abajo en móvil) ── */}
-        <div className="w-full md:flex-1 h-72 md:h-screen md:sticky md:top-0 print:hidden">
+        {/* ── Columna derecha: mapa ── */}
+        <div className="flex-1 h-full print:hidden">
           {(() => {
             const mapStops: MapStop[] = stops
               .filter(s => s.place.lat && s.place.lng)
@@ -1771,7 +1772,7 @@ function HomePageInner() {
                 </div>
               );
             }
-            return <ItineraryMap stops={mapStops} />;
+            return <ItineraryMap stops={mapStops} userLocation={userLocation} />;
           })()}
         </div>
 

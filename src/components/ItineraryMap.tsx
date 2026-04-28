@@ -11,13 +11,16 @@ export interface MapStop {
   isCamino?: boolean;
 }
 
-export default function ItineraryMap({ stops }: { stops: MapStop[] }) {
+export default function ItineraryMap({ stops, userLocation }: {
+  stops: MapStop[];
+  userLocation?: { lat: number; lng: number } | null;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
 
   useEffect(() => {
     const validStops = stops.filter(s => s.lat && s.lng && !s.isCamino);
-    if (!containerRef.current || validStops.length === 0) return;
+    if (!containerRef.current || (validStops.length === 0 && !userLocation)) return;
 
     const init = async () => {
       const L = (await import('leaflet')).default;
@@ -64,11 +67,32 @@ export default function ItineraryMap({ stops }: { stops: MapStop[] }) {
           .addTo(map);
       });
 
-      if (validStops.length === 1) {
-        map.setView([validStops[0].lat, validStops[0].lng], 15);
-      } else {
-        const bounds = L.latLngBounds(validStops.map(s => [s.lat, s.lng] as [number, number]));
+      // User location blue dot
+      if (userLocation) {
+        const userIcon = L.divIcon({
+          className: '',
+          html: `<div style="width:16px;height:16px;border-radius:50%;background:#2196F3;border:3px solid white;box-shadow:0 0 0 4px rgba(33,150,243,0.25),0 2px 8px rgba(0,0,0,0.3)"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+          popupAnchor: [0, -12],
+        });
+        L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+          .bindPopup('<div style="font-family:system-ui,sans-serif;font-size:12px;font-weight:600;color:#1565C0">📍 Tu ubicación</div>', { maxWidth: 140 })
+          .addTo(map);
+      }
+
+      const allPoints: [number, number][] = [
+        ...validStops.map(s => [s.lat, s.lng] as [number, number]),
+        ...(userLocation ? [[userLocation.lat, userLocation.lng] as [number, number]] : []),
+      ];
+
+      if (allPoints.length === 1) {
+        map.setView(allPoints[0], 15);
+      } else if (allPoints.length > 1) {
+        const bounds = L.latLngBounds(allPoints);
         map.fitBounds(bounds, { padding: [40, 40] });
+      } else {
+        map.setView([20.6736, -103.3440], 13);
       }
     };
 
