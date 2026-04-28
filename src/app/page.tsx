@@ -761,8 +761,8 @@ function HomePageInner() {
         const arrivalMins = timeToMins(estimatedArrival);
 
         if (!isPlaceOpen(place, estimatedArrival, selectedDayOfWeek)) continue;
-        if (isGastro && hasNocturna && arrivalHour >= 19) continue;
-        if (isNocturna && hasNocturna && arrivalHour < 19) continue;
+        if (isGastro && hasNocturna && arrivalHour >= 20) continue;
+        if (isNocturna && hasNocturna && arrivalHour < 20) continue;
 
         if (isGastro) {
           if (gastroCount >= maxGastro) continue;
@@ -816,7 +816,7 @@ function HomePageInner() {
           if (selected.length >= maxPlaces) break;
           if (usedNames.has(place.nombre)) continue;
           const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
-          if (parseInt(estArrival.split(':')[0]) < 19) continue;
+          if (parseInt(estArrival.split(':')[0]) < 20) continue;
           if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
           selected.push(place);
           usedNames.add(place.nombre);
@@ -1293,7 +1293,7 @@ function HomePageInner() {
               <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-sm font-bold text-[#1A4D2E]">
-                    ¿Qué te apasiona?
+                    ¿Qué te interesa?
                   </p>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${selectedInterests.length >= 2 ? 'bg-[#E8F5E9] text-[#1A4D2E]' : 'bg-amber-50 text-amber-600'}`}>
                     {selectedInterests.length}/2 mín.
