@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
@@ -8,6 +9,9 @@ import {
   FiZap, FiDownload, FiArrowLeft,
 } from 'react-icons/fi';
 import AuthModal from '@/components/AuthModal';
+import type { MapStop } from '@/components/ItineraryMap';
+
+const ItineraryMap = dynamic(() => import('@/components/ItineraryMap'), { ssr: false });
 
 const MXN_TO_USD = 17.50;
 
@@ -1506,7 +1510,11 @@ function HomePageInner() {
         </div>
       </motion.div>
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="flex flex-col md:flex-row md:items-start">
+
+        {/* ── Columna izquierda: lista de paradas ── */}
+        <div className="w-full md:w-[480px] lg:w-[520px] flex-shrink-0 px-4 py-6 md:overflow-y-auto md:max-h-[calc(100vh-88px)] md:sticky md:top-0">
+
         {/* Print header — visible solo al imprimir */}
         <div className="hidden print:block print-header mb-6">
           <div className="flex items-center gap-3 mb-2">
@@ -1548,7 +1556,7 @@ function HomePageInner() {
         </motion.div>
 
         {/* Timeline */}
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           {stops.map((stop, i) => (
             <motion.div
               key={i}
@@ -1634,10 +1642,10 @@ function HomePageInner() {
                   {stop.place.fotos[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={stop.place.fotos[0]} alt={stop.place.nombre}
-                      className="w-36 object-cover shrink-0 self-stretch print:hidden"
+                      className="w-20 md:w-32 object-cover shrink-0 self-stretch print:hidden"
                       referrerPolicy="no-referrer" />
                   )}
-                  <div className="flex-1 p-4 min-w-0">
+                  <div className="flex-1 p-3 md:p-4 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-sm font-black text-[#0D601E]">{formatTime12(stop.horaLlegada)}</span>
                       <span className="text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
@@ -1726,7 +1734,35 @@ function HomePageInner() {
             <FiDownload size={15} /> Descargar PDF
           </motion.button>
         </motion.div>
-      </div>
+
+        </div>{/* fin columna izquierda */}
+
+        {/* ── Columna derecha: mapa (sticky desktop, abajo en móvil) ── */}
+        <div className="w-full md:flex-1 h-72 md:h-screen md:sticky md:top-0 print:hidden">
+          {(() => {
+            const mapStops: MapStop[] = stops
+              .filter(s => s.place.lat && s.place.lng)
+              .map((s, idx) => ({
+                lat: s.place.lat!,
+                lng: s.place.lng!,
+                nombre: s.place.nombre,
+                foto: s.place.fotos[0],
+                num: idx + 1,
+                isMatch: s.place.isMatch,
+                isCamino: s.place.isCamino,
+              }));
+            if (mapStops.filter(s => !s.isCamino).length === 0) {
+              return (
+                <div className="w-full h-full flex items-center justify-center bg-[#F0F7F0] text-[#1A4D2E]/40 text-sm">
+                  Sin coordenadas para mostrar en mapa
+                </div>
+              );
+            }
+            return <ItineraryMap stops={mapStops} />;
+          })()}
+        </div>
+
+      </div>{/* fin flex two-col */}
     </div>
   );
 }
