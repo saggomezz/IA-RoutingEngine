@@ -814,9 +814,13 @@ function HomePageInner() {
         }
       }
 
-      // Agregar lugares de vida nocturna al final, solo si llega después de las 7pm
+      // Agregar máximo 1 lugar de vida nocturna al final, solo después de las 20:00
       if (hasNocturna && !attendsMatch) {
+        const alreadyNocturna = selected.filter(p =>
+          matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia')
+        ).length;
         for (const place of nocturnaPool) {
+          if (alreadyNocturna >= 1) break;
           if (selected.length >= maxPlaces) break;
           if (usedNames.has(place.nombre)) continue;
           const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
@@ -825,6 +829,7 @@ function HomePageInner() {
           selected.push(place);
           usedNames.add(place.nombre);
           totalTime += place.tiempoEstancia + transitMins;
+          break; // solo 1
         }
       }
 
@@ -838,7 +843,7 @@ function HomePageInner() {
         ? regularStops.filter(p =>
             matchesInterest(p.categoria, 'vida-nocturna') &&
             !matchesInterest(p.categoria, 'gastronomia')
-          )
+          ).slice(0, 1)
         : [];
       const dayRegularStops = regularStops.filter(p => !nocturnaRegularStops.includes(p));
       const sortedRegular = [
@@ -1448,10 +1453,10 @@ function HomePageInner() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 w-full">
           <motion.button
             onClick={() => setShowResults(false)}
-            className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0 mr-auto"
             whileHover={{ x: -3 }}
           >
             <FiArrowLeft size={16} /> Volver
@@ -1465,46 +1470,42 @@ function HomePageInner() {
               }}
               disabled={isSaving}
               title={savedOk ? 'Quitar guardado' : 'Guardar itinerario'}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all disabled:opacity-50"
               whileTap={{ scale: 0.95 }}
             >
               {isSaving
                 ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 : savedOk
-                  ? <><FaBookmark size={13} /> Guardado</>
-                  : <><FaRegBookmark size={13} /> Guardar</>
+                  ? <><FaBookmark size={15} className="sm:hidden" /><FaBookmark size={13} className="hidden sm:inline" /><span className="hidden sm:inline ml-1">Guardado</span></>
+                  : <><FaRegBookmark size={15} className="sm:hidden" /><FaRegBookmark size={13} className="hidden sm:inline" /><span className="hidden sm:inline ml-1">Guardar</span></>
               }
             </motion.button>
             {calendarUrl && (
               <a href={calendarUrl}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all">
-                📅 Calendario
+                📅 <span className="hidden sm:inline">Calendario</span>
               </a>
             )}
             {/* Controles de cantidad de paradas */}
-            <div className="flex items-center gap-1 bg-white/10 border border-white/20 rounded-xl px-1 py-1">
+            <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-xl px-2 py-1">
+              <span className="hidden md:inline text-xs text-white/60 font-medium">Restar lugar</span>
               <button onClick={removeLastStop} title="Quitar último lugar"
                 className="w-6 h-6 rounded-lg text-white/70 hover:text-white hover:bg-white/20 text-sm font-bold transition-all flex items-center justify-center">−</button>
               <span className="text-xs text-white/60 px-1 font-medium">{stops.filter(s => !s.place.isMatch).length}</span>
               <button onClick={addStop} title="Agregar lugar"
                 className="w-6 h-6 rounded-lg text-white/70 hover:text-white hover:bg-white/20 text-sm font-bold transition-all flex items-center justify-center">+</button>
+              <span className="hidden md:inline text-xs text-white/60 font-medium">Agregar lugar</span>
             </div>
             <motion.button
-              onClick={generateItinerary}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#E8F5E9] text-[#1A4D2E] text-xs font-bold hover:bg-[#c8e6c9] transition-all"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title="Generar un itinerario completamente nuevo"
-            >
-              ↺ Generar de nuevo
-            </motion.button>
-            <motion.button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all"
+              className="flex items-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              title="Descargar PDF"
             >
-              <FiDownload size={13} /> Descargar PDF
+              <FiDownload size={15} className="sm:hidden" />
+              <FiDownload size={13} className="hidden sm:inline" />
+              <span className="hidden sm:inline ml-1">Descargar PDF</span>
             </motion.button>
           </div>
         </div>
@@ -1513,7 +1514,7 @@ function HomePageInner() {
       <div className="flex flex-col md:flex-row md:items-start">
 
         {/* ── Columna izquierda: lista de paradas ── */}
-        <div className="w-full md:w-[480px] lg:w-[520px] flex-shrink-0 px-4 py-6 md:overflow-y-auto md:max-h-[calc(100vh-88px)] md:sticky md:top-0">
+        <div className="w-full md:w-[58%] lg:w-[62%] flex-shrink-0 px-4 py-6 md:overflow-y-auto md:max-h-[calc(100vh-88px)] md:sticky md:top-0">
 
         {/* Print header — visible solo al imprimir */}
         <div className="hidden print:block print-header mb-6">
@@ -1726,12 +1727,24 @@ function HomePageInner() {
             </motion.a>
           )}
           <motion.button
+            onClick={generateItinerary}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border border-[#1A4D2E] text-[#1A4D2E] text-sm font-bold hover:bg-[#E8F5E9] transition-all"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            title="Generar un itinerario completamente nuevo"
+          >
+            <span className="text-base sm:hidden">↺</span>
+            <span className="hidden sm:inline">↺ Generar de nuevo</span>
+          </motion.button>
+          <motion.button
             onClick={() => window.print()}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white text-sm font-bold hover:shadow-lg transition-all"
             whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(13,96,30,0.3)' }}
             whileTap={{ scale: 0.98 }}
           >
-            <FiDownload size={15} /> Descargar PDF
+            <FiDownload size={16} className="sm:hidden" />
+            <FiDownload size={15} className="hidden sm:inline" />
+            <span className="hidden sm:inline">Descargar PDF</span>
           </motion.button>
         </motion.div>
 
