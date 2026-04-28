@@ -15,6 +15,12 @@ const MXN_TO_USD = 17.50;
 function getLocalDateStr(d: Date = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+function getCurrentRoundedHour(): string {
+  const now = new Date();
+  const next = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours();
+  return `${String(Math.min(next, 23)).padStart(2, '0')}:00`;
+}
+const ALL_START_TIMES = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -363,7 +369,11 @@ export default function HomePage() {
 
 function HomePageInner() {
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateStr());
-  const [startTime, setStartTime] = useState('09:00');
+  const [startTime, setStartTime] = useState(() => {
+    const min = getCurrentRoundedHour();
+    const available = ALL_START_TIMES.filter(t => t >= min);
+    return available.length > 0 ? available[0] : '09:00';
+  });
   const [duration, setDuration] = useState('dia-completo');
   const [budget, setBudget] = useState(1500);
   const [groupSize, setGroupSize] = useState(2);
@@ -393,6 +403,13 @@ function HomePageInner() {
   });
   const calendarRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (selectedDate !== getLocalDateStr()) return;
+    const min = getCurrentRoundedHour();
+    const available = ALL_START_TIMES.filter(t => t >= min);
+    if (available.length > 0) setStartTime(available[0]);
+  }, [selectedDate]);
 
   useEffect(() => {
     const uid = searchParams.get('uid');
@@ -1149,7 +1166,10 @@ function HomePageInner() {
                       <FiClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                       <select value={startTime} onChange={e => setStartTime(e.target.value)}
                         className="w-full pl-9 pr-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E] appearance-none">
-                        {['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'].map(t => (
+                        {(selectedDate === getLocalDateStr()
+                          ? ALL_START_TIMES.filter(t => t >= getCurrentRoundedHour())
+                          : ALL_START_TIMES
+                        ).map(t => (
                           <option key={t} value={t}>{formatTime12(t)}</option>
                         ))}
                       </select>
@@ -1159,9 +1179,9 @@ function HomePageInner() {
                     <label className="block text-xs text-gray-500 mb-1.5 font-medium">Duración</label>
                     <select value={duration} onChange={e => setDuration(e.target.value)}
                       className="w-full px-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E]">
-                      <option value="rapido">Rápido (2–3 h)</option>
-                      <option value="medio-dia">Medio día (5–6 h)</option>
-                      <option value="dia-completo">Día completo (8–9 h)</option>
+                      <option value="rapido">Rápido</option>
+                      <option value="medio-dia">Medio día</option>
+                      <option value="dia-completo">Día completo</option>
                     </select>
                   </div>
                 </div>
