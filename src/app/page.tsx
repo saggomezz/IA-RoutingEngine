@@ -70,7 +70,7 @@ const ESTADIO_AKRON: Place = {
   tiempoEstancia: 120,
   costo: '',
   calificacion: '5',
-  fotos: ['https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Estadio_Akron_02-07-2022_cabecera_sur_lado_derecho_%283%29.jpg/1200px-Estadio_Akron_02-07-2022_cabecera_sur_lado_derecho_%283%29.jpg'],
+  fotos: ['/api/img-proxy?k=estadio'],
   isMatch: true,
 };
 
@@ -139,7 +139,8 @@ function isPlaceOpen(place: Place, arrivalTime: string, dayOfWeek: string): bool
   const open = toMins(place.horaApertura);
   let close = toMins(place.horaCierre);
   if (close <= open) close += 24 * 60;
-  return arr >= open && arr < close - 20;
+  const visitEnd = arr + place.tiempoEstancia;
+  return arr >= open && visitEnd <= close;
 }
 
 function repairConsecutiveGastro(places: Place[]): Place[] {
@@ -280,7 +281,6 @@ const FOOD_PREFS = [
   { id: 'tradicional', name: 'Tapatío tradicional', emoji: '🌮', desc: 'Birria, torta ahogada, pozole' },
   { id: 'mix', name: 'Variado', emoji: '🍴', desc: 'Tradicional + internacional' },
   { id: 'vegetariano', name: 'Vegano / saludable', emoji: '🌱', desc: 'Opciones plant-based' },
-  { id: 'nocturna', name: 'Ambiente nocturno', emoji: '🍸', desc: 'Bares y cantinas con estilo' },
 ];
 
 // ---- Stagger variants ----

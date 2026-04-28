@@ -1,7 +1,6 @@
 Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo Estimado,Imagen,horaApertura,horaCierre,diasCerrado
 "Estadio Akron, Guadalajara",Fútbol,Cto. J.V.C. 2800,"20,6817764","-103,4626455",180,"$400 - $2,500",,09:00,22:00,ninguno
 "Museo Chivas, Guadalajara",Arquitectura,Cto. J.V.C. 2800,"20,6820","-103,4630",90,$150,,10:30,16:30,ninguno
-"El Gallo Cantina, Guadalajara","Vida Nocturna, Música",Alfredo R. Plascencia 746,"20,6890096","-103,3716708",90,$200 - $500,,12:00,00:00,ninguno
 "La Gran Plaza Fashion Mall, Guadalajara","Eventos, Compras",La Gran Plaza Fashion Mall,"20,6737855","-103,4047841",90,$100,,10:00,19:00,ninguno
 "Tortas Ahogadas ""El Güerito"", Guadalajara",Gastronomía Mexicana,Calle Francisco I. Madero 13,"20,6730994","-103,3436262",60,$100 - $200,,09:30,18:30,ninguno
 "Centro Histórico de Tlaquepaque, Guadalajara","Cultura, Eventos, Postre, Mercados Locales, Museos, Aventura, Compras, Vida Nocturna, Fotografía, Música, Arquitectura, Arte e Historia",Calle Independencia,"20,6393535","-103,3149955",60,Gratis,,09:00,19:00,ninguno
@@ -26,7 +25,7 @@ Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo 
 "Pozole El Pollo, Guadalajara",Gastronomía,C. Mezquitán 810 - A,"20,6890492","-103,3531121",60,$150 - $280,,09:00,20:00,ninguno
 "El Parián de Tlaquepaque, Guadalajara","Gastronomía Mexicana, Vida Nocturna",Calle Progreso 15,"20,6388349","-103,3110439",120,$300,,12:00,23:00,ninguno
 "Instituto Cultural Cabañas, Guadalajara","Cultura, Fotografía, Arte e Historia, Museos",Pl. Tapatía,"20,6768911","-103,3406483",120,$80,,10:00,17:00,lunes
-"Teatro Degollado, Guadalajara ","Fotografía, Vida Nocturna, Música, Arte e Historia, Cultura, Museos, Aventura, Eventos",C. Degollado s/n,"20,6769963","-103,34477",45,$90 - $350,,10:00,18:00,lunes
+"Teatro Degollado, Guadalajara ","Fotografía, Música, Arte e Historia, Cultura, Museos, Aventura, Eventos",C. Degollado s/n,"20,6769963","-103,34477",45,$90 - $350,,10:00,18:00,lunes
 "Catedral Metropolitana, Guadalajara","Cultura, Música, Fotografía, Vida Nocturna, Postre",Guadalajara,"20,6751707","-103,3473385",40,Gratis,,07:00,19:30,ninguno
 "Palacio de Gobierno de Jalisco, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia",Av. Ramón Corona 31,"20,6761701","-103,3463247",60,Gratis,,09:00,18:00,lunes
 "Rotonda de los Jaliscienses Ilustres, Guadalajara","Naturaleza, Arquitectura, Fotografía",Rotonda de los Jaliscienses Ilustres,"20,6778865","-103,3470261",30,Gratis,,00:00,23:59,ninguno
