@@ -203,7 +203,7 @@ function matchesInterest(categoria: string, interest: string): boolean {
     arquitectura: ['arquitectura', 'historico', 'patrimonio'],
     musica: ['musica', 'concierto'],
     arte: ['arte e historia', 'arte'],
-    mercados: ['mercados locales', 'mercado', 'tianguis'],
+    cafeterias: ['cafeteria', 'cafe', 'brunch', 'cafe de especialidad'],
   };
   return (map[interest] || []).some(kw => cat.includes(kw));
 }
@@ -277,7 +277,7 @@ const INTEREST_OPTIONS = [
   { id: 'gastronomia', name: 'Gastronomía', emoji: '🍽️' },
   { id: 'arquitectura', name: 'Arquitectura', emoji: '🏗️' },
   { id: 'arte', name: 'Arte e historia', emoji: '🎨' },
-  { id: 'mercados', name: 'Mercados', emoji: '🏪' },
+  { id: 'cafeterias', name: 'Cafeterías', emoji: '☕' },
   { id: 'naturaleza', name: 'Naturaleza', emoji: '🌿' },
   { id: 'fotografia', name: 'Fotografía', emoji: '📷' },
   { id: 'compras', name: 'Compras', emoji: '🛍️' },
