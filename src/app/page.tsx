@@ -640,8 +640,10 @@ function HomePageInner() {
       })).filter(p => p.nombre);
 
       const AKRON_KEY = 'akron';
+      const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra'];
       let filtered = places.filter(p =>
         !norm(p.nombre).includes(AKRON_KEY) &&
+        !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
         selectedInterests.some(interest => matchesInterest(p.categoria, interest))
       );
 
