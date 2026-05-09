@@ -45,9 +45,7 @@ Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo 
 "CRAFT Americana, Guadalajara","Gastronomía, Música, Vida Nocturna",Av. de la Paz 1766-Local 2,"20,671765","-103,3639297",90,$300,,12:00,00:00,lunes
 "Argento Americana, Guadalajara",Gastronomía,Calle Argentina 355,"20,6714566","-103,361081",90,$300,,13:00,23:00,ninguno
 "PINOCCHIO - Pedro Moreno, Guadalajara",Gastronomía,C. Pedro Moreno 1567,"20,6752127","-103,369875",120,$200-$400,,13:00,01:00,ninguno
-"Romea, Guadalajara","Gastronomía, Vida Nocturna, Música",C. José María Morelos 1360,"20,6762475","-103,3652095",120,$200-$400,,09:00,01:00,ninguno
-"Andador Americano, Guadalajara","Gastronomía, Vida Nocturna",C. Independencia #1183,"20,6783815","-103,361904",120,$200-$400,,00:00,23:59,ninguno
-"Tikuun comedor, Guadalajara",Gastronomía Mexicana,C. Emeterio Robles Gil 50,"20,6757448","-103,3624709",120,"$400 - $2,500",,14:00,23:00,ninguno
+"Romea, Guadalajara","Gastronomía, Vida Nocturna, Música",C. José María Morelos 1360,"20,6762475","-103,3652095",120,$200-$400,,09:00,01:00,ninguno"Tikuun comedor, Guadalajara",Gastronomía Mexicana,C. Emeterio Robles Gil 50,"20,6757448","-103,3624709",120,"$400 - $2,500",,14:00,23:00,ninguno
 "Rosarito, Guadalajara","Gastronomía Mexicana, Gastronomía, Música, Vida Nocturna",Av. Chapultepec Sur 565,"20,6674669","-103,3682254",150,$200-$400,,14:00,02:00,ninguno
 "Tyrano, Guadalajara","Gastronomía, Vida Nocturna, Música",C. Pedro Moreno 1212,"20,6756822","-103,36293",150,$300-$600,,14:00,01:00,lunes
 "De La O Cantina, Guadalajara","Vida Nocturna, Música",Calle Argentina 70,"20,6751906","-103,3614435",150,$200-$400,,13:00,01:00,martes
