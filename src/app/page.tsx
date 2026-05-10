@@ -10,6 +10,13 @@ import {
 } from 'react-icons/fi';
 import AuthModal from '@/components/AuthModal';
 import type { MapStop } from '@/components/ItineraryMap';
+import {
+  norm, matchesInterest, isPlaceOpen, getDayOfWeek,
+  addMinutes, getMealContext, parseCostMin, mealScore,
+  getFoodType, haversine, sortByProximity, repairConsecutiveGastro,
+  buildSchedule, seededShuffle, dailySeed, BLACKLIST,
+  type Place, type Stop, type MealContext,
+} from '@/lib/ia-engine';
 
 const ItineraryMap = dynamic(() => import('@/components/ItineraryMap'), { ssr: false });
 
@@ -33,31 +40,6 @@ function getFirstDayOfWeek(year: number, month: number) {
 }
 
 // ---- Types ----
-interface Place {
-  nombre: string;
-  categoria: string;
-  direccion: string;
-  tiempoEstancia: number;
-  costo: string;
-  calificacion: string;
-  fotos: string[];
-  lat?: number;
-  lng?: number;
-  isMatch?: boolean;
-  isCamino?: boolean;
-  forcedArrival?: string;
-  horaApertura?: string;
-  horaCierre?: string;
-  diasCerrado?: string;
-}
-
-interface Stop {
-  place: Place;
-  horaLlegada: string;
-  horaSalida: string;
-  traslado: string;
-}
-
 interface ItineraryMeta {
   title: string;
   budget: string;
@@ -105,170 +87,11 @@ function parseCoord(s: string): number | null {
   return isNaN(val) ? null : val;
 }
 
-function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function sortByProximity(places: Place[]): Place[] {
-  if (places.length <= 2) return places;
-  const remaining = [...places];
-  const result: Place[] = [remaining.splice(0, 1)[0]];
-  while (remaining.length > 0) {
-    const last = result[result.length - 1];
-    if (last.lat == null || last.lng == null) { result.push(remaining.splice(0, 1)[0]); continue; }
-    let minDist = Infinity, minIdx = 0;
-    remaining.forEach((p, i) => {
-      if (p.lat != null && p.lng != null) {
-        const d = haversine(last.lat!, last.lng!, p.lat, p.lng);
-        if (d < minDist) { minDist = d; minIdx = i; }
-      }
-    });
-    result.push(remaining.splice(minIdx, 1)[0]);
-  }
-  return result;
-}
-
-function getDayOfWeek(dateStr: string): string {
-  const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-  return days[new Date(dateStr + 'T12:00:00').getDay()];
-}
-
-function isPlaceOpen(place: Place, arrivalTime: string, dayOfWeek: string): boolean {
-  if (!place.horaApertura || !place.horaCierre) return true;
-  if (place.horaApertura === '00:00' && place.horaCierre === '23:59') return true;
-  if (place.diasCerrado && place.diasCerrado !== 'ninguno') {
-    const closed = place.diasCerrado.split(',').map(d => norm(d));
-    if (closed.includes(norm(dayOfWeek))) return false;
-  }
-  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  const arr = toMins(arrivalTime);
-  const open = toMins(place.horaApertura);
-  let close = toMins(place.horaCierre);
-  if (close <= open) close += 24 * 60;
-  const visitEnd = arr + place.tiempoEstancia;
-  return arr >= open && visitEnd <= close;
-}
-
-function repairConsecutiveGastro(places: Place[]): Place[] {
-  const arr = [...places];
-  for (let i = 0; i < arr.length - 1; i++) {
-    if (matchesInterest(arr[i].categoria, 'gastronomia') && matchesInterest(arr[i + 1].categoria, 'gastronomia')) {
-      let swapIdx = -1;
-      for (let j = i + 2; j < arr.length; j++) {
-        if (!matchesInterest(arr[j].categoria, 'gastronomia')) { swapIdx = j; break; }
-      }
-      if (swapIdx >= 0) {
-        const tmp = arr[swapIdx];
-        arr.splice(swapIdx, 1);
-        arr.splice(i + 1, 0, tmp);
-        i = Math.max(0, i - 1);
-      }
-    }
-  }
-  return arr;
-}
-
 // ---- Helpers ----
-function addMinutes(time: string, mins: number): string {
-  const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + mins;
-  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-}
-
 function formatTime12(time: string): string {
   const [h, m] = time.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
-}
-
-function norm(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function matchesInterest(categoria: string, interest: string): boolean {
-  const cat = norm(categoria);
-  const map: Record<string, string[]> = {
-    futbol: ['futbol'],
-    gastronomia: ['gastronomia', 'mexicana', 'postre', 'vegana', 'comida calle', 'cafeteria'],
-    'vida-nocturna': ['nocturna', 'bar', 'cantina'],
-    cultura: ['cultura', 'museos', 'arte e historia', 'arquitectura'],
-    compras: ['compras'],
-    naturaleza: ['naturaleza', 'parque', 'verde'],
-    aventura: ['aventura'],
-    fotografia: ['fotografia', 'mirador', 'vista'],
-    arquitectura: ['arquitectura', 'historico', 'patrimonio'],
-    musica: ['musica', 'concierto'],
-    arte: ['arte e historia', 'arte'],
-    cafeterias: ['cafeteria', 'cafe', 'brunch', 'cafe de especialidad'],
-  };
-  return (map[interest] || []).some(kw => cat.includes(kw));
-}
-
-function parseCostMin(costoStr: string): number {
-  if (!costoStr || /gratis/i.test(costoStr)) return 0;
-  const match = costoStr.replace(/[,. ]/g, '').match(/\$?(\d+)/);
-  return match ? parseInt(match[1]) : 0;
-}
-
-type MealContext = 'desayuno' | 'comida' | 'cena';
-
-function getMealContext(time: string): MealContext {
-  const hour = parseInt(time.split(':')[0]);
-  if (hour < 12) return 'desayuno';
-  if (hour < 17) return 'comida';
-  return 'cena';
-}
-
-function mealScore(place: Place, meal: MealContext): number {
-  const text = norm(`${place.nombre} ${place.categoria}`);
-  const keywords: Record<MealContext, string[]> = {
-    desayuno: ['desayuno', 'cafe', 'cafeteria', 'brunch', 'pan', 'jugo', 'breakfast', 'torta'],
-    comida: ['comida', 'birria', 'torta ahogada', 'pozole', 'taco', 'tacos', 'fonda', 'ahogada', 'mexicana', 'lonche'],
-    cena: ['cena', 'cantina', 'nocturna', 'mariscos', 'coctel', 'restaurant'],
-  };
-  const penalize: Record<MealContext, string[]> = {
-    desayuno: ['cena', 'nocturna', 'bar', 'cantina'],
-    comida: [],
-    cena: ['desayuno', 'cafe', 'brunch'],
-  };
-  let score = 0;
-  for (const kw of keywords[meal]) if (text.includes(norm(kw))) score++;
-  for (const kw of penalize[meal]) if (text.includes(norm(kw))) score--;
-  return score;
-}
-
-function getFoodType(place: Place): string {
-  const text = norm(`${place.nombre}`);
-  if (text.includes('taco')) return 'tacos';
-  if (text.includes('birria')) return 'birria';
-  if (text.includes('torta')) return 'tortas';
-  if (text.includes('pozole')) return 'pozole';
-  if (text.includes('tamal')) return 'tamales';
-  if (text.includes('mariscos') || text.includes('ceviche')) return 'mariscos';
-  if (text.includes('cafe') || text.includes('cafeteria') || text.includes('brunch')) return 'cafe';
-  if (text.includes('lonche')) return 'lonches';
-  if (text.includes('sushi')) return 'sushi';
-  return `unique_${norm(place.nombre)}`;
-}
-
-function buildSchedule(
-  places: Place[],
-  startTime: string,
-): Stop[] {
-  const TRANSIT = 30;
-  let current = startTime;
-  return places.map((place, i) => {
-    if (place.forcedArrival) current = place.forcedArrival;
-    const horaLlegada = current;
-    const mins = place.tiempoEstancia || 60;
-    const horaSalida = addMinutes(current, mins);
-    current = addMinutes(horaSalida, i < places.length - 1 ? TRANSIT : 0);
-    return { place, horaLlegada, horaSalida, traslado: '' };
-  });
 }
 
 // ---- Interest options ----
@@ -639,10 +462,8 @@ function HomePageInner() {
         diasCerrado: p['diasCerrado'] || 'ninguno',
       })).filter(p => p.nombre);
 
-      const AKRON_KEY = 'akron';
-      const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra'];
+      const seed = dailySeed();
       let filtered = places.filter(p =>
-        !norm(p.nombre).includes(AKRON_KEY) &&
         !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
         selectedInterests.some(interest => matchesInterest(p.categoria, interest))
       );
@@ -713,24 +534,26 @@ function HomePageInner() {
       const timeToMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
       const postrePool = hasGastro
-        ? adjustedPlaces.filter(p =>
-            !norm(p.nombre).includes(AKRON_KEY) &&
-            norm(p.categoria).includes('postre') &&
-            isPlaceOpen(p, '14:00', selectedDayOfWeek)
-          ).sort(() => Math.random() - 0.5)
+        ? seededShuffle(
+            adjustedPlaces.filter(p =>
+              norm(p.categoria).includes('postre') &&
+              isPlaceOpen(p, '14:00', selectedDayOfWeek)
+            ), seed + 2)
         : [];
 
       const gastroPool = adjustedPlaces
         .filter(p => matchesInterest(p.categoria, 'gastronomia'))
         .sort((a, b) => mealScore(b, mealContext) - mealScore(a, mealContext));
 
-      const nocturnaPool = adjustedPlaces
-        .filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia'))
-        .sort(() => Math.random() - 0.5);
+      const nocturnaPool = seededShuffle(
+        adjustedPlaces.filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia')),
+        seed
+      );
 
-      const othersPool = adjustedPlaces
-        .filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna'))
-        .sort(() => Math.random() - 0.5);
+      const othersPool = seededShuffle(
+        adjustedPlaces.filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna')),
+        seed + 1
+      );
 
       const afterMatchPool = attendsMatch && hasNocturna ? nocturnaPool : [];
 

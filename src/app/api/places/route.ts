@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFileSync, appendFileSync } from 'fs';
+import { readFileSync, appendFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const BACKEND = process.env.BACKEND_INTERNAL_URL || 'https://api.pitzbol.me:8443';
@@ -26,6 +26,28 @@ function parseCSVLine(line: string): string[] {
 
 function normName(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function loadDeletedPlaces(): Set<string> {
+  try {
+    const raw = readFileSync(join(process.cwd(), 'deleted_places.json'), 'utf-8');
+    const list: string[] = JSON.parse(raw);
+    return new Set(list.map(normName));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedPlace(nombre: string): void {
+  try {
+    const path = join(process.cwd(), 'deleted_places.json');
+    const raw = readFileSync(path, 'utf-8');
+    const list: string[] = JSON.parse(raw);
+    if (!list.map(normName).includes(normName(nombre))) {
+      list.push(nombre);
+      writeFileSync(path, JSON.stringify(list, null, 2), 'utf-8');
+    }
+  } catch { /* no-op */ }
 }
 
 function stripCity(name: string): string {
@@ -128,8 +150,15 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
 
 export async function GET() {
   try {
+    const deleted = loadDeletedPlaces();
+
     // Firebase is primary source
     const firebaseMap = await fetchFirebasePlaces();
+
+    // Remove deleted places from Firebase results
+    for (const key of firebaseMap.keys()) {
+      if (deleted.has(key)) firebaseMap.delete(key);
+    }
 
     // CSV as fallback for places not yet in Firebase
     const csvPlaces = parseCsvPlaces();
@@ -137,6 +166,9 @@ export async function GET() {
       const nombre = String(csvPlace['Nombre del Lugar'] || '').trim();
       const key = normName(nombre);
       const keyShort = normName(stripCity(nombre));
+
+      // Skip deleted places from CSV too
+      if (deleted.has(key) || deleted.has(keyShort)) continue;
 
       if (firebaseMap.has(key) || firebaseMap.has(keyShort)) {
         // Firebase has this place — enrich with CSV foto if Firebase has none
@@ -210,6 +242,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Error writing CSV:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
+
+// ── DELETE — registra un lugar como eliminado para que no reaparezca del CSV ──
+export async function DELETE(req: NextRequest) {
+  try {
+    const { nombre } = await req.json();
+    if (!nombre) return NextResponse.json({ error: 'nombre requerido' }, { status: 400 });
+    saveDeletedPlace(nombre);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('Error registering deleted place:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

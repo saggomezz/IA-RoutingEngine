@@ -1,5 +1,29 @@
 // Funciones puras del motor de itinerarios — importables sin React
 
+// ── Shuffle con semilla (evita aleatoriedad no determinista) ─────────────────
+function seededRandom(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+export function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const result = [...arr];
+  const rand = seededRandom(seed);
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// Semilla diaria: varía cada día pero es constante dentro del mismo día
+export function dailySeed(): number {
+  return parseInt(new Date().toISOString().slice(0, 10).replace(/-/g, ''));
+}
+
 export interface Place {
   nombre: string;
   categoria: string;
@@ -189,10 +213,11 @@ export interface GenerateOptions {
   startTime: string;
   budget: number;
   selectedDate: string;
+  seed?: number;
 }
 
 export function generateItinerary(places: Place[], opts: GenerateOptions): Place[] {
-  const { interests, ritmo, startTime, budget, selectedDate } = opts;
+  const { interests, ritmo, startTime, budget, selectedDate, seed = dailySeed() } = opts;
   const selectedDayOfWeek = getDayOfWeek(selectedDate);
   const TRANSIT = 30;
   const MIN_GASTRO_GAP = 150;
@@ -218,13 +243,15 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     .filter(p => matchesInterest(p.categoria, 'gastronomia'))
     .sort((a, b) => mealScore(b, mealCtx) - mealScore(a, mealCtx));
 
-  const nocturnaPool = adjusted
-    .filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia'))
-    .sort(() => Math.random() - 0.5);
+  const nocturnaPool = seededShuffle(
+    adjusted.filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia')),
+    seed
+  );
 
-  const othersPool = adjusted
-    .filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna'))
-    .sort(() => Math.random() - 0.5);
+  const othersPool = seededShuffle(
+    adjusted.filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna')),
+    seed + 1
+  );
 
   const mainPool: Place[] = (() => {
     const others = hasNocturna ? othersPool : [...othersPool, ...nocturnaPool];
