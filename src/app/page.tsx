@@ -1427,9 +1427,9 @@ function HomePageInner() {
                 /* Tarjeta del Estadio Akron */
                 <div className="flex-1 rounded-xl sm:rounded-2xl border-2 border-amber-400 overflow-hidden mb-1 shadow-md print-card bg-[#0D1F14]">
                   <div className="flex">
-                    {stop.place.fotos[0] && (
+                    {stop.place.fotos?.[0] && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={stop.place.fotos[0]} alt="Estadio Akron"
+                      <img src={stop.place.fotos?.[0]} alt="Estadio Akron"
                         className="hidden sm:block w-28 object-cover shrink-0 print:hidden"
                         style={{ maxHeight: 130 }}
                         referrerPolicy="no-referrer" />
@@ -1466,9 +1466,9 @@ function HomePageInner() {
               /* Tarjeta normal de lugar */
               <div className="flex-1 rounded-xl sm:rounded-2xl border border-gray-100 bg-white overflow-hidden mb-1 print-card shadow-sm">
                 <div className="flex items-stretch">
-                  {stop.place.fotos[0] && (
+                  {stop.place.fotos?.[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={stop.place.fotos[0]} alt={stop.place.nombre}
+                    <img src={stop.place.fotos?.[0]} alt={stop.place.nombre}
                       className="hidden sm:block w-20 md:w-32 object-cover shrink-0 self-stretch print:hidden"
                       referrerPolicy="no-referrer" />
                   )}
@@ -1585,7 +1585,7 @@ function HomePageInner() {
                 lat: s.place.lat!,
                 lng: s.place.lng!,
                 nombre: s.place.nombre,
-                foto: s.place.fotos[0],
+                foto: s.place.fotos?.[0],
                 num: idx + 1,
                 isMatch: s.place.isMatch,
                 isCamino: s.place.isCamino,
