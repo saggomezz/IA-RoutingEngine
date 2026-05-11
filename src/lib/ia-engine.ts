@@ -52,7 +52,7 @@ export interface Stop {
 export type MealContext = 'desayuno' | 'comida' | 'cena';
 export type Ritmo = 'tranquilo' | 'normal' | 'activo';
 
-export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron'];
+export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron', 'complejo verde valle'];
 
 export const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: string }> = {
   '2026-06-11': { partido: 'Grupo A · Estadio Akron', equipos: 'Corea del Sur vs. Chequia',    hora: '20:00' },
@@ -311,6 +311,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   let totalTime = 0;
   let gastroCount = 0;
   let lastGastroEndMins = -MIN_GASTRO_GAP;
+  let lastGastroArrivalMins = -1;
   const usedFoodTypes = new Set<string>();
   const usedNames = new Set<string>();
   const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
@@ -348,6 +349,8 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (isGastro) {
       if (gastroCount >= maxGastro) continue;
       if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP) continue;
+      // Si el último gastro fue antes de la 1pm, no repetir hasta después de las 2pm
+      if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrMins < 14 * 60) continue;
       const foodType = getFoodType(place);
       if (usedFoodTypes.has(foodType)) continue;
       usedFoodTypes.add(foodType);
@@ -357,7 +360,10 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     selected.push(place);
     usedNames.add(place.nombre);
     totalTime += place.tiempoEstancia + (selected.length > 1 ? TRANSIT : 0);
-    if (isGastro) lastGastroEndMins = arrMins + place.tiempoEstancia;
+    if (isGastro) {
+      lastGastroEndMins = arrMins + place.tiempoEstancia;
+      lastGastroArrivalMins = arrMins;
+    }
   }
 
   // Nocturna al final si aplica

@@ -569,8 +569,11 @@ function HomePageInner() {
       let totalTime = 0;
       let gastroCount = 0;
       let lastGastroEndMins = -MIN_GASTRO_GAP_MINS; // permite primer restaurante de inmediato
+      let lastGastroArrivalMins = -1;
       const usedFoodTypes = new Set<string>();
       const usedNames = new Set<string>();
+      const isMatchDay = selectedDate in MATCH_DAYS;
+      const hasCafeterias = selectedInterests.includes('cafeterias');
 
       const transitMins = 30;
 
@@ -588,10 +591,25 @@ function HomePageInner() {
         if (isGastro && hasNocturna && arrivalHour >= 20) continue;
         if (isNocturna && hasNocturna && arrivalHour < 20) continue;
 
+        // Cafeterías: slot forzado según hora de inicio del itinerario
+        const isCafe = matchesInterest(place.categoria, 'cafeterias');
+        if (isCafe && hasCafeterias) {
+          if (startHour < 13) {
+            if (arrivalHour >= 13) continue;
+          } else {
+            if (isMatchDay) continue;
+            if (arrivalHour < 18) continue;
+          }
+        }
+
+        // Plazas comerciales → nunca antes de las 11:00
+        if (norm(place.categoria).includes('compras') && arrivalHour < 11) continue;
+
         if (isGastro) {
           if (gastroCount >= maxGastro) continue;
-          // Mínimo MIN_GASTRO_GAP_MINS entre fin del último gastro y llegada al siguiente
           if (arrivalMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) continue;
+          // Gastro antes de la 1pm → no repetir hasta después de las 2pm
+          if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrivalMins < 14 * 60) continue;
           const foodType = getFoodType(place);
           if (usedFoodTypes.has(foodType)) continue;
           usedFoodTypes.add(foodType);
@@ -603,7 +621,10 @@ function HomePageInner() {
           selected.push(place);
           usedNames.add(place.nombre);
           totalTime += timeNeeded;
-          if (isGastro) lastGastroEndMins = arrivalMins + place.tiempoEstancia;
+          if (isGastro) {
+            lastGastroEndMins = arrivalMins + place.tiempoEstancia;
+            lastGastroArrivalMins = arrivalMins;
+          }
         }
       }
 
@@ -615,9 +636,12 @@ function HomePageInner() {
           const isGastro = matchesInterest(place.categoria, 'gastronomia');
           const estArrival = addMinutes(startTime, totalTime + transitMins);
           const arrivalMins = timeToMins(estArrival);
+          const arrHourFill = parseInt(estArrival.split(':')[0]);
+          if (norm(place.categoria).includes('compras') && arrHourFill < 11) continue;
           if (isGastro) {
             if (gastroCount >= maxGastro) continue;
             if (arrivalMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) continue;
+            if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrivalMins < 14 * 60) continue;
             const foodType = getFoodType(place);
             if (usedFoodTypes.has(foodType)) continue;
             usedFoodTypes.add(foodType);
@@ -629,7 +653,10 @@ function HomePageInner() {
             selected.push(place);
             usedNames.add(place.nombre);
             totalTime += timeNeeded;
-            if (isGastro) lastGastroEndMins = arrivalMins + place.tiempoEstancia;
+            if (isGastro) {
+              lastGastroEndMins = arrivalMins + place.tiempoEstancia;
+              lastGastroArrivalMins = arrivalMins;
+            }
           }
         }
       }
