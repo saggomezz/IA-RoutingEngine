@@ -52,7 +52,7 @@ export interface Stop {
 export type MealContext = 'desayuno' | 'comida' | 'cena';
 export type Ritmo = 'tranquilo' | 'normal' | 'activo';
 
-export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron', 'complejo verde valle'];
+export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron', 'complejo verde valle', 'tacos el super'];
 
 export const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: string }> = {
   '2026-06-11': { partido: 'Grupo A · Estadio Akron', equipos: 'Corea del Sur vs. Chequia',    hora: '20:00' },
