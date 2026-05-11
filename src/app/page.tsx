@@ -435,6 +435,7 @@ function HomePageInner() {
       return;
     }
     setGenerating(true);
+    const loadStart = Date.now();
     try {
       const res = await fetch('/api/places');
       const raw: Record<string, any>[] = await res.json();
@@ -766,6 +767,8 @@ function HomePageInner() {
       console.error(error);
       alert('Error al generar el itinerario. Inténtalo de nuevo.');
     } finally {
+      const elapsed = Date.now() - loadStart;
+      if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
       setGenerating(false);
     }
   };
@@ -834,28 +837,28 @@ function HomePageInner() {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-                className="relative w-52 h-52 md:w-64 md:h-64 flex items-center justify-center"
+                className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center"
               >
                 <Image
                   src="/logoPitzbol.png"
                   alt="Pitzbol"
                   fill
-                  sizes="(max-width: 768px) 208px, 256px"
+                  sizes="(max-width: 768px) 256px, 320px"
                   className="object-contain"
                   priority
                 />
               </motion.div>
 
-              <div className="relative -mt-6 z-10 text-center">
-                <h3 className="text-2xl md:text-3xl font-black text-[#1A4D2E] uppercase tracking-tight leading-none">
-                  Pitzbol ⚽
+              <div className="relative -mt-8 md:-mt-10 z-10 text-center">
+                <h3 className="text-xl md:text-3xl font-black text-[#1A4D2E] uppercase tracking-tighter leading-none">
+                  Generando Itinerario
                 </h3>
                 <motion.p
-                  className="text-[#769C7B] italic text-sm md:text-base font-medium mt-2"
+                  className="text-[#769C7B] italic text-xs md:text-base font-medium mt-2 animate-pulse"
                   animate={{ opacity: [0.4, 1, 0.4] }}
                   transition={{ repeat: Infinity, duration: 1.8 }}
                 >
-                  Generando tu itinerario...
+                  Buscando los mejores lugares para ti...
                 </motion.p>
               </div>
             </motion.div>
