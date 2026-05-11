@@ -1234,6 +1234,9 @@ function HomePageInner() {
                         <p className="text-xs text-amber-600">{matchInfo.partido} · {matchInfo.hora} hrs (CDMX)</p>
                       </div>
                     </div>
+                    <p className="text-xs text-amber-700 mt-1 mb-3 italic">
+                      🎉 Tip local: es tradición tapatía reunirse en La Minerva a festejar después del partido.
+                    </p>
                     <p className="text-xs font-semibold text-amber-800 mb-2">¿Asistirás al partido?</p>
                     <div className="flex gap-2">
                       {[
