@@ -216,7 +216,28 @@ export interface GenerateOptions {
   seed?: number;
 }
 
+// ── Validación de inputs ──────────────────────────────────────────────────────
+export function validateGenerateOptions(opts: GenerateOptions): string | null {
+  if (!opts.interests || opts.interests.length === 0)
+    return 'Debes seleccionar al menos un interés';
+  if (!/^\d{2}:\d{2}$/.test(opts.startTime))
+    return 'Hora de inicio inválida (formato esperado HH:MM)';
+  const [h, m] = opts.startTime.split(':').map(Number);
+  if (h < 0 || h > 23 || m < 0 || m > 59)
+    return 'Hora de inicio fuera de rango (00:00–23:59)';
+  if (opts.budget < 0)
+    return 'El presupuesto no puede ser negativo';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.selectedDate) || isNaN(Date.parse(opts.selectedDate)))
+    return 'Fecha inválida (formato esperado YYYY-MM-DD)';
+  if (!['tranquilo', 'normal', 'activo'].includes(opts.ritmo))
+    return 'Ritmo inválido (valores: tranquilo, normal, activo)';
+  return null;
+}
+
 export function generateItinerary(places: Place[], opts: GenerateOptions): Place[] {
+  const error = validateGenerateOptions(opts);
+  if (error) throw new Error(error);
+
   const { interests, ritmo, startTime, budget, selectedDate, seed = dailySeed() } = opts;
   const selectedDayOfWeek = getDayOfWeek(selectedDate);
   const TRANSIT = 30;
@@ -228,15 +249,25 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     (parseCostMin(p.costo) === 0 || parseCostMin(p.costo) <= budget)
   );
 
+  // Fallback: si hay muy pocos lugares (<3) y el usuario no eligió explícitamente budget=0, relajar filtro
+  if (filtered.length < 3 && budget > 0) {
+    const sinPresupuesto = places.filter(p =>
+      !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
+      interests.some(interest => matchesInterest(p.categoria, interest))
+    );
+    if (sinPresupuesto.length > filtered.length) filtered = sinPresupuesto;
+  }
+
   if (filtered.length === 0) return [];
 
   const ritmoMult = ritmo === 'tranquilo' ? 1.3 : ritmo === 'activo' ? 0.8 : 1;
   const adjusted = filtered.map(p => ({ ...p, tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult) }));
 
   const maxPlaces = ritmo === 'tranquilo' ? 3 : ritmo === 'normal' ? 4 : 5;
-  const maxGastro = 2;
+  // maxGastro escala con el ritmo: tranquilo=1, normal=2, activo=2
+  const maxGastro = ritmo === 'tranquilo' ? 1 : 2;
   const mealCtx = getMealContext(startTime);
-  const hasGastro = interests.includes('gastronomia');
+  const hasGastro = interests.some(int => ['gastronomia', 'cafeterias'].includes(int));
   const hasNocturna = interests.includes('vida-nocturna');
 
   const gastroPool = adjusted

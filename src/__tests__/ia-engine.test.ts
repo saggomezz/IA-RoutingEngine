@@ -4,7 +4,8 @@ import {
   addMinutes, getMealContext, parseCostMin,
   mealScore, getFoodType, haversine,
   sortByProximity, repairConsecutiveGastro,
-  buildSchedule, generateItinerary,
+  buildSchedule, generateItinerary, validateGenerateOptions,
+  seededShuffle,
   type Place,
 } from '../lib/ia-engine';
 
@@ -349,5 +350,143 @@ describe('generateItinerary — reglas de negocio', () => {
       selectedDate: '2026-05-11', // lunes
     });
     expect(result.find(p => p.nombre === museo.nombre)).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('validateGenerateOptions', () => {
+  const validOpts = {
+    interests: ['cultura'],
+    ritmo: 'normal' as const,
+    startTime: '09:00',
+    budget: 300,
+    selectedDate: '2026-05-09',
+  };
+
+  it('opciones válidas no retornan error', () => {
+    expect(validateGenerateOptions(validOpts)).toBeNull();
+  });
+  it('sin intereses retorna error', () => {
+    expect(validateGenerateOptions({ ...validOpts, interests: [] })).toMatch(/interés/i);
+  });
+  it('startTime con formato incorrecto retorna error', () => {
+    expect(validateGenerateOptions({ ...validOpts, startTime: '9:00' })).toMatch(/inválida/i);
+    expect(validateGenerateOptions({ ...validOpts, startTime: '25:00' })).toMatch(/rango/i);
+    expect(validateGenerateOptions({ ...validOpts, startTime: 'abc' })).toMatch(/inválida/i);
+  });
+  it('presupuesto negativo retorna error', () => {
+    expect(validateGenerateOptions({ ...validOpts, budget: -1 })).toMatch(/negativo/i);
+  });
+  it('fecha inválida retorna error', () => {
+    expect(validateGenerateOptions({ ...validOpts, selectedDate: '2026-13-01' })).toMatch(/inválida/i);
+    expect(validateGenerateOptions({ ...validOpts, selectedDate: 'hoy' })).toMatch(/inválida/i);
+  });
+  it('generateItinerary lanza excepción con inputs inválidos', () => {
+    expect(() => generateItinerary(ALL_PLACES, { ...validOpts, interests: [] }))
+      .toThrow(/interés/i);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('maxGastro escala con ritmo', () => {
+  const GASTRO_PLACES = Array.from({ length: 6 }, (_, i) => mkPlace({
+    nombre: `Restaurante ${i + 1}`,
+    categoria: 'Gastronomía Mexicana',
+    horaApertura: '08:00',
+    horaCierre: '22:00',
+    diasCerrado: 'ninguno',
+    costo: 'Gratis',
+  }));
+  const NON_GASTRO = Array.from({ length: 6 }, (_, i) => mkPlace({
+    nombre: `Museo ${i + 1}`,
+    categoria: 'Cultura, Museos',
+    horaApertura: '09:00',
+    horaCierre: '18:00',
+    diasCerrado: 'ninguno',
+    costo: 'Gratis',
+    lat: 20.67 + i * 0.01,
+    lng: -103.34,
+  }));
+  const MIXED = [...GASTRO_PLACES, ...NON_GASTRO];
+  const baseOpts = {
+    interests: ['cultura', 'gastronomia'],
+    startTime: '09:00',
+    budget: 500,
+    selectedDate: '2026-05-09',
+    seed: 42,
+  };
+
+  it('tranquilo: máximo 1 lugar de gastronomía', () => {
+    const result = generateItinerary(MIXED, { ...baseOpts, ritmo: 'tranquilo' });
+    const gastroCount = result.filter(p => matchesInterest(p.categoria, 'gastronomia')).length;
+    expect(gastroCount).toBeLessThanOrEqual(1);
+  });
+  it('normal: máximo 2 lugares de gastronomía', () => {
+    const result = generateItinerary(MIXED, { ...baseOpts, ritmo: 'normal' });
+    const gastroCount = result.filter(p => matchesInterest(p.categoria, 'gastronomia')).length;
+    expect(gastroCount).toBeLessThanOrEqual(2);
+  });
+  it('activo: máximo 2 lugares de gastronomía', () => {
+    const result = generateItinerary(MIXED, { ...baseOpts, ritmo: 'activo' });
+    const gastroCount = result.filter(p => matchesInterest(p.categoria, 'gastronomia')).length;
+    expect(gastroCount).toBeLessThanOrEqual(2);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('fallback con pocos lugares disponibles', () => {
+  const soloDosCafeterias = [
+    mkPlace({ nombre: 'Café A', categoria: 'Cafeterías', costo: '$600', horaApertura: '07:00', horaCierre: '20:00', diasCerrado: 'ninguno' }),
+    mkPlace({ nombre: 'Café B', categoria: 'Cafeterías', costo: '$700', horaApertura: '07:00', horaCierre: '20:00', diasCerrado: 'ninguno' }),
+  ];
+
+  it('con presupuesto bajo relaja el filtro y devuelve lugares', () => {
+    // Con budget=100 los cafés ($600 y $700) serían filtrados, pero el fallback los incluye
+    const result = generateItinerary(soloDosCafeterias, {
+      interests: ['cafeterias'],
+      ritmo: 'normal',
+      startTime: '09:00',
+      budget: 100,
+      selectedDate: '2026-05-09',
+      seed: 1,
+    });
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('con cero lugares posibles devuelve arreglo vacío', () => {
+    const result = generateItinerary([], {
+      interests: ['cafeterias'],
+      ritmo: 'normal',
+      startTime: '09:00',
+      budget: 500,
+      selectedDate: '2026-05-09',
+      seed: 1,
+    });
+    expect(result).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('seededShuffle', () => {
+  const arr = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  it('misma semilla produce mismo resultado siempre', () => {
+    expect(seededShuffle(arr, 42)).toEqual(seededShuffle(arr, 42));
+    expect(seededShuffle(arr, 999)).toEqual(seededShuffle(arr, 999));
+  });
+  it('semillas distintas producen resultados distintos', () => {
+    expect(seededShuffle(arr, 1)).not.toEqual(seededShuffle(arr, 1000));
+  });
+  it('conserva todos los elementos', () => {
+    const result = seededShuffle(arr, 42);
+    expect(result.sort()).toEqual([...arr].sort());
+  });
+  it('arreglo vacío no falla', () => {
+    expect(seededShuffle([], 42)).toEqual([]);
+  });
+  it('no muta el arreglo original', () => {
+    const original = [1, 2, 3];
+    seededShuffle(original, 42);
+    expect(original).toEqual([1, 2, 3]);
   });
 });
