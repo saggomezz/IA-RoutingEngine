@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
@@ -825,40 +826,37 @@ function HomePageInner() {
         <AnimatePresence>
           {isGenerating && (
             <motion.div
-              className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0D1F14]/96 backdrop-blur-md"
+              className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F5F0E8]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, transition: { duration: 0.4 } }}
             >
               <motion.div
-                animate={{ y: [0, -22, 0], rotate: [0, 8, -8, 0] }}
-                transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
-                className="text-7xl mb-5 select-none"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+                className="relative w-52 h-52 md:w-64 md:h-64 flex items-center justify-center"
               >
-                ⚽
+                <Image
+                  src="/logoPitzbol.png"
+                  alt="Pitzbol"
+                  fill
+                  sizes="(max-width: 768px) 208px, 256px"
+                  className="object-contain"
+                  priority
+                />
               </motion.div>
-              <motion.div
-                animate={{ scale: [1, 1.04, 1] }}
-                transition={{ repeat: Infinity, duration: 1.4 }}
-              >
-                <span className="text-3xl font-black text-white">Pitzbol</span>
-              </motion.div>
-              <motion.p
-                className="text-white/60 text-sm mt-3 font-medium"
-                animate={{ opacity: [0.4, 1, 0.4] }}
-                transition={{ repeat: Infinity, duration: 1.8 }}
-              >
-                Creando tu itinerario perfecto...
-              </motion.p>
-              <div className="flex gap-1.5 mt-6">
-                {[0, 1, 2].map(i => (
-                  <motion.div
-                    key={i}
-                    className="w-2 h-2 rounded-full bg-[#81C784]"
-                    animate={{ scale: [1, 1.6, 1], opacity: [0.4, 1, 0.4] }}
-                    transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.2 }}
-                  />
-                ))}
+
+              <div className="relative -mt-6 z-10 text-center">
+                <h3 className="text-2xl md:text-3xl font-black text-[#1A4D2E] uppercase tracking-tight leading-none">
+                  Pitzbol ⚽
+                </h3>
+                <motion.p
+                  className="text-[#769C7B] italic text-sm md:text-base font-medium mt-2"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ repeat: Infinity, duration: 1.8 }}
+                >
+                  Generando tu itinerario...
+                </motion.p>
               </div>
             </motion.div>
           )}
