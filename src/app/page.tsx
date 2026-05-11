@@ -12,11 +12,12 @@ import {
 import AuthModal from '@/components/AuthModal';
 import type { MapStop } from '@/components/ItineraryMap';
 import {
-  norm, matchesInterest, isPlaceOpen, getDayOfWeek,
-  addMinutes, getMealContext, parseCostMin, mealScore,
-  getFoodType, haversine, sortByProximity, repairConsecutiveGastro,
-  buildSchedule, seededShuffle, dailySeed, BLACKLIST, MATCH_DAYS,
-  type Place, type Stop, type MealContext,
+  norm, matchesInterest, haversine,
+  addMinutes, buildSchedule, MATCH_DAYS,
+  generateItinerary as engineGenerateItinerary,
+  pickAddStop, pickReplaceStop,
+  dailySeed,
+  type Place, type Stop, type GenerateOptions,
 } from '@/lib/ia-engine';
 
 const ItineraryMap = dynamic(() => import('@/components/ItineraryMap'), { ssr: false });
@@ -423,7 +424,7 @@ function HomePageInner() {
     setAuthTrigger(null);
   };
 
-  const generateItinerary = async () => {
+  const handleGenerate = async () => {
     if (!selectedDate || selectedInterests.length < 2) {
       alert('Selecciona una fecha y al menos 2 intereses para un itinerario variado');
       return;
@@ -455,279 +456,34 @@ function HomePageInner() {
         diasCerrado: p['diasCerrado'] || 'ninguno',
       })).filter(p => p.nombre);
 
-      const seed = dailySeed();
-      let filtered = places.filter(p =>
-        !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
-        selectedInterests.some(interest => matchesInterest(p.categoria, interest))
-      );
-
-      filtered = filtered.filter(p => {
-        const min = parseCostMin(p.costo);
-        return min === 0 || min <= budget;
-      });
-
-      if (transporte === 'a-pie') {
-        const refLat = userLocation?.lat ?? 20.6736;
-        const refLng = userLocation?.lng ?? -103.3440;
-        const radius = userLocation ? 2 : 3;
-        const withCoords = filtered.filter(p =>
-          p.lat != null && p.lng != null &&
-          haversine(refLat, refLng, p.lat!, p.lng!) <= radius
-        );
-        if (withCoords.length >= 3) filtered = withCoords;
-      }
-
-      if (foodPreference === 'vegetariano') {
-        filtered = filtered.filter(p => {
-          if (matchesInterest(p.categoria, 'gastronomia')) {
-            const cat = norm(p.categoria);
-            return cat.includes('vegana') || cat.includes('vegetaria') || cat.includes('sano');
-          }
-          return true;
-        });
-      }
-
-      if (foodPreference === 'nocturna') {
-        filtered = filtered.filter(p => {
-          if (matchesInterest(p.categoria, 'gastronomia')) {
-            return matchesInterest(p.categoria, 'vida-nocturna');
-          }
-          return true;
-        });
-      }
-
-      if (filtered.length === 0) {
+      if (places.length === 0) {
         alert('No encontramos lugares que coincidan con tu selección. Prueba con otros intereses o aumenta el presupuesto.');
         return;
       }
 
-      const ritmoMult = ritmo === 'tranquilo' ? 1.3 : ritmo === 'activo' ? 0.8 : 1;
-      const adjustedPlaces = filtered.map(p => ({
-        ...p,
-        tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult),
-      }));
-
-      const matchReservedMins = attendsMatch ? 120 + 120 : 0; // camino (2 h) + partido (2 h)
-      // targetMins es el tiempo real que debe llenarse
-      const targetMins = (duration === 'rapido' ? 180 : duration === 'medio-dia' ? 360 : 540) - matchReservedMins;
-
-      const mealContext = getMealContext(startTime);
-      const hasGastro = selectedInterests.includes('gastronomia');
-      const hasNocturna = selectedInterests.includes('vida-nocturna');
-
-      // Número máximo de paradas ajustado para llenar el tiempo real
-      const basePlaces = duration === 'rapido' ? 3 : duration === 'medio-dia' ? 6 : 10;
-      const maxPlaces = ritmo === 'activo' ? basePlaces + 2 : ritmo === 'tranquilo' ? Math.max(2, basePlaces - 1) : basePlaces;
-
-      const startHour = parseInt(startTime.split(':')[0]);
-      const maxGastro = duration === 'rapido' ? 1 : duration === 'medio-dia' ? 2 : startHour < 11 ? 3 : 2;
-      // Mínimo de minutos entre dos visitas a lugares de gastronomía
-      const MIN_GASTRO_GAP_MINS = 150;
-      const selectedDayOfWeek = getDayOfWeek(selectedDate);
-      const timeToMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-
-      const postrePool = hasGastro
-        ? seededShuffle(
-            adjustedPlaces.filter(p =>
-              norm(p.categoria).includes('postre') &&
-              isPlaceOpen(p, '14:00', selectedDayOfWeek)
-            ), seed + 2)
-        : [];
-
-      const gastroPool = adjustedPlaces
-        .filter(p => matchesInterest(p.categoria, 'gastronomia'))
-        .sort((a, b) => mealScore(b, mealContext) - mealScore(a, mealContext));
-
-      const nocturnaPool = seededShuffle(
-        adjustedPlaces.filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia')),
-        seed
-      );
-
-      const othersPool = seededShuffle(
-        adjustedPlaces.filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna')),
-        seed + 1
-      );
-
-      const afterMatchPool = attendsMatch && hasNocturna ? nocturnaPool : [];
-
-      const buildInterleavedPool = (): Place[] => {
-        // Nocturna siempre se maneja por separado cuando el usuario la seleccionó
-        const others = hasNocturna ? othersPool : [...othersPool, ...nocturnaPool];
-        if (gastroPool.length === 0) return others;
-        const gap = others.length > 0 && maxGastro > 0 ? Math.max(2, Math.floor(others.length / maxGastro)) : 2;
-        const result: Place[] = [];
-        let gi = 0, oi = 0;
-        while (gi < gastroPool.length || oi < others.length) {
-          for (let j = 0; j < gap && oi < others.length; j++) result.push(others[oi++]);
-          if (gi < gastroPool.length) result.push(gastroPool[gi++]);
-        }
-        return result;
+      const engineOpts: GenerateOptions = {
+        interests: selectedInterests,
+        ritmo,
+        startTime,
+        budget,
+        selectedDate,
+        seed: dailySeed(),
+        duration: duration as 'rapido' | 'medio-dia' | 'dia-completo',
+        foodPreference,
+        userLat: transporte === 'a-pie' ? (userLocation?.lat ?? 20.6736) : undefined,
+        userLng: transporte === 'a-pie' ? (userLocation?.lng ?? -103.3440) : undefined,
+        walkRadius: transporte === 'a-pie' ? (userLocation ? 2 : 3) : undefined,
+        reservedMins: attendsMatch ? 240 : 0,
       };
 
-      const mainPool = buildInterleavedPool();
-      const selected: Place[] = [];
-      let totalTime = 0;
-      let gastroCount = 0;
-      let lastGastroEndMins = -MIN_GASTRO_GAP_MINS; // permite primer restaurante de inmediato
-      let lastGastroArrivalMins = -1;
-      const usedFoodTypes = new Set<string>();
-      const usedNames = new Set<string>();
-      const isMatchDay = selectedDate in MATCH_DAYS;
-      const hasCafeterias = selectedInterests.includes('cafeterias');
+      const regularPlaces = engineGenerateItinerary(places, engineOpts);
 
-      const transitMins = 30;
-
-      for (const place of mainPool) {
-        if (selected.length >= maxPlaces) break;
-        if (usedNames.has(place.nombre)) continue;
-        const isGastro = matchesInterest(place.categoria, 'gastronomia');
-        const isNocturna = matchesInterest(place.categoria, 'vida-nocturna');
-
-        const estimatedArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
-        const arrivalHour = parseInt(estimatedArrival.split(':')[0]);
-        const arrivalMins = timeToMins(estimatedArrival);
-
-        if (!isPlaceOpen(place, estimatedArrival, selectedDayOfWeek)) continue;
-        if (isGastro && hasNocturna && arrivalHour >= 20) continue;
-        if (isNocturna && hasNocturna && arrivalHour < 20) continue;
-
-        // Cafeterías: slot forzado según hora de inicio del itinerario
-        const isCafe = matchesInterest(place.categoria, 'cafeterias');
-        if (isCafe && hasCafeterias) {
-          if (startHour < 13) {
-            if (arrivalHour >= 13) continue;
-          } else {
-            if (isMatchDay) continue;
-            if (arrivalHour < 18) continue;
-          }
-        }
-
-        // Plazas comerciales → nunca antes de las 11:00
-        if (norm(place.categoria).includes('compras') && arrivalHour < 11) continue;
-
-        if (isGastro) {
-          if (gastroCount >= maxGastro) continue;
-          if (arrivalMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) continue;
-          // Gastro antes de la 1pm → no repetir hasta después de las 2pm
-          if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrivalMins < 14 * 60) continue;
-          const foodType = getFoodType(place);
-          if (usedFoodTypes.has(foodType)) continue;
-          usedFoodTypes.add(foodType);
-          gastroCount++;
-        }
-
-        const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? transitMins : 0);
-        if (totalTime + timeNeeded <= targetMins) {
-          selected.push(place);
-          usedNames.add(place.nombre);
-          totalTime += timeNeeded;
-          if (isGastro) {
-            lastGastroEndMins = arrivalMins + place.tiempoEstancia;
-            lastGastroArrivalMins = arrivalMins;
-          }
-        }
+      if (regularPlaces.length === 0) {
+        alert('No encontramos lugares que coincidan con tu selección. Prueba con otros intereses o aumenta el presupuesto.');
+        return;
       }
 
-      // Si quedó tiempo libre (más de 30 min), intentar agregar más lugares
-      if (totalTime < targetMins - 30 && selected.length < maxPlaces) {
-        for (const place of [...othersPool, ...gastroPool]) {
-          if (selected.length >= maxPlaces) break;
-          if (usedNames.has(place.nombre)) continue;
-          const isGastro = matchesInterest(place.categoria, 'gastronomia');
-          const estArrival = addMinutes(startTime, totalTime + transitMins);
-          const arrivalMins = timeToMins(estArrival);
-          const arrHourFill = parseInt(estArrival.split(':')[0]);
-          if (norm(place.categoria).includes('compras') && arrHourFill < 11) continue;
-          if (isGastro) {
-            if (gastroCount >= maxGastro) continue;
-            if (arrivalMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) continue;
-            if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrivalMins < 14 * 60) continue;
-            const foodType = getFoodType(place);
-            if (usedFoodTypes.has(foodType)) continue;
-            usedFoodTypes.add(foodType);
-            gastroCount++;
-          }
-          if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
-          const timeNeeded = place.tiempoEstancia + transitMins;
-          if (totalTime + timeNeeded <= targetMins) {
-            selected.push(place);
-            usedNames.add(place.nombre);
-            totalTime += timeNeeded;
-            if (isGastro) {
-              lastGastroEndMins = arrivalMins + place.tiempoEstancia;
-              lastGastroArrivalMins = arrivalMins;
-            }
-          }
-        }
-      }
-
-      // Agregar máximo 1 lugar de vida nocturna al final, solo después de las 20:00
-      if (hasNocturna && !attendsMatch) {
-        const alreadyNocturna = selected.filter(p =>
-          matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia')
-        ).length;
-        for (const place of nocturnaPool) {
-          if (alreadyNocturna >= 1) break;
-          if (selected.length >= maxPlaces) break;
-          if (usedNames.has(place.nombre)) continue;
-          const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? transitMins : 0));
-          if (parseInt(estArrival.split(':')[0]) < 20) continue;
-          if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
-          selected.push(place);
-          usedNames.add(place.nombre);
-          totalTime += place.tiempoEstancia + transitMins;
-          break; // solo 1
-        }
-      }
-
-      if (selected.length === 0) selected.push(mainPool[0] ?? filtered[0]);
-      if (afterMatchPool.length > 0) selected.push(afterMatchPool[0]);
-
-      const afterMatchStops = selected.filter(p => attendsMatch && afterMatchPool.includes(p));
-      const regularStops = selected.filter(p => !afterMatchStops.includes(p));
-
-      const nocturnaRegularStops = hasNocturna
-        ? regularStops.filter(p =>
-            matchesInterest(p.categoria, 'vida-nocturna') &&
-            !matchesInterest(p.categoria, 'gastronomia')
-          ).slice(0, 1)
-        : [];
-      const dayRegularStops = regularStops.filter(p => !nocturnaRegularStops.includes(p));
-      const sortedRegular = [
-        ...repairConsecutiveGastro(sortByProximity(dayRegularStops)),
-        ...nocturnaRegularStops,
-      ];
-
-      if (hasGastro && postrePool.length > 0) {
-        let simMins = 0;
-        let sortedLastGastroComidaIdx = -1;
-        for (let i = 0; i < sortedRegular.length; i++) {
-          const arrivalTime = addMinutes(startTime, simMins);
-          if (matchesInterest(sortedRegular[i].categoria, 'gastronomia') && getMealContext(arrivalTime) === 'comida') {
-            sortedLastGastroComidaIdx = i;
-          }
-          simMins += sortedRegular[i].tiempoEstancia + (i < sortedRegular.length - 1 ? transitMins : 0);
-        }
-        if (sortedLastGastroComidaIdx >= 0) {
-          const refPlace = sortedRegular[sortedLastGastroComidaIdx];
-          let bestPostre: Place | null = null;
-          let bestDist = Infinity;
-          for (const p of postrePool) {
-            if (refPlace.lat != null && refPlace.lng != null && p.lat != null && p.lng != null) {
-              const d = haversine(refPlace.lat, refPlace.lng, p.lat, p.lng);
-              if (d < bestDist) { bestDist = d; bestPostre = p; }
-            } else if (!bestPostre) { bestPostre = p; }
-          }
-          if (bestPostre && sortedRegular.length <= maxPlaces) {
-            sortedRegular.splice(sortedLastGastroComidaIdx + 1, 0, bestPostre);
-            // Re-aplicar repair para evitar dos gastro consecutivas tras insertar el postre
-            const repaired = repairConsecutiveGastro(sortedRegular);
-            sortedRegular.splice(0, sortedRegular.length, ...repaired);
-          }
-        }
-      }
-
-      // Agregar tarjetas de partido con hora forzada si el usuario asiste
+      // Tarjetas de partido (UI — no son paradas de itinerario regular)
       const matchCards: Place[] = [];
       if (attendsMatch) {
         const matchInfo = MATCH_DAYS[selectedDate];
@@ -741,9 +497,9 @@ function HomePageInner() {
         }
       }
 
-      const finalSelected = [...sortedRegular, ...matchCards, ...afterMatchStops];
+      const finalSelected = [...regularPlaces, ...matchCards];
 
-      setAllPlaces(filtered);
+      setAllPlaces(places);
       const schedule = buildSchedule(finalSelected, startTime);
       setStops(schedule);
 
@@ -791,10 +547,15 @@ function HomePageInner() {
   };
 
   const addStop = () => {
-    const usedNames = new Set(stops.map(s => s.place.nombre));
-    const candidates = allPlaces.filter(p => !usedNames.has(p.nombre));
-    if (candidates.length === 0) return;
-    const newPlace = candidates[Math.floor(Math.random() * candidates.length)];
+    const currentPlaces = stops.map(s => s.place);
+    const newPlace = pickAddStop(allPlaces, currentPlaces, {
+      interests: selectedInterests,
+      budget,
+      selectedDate,
+      startTime,
+      seed: dailySeed(),
+    });
+    if (!newPlace) return;
     const regular = stops.filter(s => !s.place.isMatch).map(s => s.place);
     const match = stops.filter(s => s.place.isMatch).map(s => s.place);
     setStops(buildSchedule([...regular, newPlace, ...match], startTime));
@@ -808,13 +569,16 @@ function HomePageInner() {
   };
 
   const replaceStop = (i: number) => {
-    const current = stops[i].place;
-    const usedNames = new Set(stops.map(s => s.place.nombre));
-    const matchingInterest = selectedInterests.find(int => matchesInterest(current.categoria, int)) || selectedInterests[0];
-    const candidates = allPlaces.filter(p => !usedNames.has(p.nombre) && matchesInterest(p.categoria, matchingInterest));
-    if (candidates.length === 0) return;
-    const newPlace = candidates[Math.floor(Math.random() * candidates.length)];
-    const newPlaces = stops.map((s, idx) => idx === i ? newPlace : s.place);
+    const currentPlaces = stops.map(s => s.place);
+    const newPlace = pickReplaceStop(allPlaces, currentPlaces, i, {
+      interests: selectedInterests,
+      budget,
+      selectedDate,
+      startTime,
+      seed: dailySeed(),
+    });
+    if (!newPlace) return;
+    const newPlaces = currentPlaces.map((p, idx) => idx === i ? newPlace : p);
     setStops(buildSchedule(newPlaces, startTime));
   };
 
@@ -910,7 +674,7 @@ function HomePageInner() {
 
         {/* Form */}
         <div className="max-w-lg mx-auto px-4 py-8">
-          <form onSubmit={(e) => { e.preventDefault(); generateItinerary(); }}>
+          <form onSubmit={(e) => { e.preventDefault(); handleGenerate(); }}>
             <motion.div
               className="space-y-4"
               variants={containerVariants}
@@ -1592,7 +1356,7 @@ function HomePageInner() {
             </motion.a>
           )}
           <motion.button
-            onClick={generateItinerary}
+            onClick={handleGenerate}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border border-[#1A4D2E] text-[#1A4D2E] text-sm font-bold hover:bg-[#E8F5E9] transition-all"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
