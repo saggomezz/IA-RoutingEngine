@@ -5,7 +5,7 @@ import {
   mealScore, getFoodType, haversine,
   sortByProximity, repairConsecutiveGastro,
   buildSchedule, generateItinerary, validateGenerateOptions,
-  seededShuffle,
+  seededShuffle, MATCH_DAYS,
   type Place,
 } from '../lib/ia-engine';
 
@@ -488,5 +488,123 @@ describe('seededShuffle', () => {
     const original = [1, 2, 3];
     seededShuffle(original, 42);
     expect(original).toEqual([1, 2, 3]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('scheduling cafeterías', () => {
+  const mkCafe = (nombre: string) => mkPlace({
+    nombre,
+    categoria: 'Cafeterías',
+    horaApertura: '07:00',
+    horaCierre: '21:00',
+    diasCerrado: 'ninguno',
+    costo: 'Gratis',
+  });
+  const mkMuseo = (nombre: string) => mkPlace({
+    nombre,
+    categoria: 'Cultura, Museos',
+    horaApertura: '09:00',
+    horaCierre: '18:00',
+    diasCerrado: 'ninguno',
+    costo: 'Gratis',
+  });
+  const places = [mkCafe('Café Central'), mkCafe('Café Norte'), mkMuseo('Museo 1'), mkMuseo('Museo 2'), mkMuseo('Museo 3')];
+  const matchDay = Object.keys(MATCH_DAYS)[0]; // '2026-06-11'
+  const normalDay = '2026-05-09';
+
+  it('itinerario matutino (09:00): cafetería llega antes de 13:00', () => {
+    const result = generateItinerary(places, {
+      interests: ['cafeterias', 'cultura'],
+      ritmo: 'normal',
+      startTime: '09:00',
+      budget: 500,
+      selectedDate: normalDay,
+      seed: 1,
+    });
+    const schedule = buildSchedule(result, '09:00');
+    const cafeStop = schedule.find(s => matchesInterest(s.place.categoria, 'cafeterias'));
+    if (cafeStop) {
+      expect(parseInt(cafeStop.horaLlegada.split(':')[0])).toBeLessThan(13);
+    }
+  });
+
+  it('itinerario vespertino (14:00) día normal: cafetería llega a las 18:00 o después', () => {
+    const result = generateItinerary(places, {
+      interests: ['cafeterias', 'cultura'],
+      ritmo: 'normal',
+      startTime: '14:00',
+      budget: 500,
+      selectedDate: normalDay,
+      seed: 1,
+    });
+    const schedule = buildSchedule(result, '14:00');
+    const cafeStop = schedule.find(s => matchesInterest(s.place.categoria, 'cafeterias'));
+    if (cafeStop) {
+      expect(parseInt(cafeStop.horaLlegada.split(':')[0])).toBeGreaterThanOrEqual(18);
+    }
+  });
+
+  it('itinerario vespertino en día de partido: no incluye cafetería', () => {
+    const result = generateItinerary(places, {
+      interests: ['cafeterias', 'cultura'],
+      ritmo: 'normal',
+      startTime: '14:00',
+      budget: 500,
+      selectedDate: matchDay,
+      seed: 1,
+    });
+    const hasCafe = result.some(p => matchesInterest(p.categoria, 'cafeterias'));
+    expect(hasCafe).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('scheduling plazas comerciales', () => {
+  const plaza = mkPlace({
+    nombre: 'La Gran Plaza',
+    categoria: 'Eventos, Compras',
+    horaApertura: '10:00',
+    horaCierre: '21:00',
+    diasCerrado: 'ninguno',
+    costo: 'Gratis',
+  });
+  const otros = Array.from({ length: 4 }, (_, i) => mkPlace({
+    nombre: `Museo ${i + 1}`,
+    categoria: 'Cultura, Museos',
+    horaApertura: '09:00',
+    horaCierre: '18:00',
+    diasCerrado: 'ninguno',
+    costo: 'Gratis',
+    lat: 20.67 + i * 0.01,
+    lng: -103.34,
+  }));
+
+  it('plaza comercial nunca aparece antes de 11:00', () => {
+    const result = generateItinerary([plaza, ...otros], {
+      interests: ['compras', 'cultura'],
+      ritmo: 'activo',
+      startTime: '08:00',
+      budget: 500,
+      selectedDate: '2026-05-09',
+      seed: 1,
+    });
+    const schedule = buildSchedule(result, '08:00');
+    const plazaStop = schedule.find(s => norm(s.place.categoria).includes('compras'));
+    if (plazaStop) {
+      expect(parseInt(plazaStop.horaLlegada.split(':')[0])).toBeGreaterThanOrEqual(11);
+    }
+  });
+
+  it('plaza comercial sí aparece cuando el itinerario empieza después de 11:00', () => {
+    const result = generateItinerary([plaza, ...otros], {
+      interests: ['compras', 'cultura'],
+      ritmo: 'activo',
+      startTime: '11:00',
+      budget: 500,
+      selectedDate: '2026-05-09',
+      seed: 1,
+    });
+    expect(result.some(p => norm(p.categoria).includes('compras'))).toBe(true);
   });
 });

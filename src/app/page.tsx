@@ -14,7 +14,7 @@ import {
   norm, matchesInterest, isPlaceOpen, getDayOfWeek,
   addMinutes, getMealContext, parseCostMin, mealScore,
   getFoodType, haversine, sortByProximity, repairConsecutiveGastro,
-  buildSchedule, seededShuffle, dailySeed, BLACKLIST,
+  buildSchedule, seededShuffle, dailySeed, BLACKLIST, MATCH_DAYS,
   type Place, type Stop, type MealContext,
 } from '@/lib/ia-engine';
 
@@ -47,13 +47,6 @@ interface ItineraryMeta {
   duration: string;
 }
 
-// ---- Partidos en Guadalajara ----
-const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: string }> = {
-  '2026-06-11': { partido: 'Grupo A · Estadio Akron', equipos: 'Corea del Sur vs. Chequia', hora: '20:00' },
-  '2026-06-18': { partido: 'Grupo A · Estadio Akron', equipos: 'México vs. Corea del Sur', hora: '19:00' },
-  '2026-06-23': { partido: 'Grupo K · Estadio Akron', equipos: 'Colombia vs. RD Congo', hora: '20:00' },
-  '2026-06-26': { partido: 'Grupo H · Estadio Akron', equipos: 'Uruguay vs. España', hora: '18:00' },
-};
 
 const ESTADIO_AKRON: Place = {
   nombre: 'Llegada al Partido ⚽',

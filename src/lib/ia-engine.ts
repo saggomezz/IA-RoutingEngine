@@ -54,6 +54,13 @@ export type Ritmo = 'tranquilo' | 'normal' | 'activo';
 
 export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron'];
 
+export const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: string }> = {
+  '2026-06-11': { partido: 'Grupo A · Estadio Akron', equipos: 'Corea del Sur vs. Chequia',    hora: '20:00' },
+  '2026-06-18': { partido: 'Grupo A · Estadio Akron', equipos: 'México vs. Corea del Sur',      hora: '19:00' },
+  '2026-06-23': { partido: 'Grupo K · Estadio Akron', equipos: 'Colombia vs. RD Congo',         hora: '20:00' },
+  '2026-06-26': { partido: 'Grupo H · Estadio Akron', equipos: 'Uruguay vs. España',            hora: '18:00' },
+};
+
 export const INTEREST_MAP: Record<string, string[]> = {
   futbol:          ['futbol'],
   gastronomia:     ['gastronomia', 'mexicana', 'postre', 'vegana', 'comida calle', 'cafeteria'],
@@ -242,6 +249,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   const selectedDayOfWeek = getDayOfWeek(selectedDate);
   const TRANSIT = 30;
   const MIN_GASTRO_GAP = 150;
+  const isMatchDay = selectedDate in MATCH_DAYS;
+  const startHour = parseInt(startTime.split(':')[0]);
+  const hasCafeterias = interests.includes('cafeterias');
 
   let filtered = places.filter(p =>
     !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
@@ -317,6 +327,23 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
     if (isGastro && hasNocturna && arrHour >= 20) continue;
     if (isNocturna && hasNocturna && arrHour < 20) continue;
+
+    // Cafeterías: slot forzado según hora de inicio del itinerario
+    const isCafe = matchesInterest(place.categoria, 'cafeterias');
+    if (isCafe && hasCafeterias) {
+      if (startHour < 13) {
+        // Itinerario matutino → cafetería estrictamente en la mañana
+        if (arrHour >= 13) continue;
+      } else {
+        // Itinerario vespertino → sin cafetería en días de partido; después de 18:00 en días normales
+        if (isMatchDay) continue;
+        if (arrHour < 18) continue;
+      }
+    }
+
+    // Plazas comerciales (Compras) → nunca antes de las 11:00
+    const isCompras = norm(place.categoria).includes('compras');
+    if (isCompras && arrHour < 11) continue;
 
     if (isGastro) {
       if (gastroCount >= maxGastro) continue;
