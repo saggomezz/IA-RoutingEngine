@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -588,14 +588,6 @@ function HomePageInner() {
         if (!isPlaceOpen(place, estimatedArrival, selectedDayOfWeek)) continue;
         if (isGastro && hasNocturna && arrivalHour >= 20) continue;
         if (isNocturna && hasNocturna && arrivalHour < 20) continue;
-
-        // No recomendar lugar a menos de 200m de uno ya seleccionado
-        if (place.lat != null && place.lng != null) {
-          const tooClose = selected.some(s =>
-            s.lat != null && s.lng != null && haversine(s.lat, s.lng, place.lat!, place.lng!) < 0.2
-          );
-          if (tooClose) continue;
-        }
 
         // Cafeterías: slot forzado según hora de inicio del itinerario
         const isCafe = matchesInterest(place.categoria, 'cafeterias');
@@ -1414,9 +1406,17 @@ function HomePageInner() {
 
         {/* Timeline */}
         <div className="space-y-2 md:space-y-3">
-          {stops.map((stop, i) => (
+          {stops.map((stop, i) => {
+            const next = stops[i + 1];
+            const nearbyTip = (() => {
+              if (!next || !stop.place.lat || !stop.place.lng || !next.place.lat || !next.place.lng) return null;
+              if (stop.place.isMatch || stop.place.isCamino || next.place.isMatch || next.place.isCamino) return null;
+              const dist = haversine(stop.place.lat, stop.place.lng, next.place.lat, next.place.lng);
+              return dist <= 0.5 ? dist : null;
+            })();
+            return (
+            <React.Fragment key={i}>
             <motion.div
-              key={i}
               custom={i}
               variants={stopVariants}
               initial="hidden"
@@ -1563,7 +1563,16 @@ function HomePageInner() {
               </div>
               )} {/* fin ternario isMatch/normal */}
             </motion.div>
-          ))}
+
+            {nearbyTip !== null && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F0F7F0] border border-[#81C784] rounded-xl text-xs text-[#1A4D2E] print:hidden">
+                <span>📍</span>
+                <span>Al visitar <strong>{stop.place.nombre}</strong> puedes pasar a <strong>{next!.place.nombre}</strong> — está a solo {Math.round(nearbyTip * 1000)} metros.</span>
+              </div>
+            )}
+            </React.Fragment>
+          );
+          })}
         </div>
 
         {/* Footer acciones */}
