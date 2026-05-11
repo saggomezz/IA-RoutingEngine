@@ -5,7 +5,7 @@ import {
   mealScore, getFoodType, haversine,
   sortByProximity, repairConsecutiveGastro,
   buildSchedule, generateItinerary, validateGenerateOptions,
-  seededShuffle, MATCH_DAYS,
+  seededShuffle, MATCH_DAYS, pickAddStop, pickReplaceStop,
   type Place,
 } from '../lib/ia-engine';
 
@@ -616,5 +616,203 @@ describe('scheduling plazas comerciales', () => {
       seed: 1,
     });
     expect(result.some(p => norm(p.categoria).includes('compras'))).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// pickAddStop / pickReplaceStop
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mkCultura = (nombre: string, lat: number, lng: number): Place =>
+  mkPlace({ nombre, categoria: 'Cultura, Museos', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat, lng });
+
+const mkGastro = (nombre: string, lat: number, lng: number, costo?: string): Place =>
+  mkPlace({ nombre, categoria: 'Gastronomía Mexicana', horaApertura: '08:00', horaCierre: '22:00', diasCerrado: 'ninguno', lat, lng, costo: costo || 'Gratis' });
+
+const ACTION_OPTS = {
+  interests: ['cultura', 'gastronomia'],
+  budget: 500,
+  selectedDate: '2026-05-09',
+  startTime: '10:00',
+  seed: 42,
+};
+
+describe('pickAddStop', () => {
+  it('no devuelve un lugar ya en la lista', () => {
+    const current = [mkCultura('Museo A', 20.67, -103.34)];
+    const pool = [mkCultura('Museo A', 20.67, -103.34), mkCultura('Museo B', 20.68, -103.35)];
+    const result = pickAddStop(pool, current, ACTION_OPTS);
+    expect(result?.nombre).toBe('Museo B');
+  });
+
+  it('devuelve null cuando todos ya están en la lista', () => {
+    const current = [mkCultura('Museo A', 20.67, -103.34)];
+    const result = pickAddStop(current, current, ACTION_OPTS);
+    expect(result).toBeNull();
+  });
+
+  it('respeta el filtro de intereses', () => {
+    const bar = mkPlace({ nombre: 'Bar Nocturno', categoria: 'Vida Nocturna', horaApertura: '20:00', horaCierre: '02:00', diasCerrado: 'ninguno', lat: 20.65, lng: -103.36 });
+    const cultura = mkCultura('Museo C', 20.69, -103.33);
+    const result = pickAddStop([bar, cultura], [], ACTION_OPTS);
+    expect(result?.nombre).toBe('Museo C');
+  });
+
+  it('respeta el presupuesto máximo', () => {
+    const caro = mkGastro('Restaurante Caro', 20.67, -103.34, '$1000');
+    const barato = mkGastro('Taco Barato', 20.68, -103.35, '$50');
+    const result = pickAddStop([caro, barato], [], { ...ACTION_OPTS, budget: 200 });
+    expect(result?.nombre).toBe('Taco Barato');
+  });
+
+  it('no devuelve lugares en la blacklist', () => {
+    const bloqueado = mkPlace({ nombre: 'Complejo Verde Valle', categoria: 'Cultura, Museos', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
+    const ok = mkCultura('Museo D', 20.68, -103.35);
+    const result = pickAddStop([bloqueado, ok], [], ACTION_OPTS);
+    expect(result?.nombre).toBe('Museo D');
+  });
+
+  it('no devuelve lugares cerrados en la fecha seleccionada', () => {
+    // 2026-05-09 es sábado
+    const cerradoSabado = mkPlace({ nombre: 'Museo Cerrado', categoria: 'Cultura, Museos', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'sabado', lat: 20.67, lng: -103.34 });
+    const abierto = mkCultura('Museo Abierto', 20.68, -103.35);
+    const result = pickAddStop([cerradoSabado, abierto], [], ACTION_OPTS);
+    expect(result?.nombre).toBe('Museo Abierto');
+  });
+
+  it('no devuelve lugares fuera de su horario de apertura', () => {
+    const nocturno = mkPlace({ nombre: 'Club Nocturno', categoria: 'Cultura, Museos', horaApertura: '22:00', horaCierre: '04:00', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
+    const diurno = mkCultura('Museo Diurno', 20.68, -103.35);
+    const result = pickAddStop([nocturno, diurno], [], { ...ACTION_OPTS, startTime: '10:00' });
+    expect(result?.nombre).toBe('Museo Diurno');
+  });
+
+  it('no agrega gastro si el último lugar actual también es gastro (consecutivos)', () => {
+    const gastro1 = mkGastro('Taquería 1', 20.67, -103.34);
+    const gastro2 = mkGastro('Taquería 2', 20.68, -103.35);
+    // lastRegular = gastro1 → bloquea gastro2 por regla consecutiva
+    const result = pickAddStop([gastro2], [gastro1], { ...ACTION_OPTS, startTime: '10:00' });
+    expect(result).toBeNull();
+  });
+
+  it('permite gastro cuando el gap de 150min con el último gastro se cumple', () => {
+    const gastro1 = mkGastro('Taquería 1', 20.67, -103.34);
+    const c1 = mkCultura('Museo C1', 20.68, -103.35);
+    const c2 = mkCultura('Museo C2', 20.69, -103.33);
+    const gastro2 = mkGastro('Taquería 2', 20.70, -103.36);
+    // schedule: 10:00→11:00(gastro1), 11:30→12:30(c1), 13:00→14:00(c2)
+    // estArrival ≈ 14:30, lastGastroEnd = 11:00 → gap 210min > 150min → permitido
+    const result = pickAddStop([gastro2], [gastro1, c1, c2], { ...ACTION_OPTS, startTime: '10:00' });
+    expect(result?.nombre).toBe('Taquería 2');
+  });
+
+  it('es determinista con la misma semilla', () => {
+    const pool = [
+      mkCultura('Museo E', 20.67, -103.34),
+      mkCultura('Museo F', 20.68, -103.35),
+      mkCultura('Museo G', 20.69, -103.33),
+    ];
+    const r1 = pickAddStop(pool, [], ACTION_OPTS);
+    const r2 = pickAddStop(pool, [], ACTION_OPTS);
+    expect(r1?.nombre).toBe(r2?.nombre);
+  });
+
+  it('devuelve null cuando el pool está vacío', () => {
+    const result = pickAddStop([], [], ACTION_OPTS);
+    expect(result).toBeNull();
+  });
+});
+
+describe('pickReplaceStop', () => {
+  it('devuelve null para un índice inválido', () => {
+    const current = [mkCultura('Museo A', 20.67, -103.34)];
+    expect(pickReplaceStop(current, current, 5, ACTION_OPTS)).toBeNull();
+    expect(pickReplaceStop(current, current, -1, ACTION_OPTS)).toBeNull();
+  });
+
+  it('no devuelve un lugar ya en el itinerario', () => {
+    const museoA = mkCultura('Museo A', 20.67, -103.34);
+    const museoB = mkCultura('Museo B', 20.68, -103.35);
+    const museoC = mkCultura('Museo C', 20.69, -103.33);
+    const current = [museoA, museoB];
+    const pool = [museoA, museoB, museoC];
+    const result = pickReplaceStop(pool, current, 0, ACTION_OPTS);
+    expect(result?.nombre).toBe('Museo C');
+  });
+
+  it('reemplaza por un lugar de la misma categoría de interés', () => {
+    const museoA = mkCultura('Museo A', 20.67, -103.34);
+    const museoB = mkCultura('Museo B', 20.68, -103.35);
+    const gastro = mkGastro('Tacos', 20.69, -103.33);
+    // Reemplazando índice 0 (cultura) → debe preferir museoB sobre gastro cuando intereses=['cultura']
+    const result = pickReplaceStop([museoA, museoB, gastro], [museoA], 0, { ...ACTION_OPTS, interests: ['cultura'] });
+    expect(result ? norm(result.categoria).includes('cultur') || norm(result.categoria).includes('museo') : true).toBe(true);
+  });
+
+  it('no devuelve lugares en la blacklist', () => {
+    const bloqueado = mkPlace({ nombre: 'La Minerva', categoria: 'Cultura, Museos', horaApertura: '00:00', horaCierre: '23:59', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
+    const ok = mkCultura('Museo OK', 20.68, -103.35);
+    const toReplace = mkCultura('Museo Viejo', 20.70, -103.36);
+    const result = pickReplaceStop([bloqueado, ok, toReplace], [toReplace], 0, ACTION_OPTS);
+    expect(result?.nombre).toBe('Museo OK');
+  });
+
+  it('no devuelve lugares cerrados en la fecha', () => {
+    // sábado
+    const cerrado = mkPlace({ nombre: 'Museo Cerrado Sab', categoria: 'Cultura, Museos', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'sabado', lat: 20.67, lng: -103.34 });
+    const abierto = mkCultura('Museo Abierto', 20.68, -103.35);
+    const toReplace = mkCultura('Museo Viejo', 20.70, -103.36);
+    // allPlaces excludes toReplace so it can't be returned as its own replacement
+    const result = pickReplaceStop([cerrado, abierto], [toReplace], 0, ACTION_OPTS);
+    expect(result?.nombre).toBe('Museo Abierto');
+  });
+
+  it('respeta el presupuesto al reemplazar', () => {
+    const caro = mkGastro('Caro', 20.67, -103.34, '$900');
+    const barato = mkGastro('Barato', 20.68, -103.35, '$50');
+    const toReplace = mkGastro('Antiguo', 20.70, -103.36);
+    // allPlaces excludes toReplace so it can't be returned as its own replacement
+    const result = pickReplaceStop([caro, barato], [toReplace], 0, { ...ACTION_OPTS, budget: 200 });
+    expect(result?.nombre).toBe('Barato');
+  });
+
+  it('no crea par gastro consecutivo con el vecino anterior', () => {
+    const gastroAnterior = mkGastro('Taquería Prev', 20.67, -103.34);
+    const gastroNuevo = mkGastro('Taquería Nueva', 20.68, -103.35);
+    const cultura = mkCultura('Museo X', 20.69, -103.33);
+    const toReplace = mkCultura('Museo Reemplazado', 20.70, -103.36);
+    // current = [gastroAnterior, toReplace] — index 1
+    // Si reemplazamos índice 1 por gastroNuevo → gastroAnterior + gastroNuevo = dos gastros seguidos → debe preferir cultura
+    const result = pickReplaceStop([gastroNuevo, cultura, toReplace, gastroAnterior], [gastroAnterior, toReplace], 1, ACTION_OPTS);
+    expect(result ? !norm(result.categoria).includes('gastro') : true).toBe(true);
+  });
+
+  it('no crea par gastro consecutivo con el vecino siguiente', () => {
+    const gastroSiguiente = mkGastro('Taquería Next', 20.67, -103.34);
+    const gastroNuevo = mkGastro('Taquería Nueva', 20.68, -103.35);
+    const cultura = mkCultura('Museo Y', 20.69, -103.33);
+    const toReplace = mkCultura('Museo Reemplazado', 20.70, -103.36);
+    // current = [toReplace, gastroSiguiente] — index 0
+    const result = pickReplaceStop([gastroNuevo, cultura, toReplace, gastroSiguiente], [toReplace, gastroSiguiente], 0, ACTION_OPTS);
+    expect(result ? !norm(result.categoria).includes('gastro') : true).toBe(true);
+  });
+
+  it('es determinista con la misma semilla', () => {
+    const pool = [
+      mkCultura('Museo P', 20.67, -103.34),
+      mkCultura('Museo Q', 20.68, -103.35),
+      mkCultura('Museo R', 20.69, -103.33),
+    ];
+    const toReplace = mkCultura('Museo Viejo', 20.70, -103.36);
+    const r1 = pickReplaceStop([...pool, toReplace], [toReplace], 0, ACTION_OPTS);
+    const r2 = pickReplaceStop([...pool, toReplace], [toReplace], 0, ACTION_OPTS);
+    expect(r1?.nombre).toBe(r2?.nombre);
+  });
+
+  it('devuelve null cuando no hay alternativas válidas', () => {
+    const toReplace = mkCultura('Museo Único', 20.67, -103.34);
+    // empty pool → no candidates
+    const result = pickReplaceStop([], [toReplace], 0, ACTION_OPTS);
+    expect(result).toBeNull();
   });
 });
