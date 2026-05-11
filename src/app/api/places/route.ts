@@ -176,6 +176,11 @@ export async function GET() {
         if (!fbPlace['fotos']?.length && csvPlace['Imagen']) {
           fbPlace['fotos'] = [csvPlace['Imagen']];
         }
+        // Enrich tiempoEstancia from CSV when Firebase has the default value
+        if ((!fbPlace['Tiempo de Estancia'] || fbPlace['Tiempo de Estancia'] === '60') &&
+            csvPlace['Tiempo de Estancia'] && csvPlace['Tiempo de Estancia'] !== '60') {
+          fbPlace['Tiempo de Estancia'] = csvPlace['Tiempo de Estancia'];
+        }
         // Fill missing coords from CSV
         if (!fbPlace['Latitud'] && csvPlace['Latitud']) fbPlace['Latitud'] = csvPlace['Latitud'];
         if (!fbPlace['Longitud'] && csvPlace['Longitud']) fbPlace['Longitud'] = csvPlace['Longitud'];

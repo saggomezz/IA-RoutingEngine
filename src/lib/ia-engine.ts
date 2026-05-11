@@ -162,23 +162,45 @@ export function haversine(lat1: number, lng1: number, lat2: number, lng2: number
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function routeDistance(places: Place[]): number {
+  let total = 0;
+  for (let i = 0; i < places.length - 1; i++) {
+    const a = places[i], b = places[i + 1];
+    if (a.lat != null && a.lng != null && b.lat != null && b.lng != null)
+      total += haversine(a.lat, a.lng, b.lat, b.lng);
+  }
+  return total;
+}
+
 export function sortByProximity(places: Place[]): Place[] {
   if (places.length <= 2) return places;
-  const remaining = [...places];
-  const result: Place[] = [remaining.splice(0, 1)[0]];
-  while (remaining.length > 0) {
-    const last = result[result.length - 1];
-    if (last.lat == null || last.lng == null) { result.push(remaining.splice(0, 1)[0]); continue; }
-    let minDist = Infinity, minIdx = 0;
-    remaining.forEach((p, i) => {
-      if (p.lat != null && p.lng != null) {
-        const d = haversine(last.lat!, last.lng!, p.lat, p.lng);
-        if (d < minDist) { minDist = d; minIdx = i; }
-      }
-    });
-    result.push(remaining.splice(minIdx, 1)[0]);
+
+  const greedyFrom = (startIdx: number): Place[] => {
+    const remaining = places.filter((_, i) => i !== startIdx);
+    const route: Place[] = [places[startIdx]];
+    while (remaining.length > 0) {
+      const last = route[route.length - 1];
+      if (last.lat == null || last.lng == null) { route.push(remaining.splice(0, 1)[0]); continue; }
+      let minDist = Infinity, minIdx = 0;
+      remaining.forEach((p, i) => {
+        if (p.lat != null && p.lng != null) {
+          const d = haversine(last.lat!, last.lng!, p.lat, p.lng);
+          if (d < minDist) { minDist = d; minIdx = i; }
+        }
+      });
+      route.push(remaining.splice(minIdx, 1)[0]);
+    }
+    return route;
+  };
+
+  let best = greedyFrom(0);
+  let bestDist = routeDistance(best);
+  for (let i = 1; i < places.length; i++) {
+    const route = greedyFrom(i);
+    const dist = routeDistance(route);
+    if (dist < bestDist) { bestDist = dist; best = route; }
   }
-  return result;
+  return best;
 }
 
 export function repairConsecutiveGastro(places: Place[]): Place[] {
@@ -326,6 +348,14 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
     if (isGastro && hasNocturna && arrHour >= 20) continue;
     if (isNocturna && hasNocturna && arrHour < 20) continue;
+
+    // No recomendar lugar a menos de 200m de uno ya seleccionado
+    if (place.lat != null && place.lng != null) {
+      const tooClose = selected.some(s =>
+        s.lat != null && s.lng != null && haversine(s.lat, s.lng, place.lat!, place.lng!) < 0.2
+      );
+      if (tooClose) continue;
+    }
 
     // Cafeterías: slot forzado según hora de inicio del itinerario
     const isCafe = matchesInterest(place.categoria, 'cafeterias');

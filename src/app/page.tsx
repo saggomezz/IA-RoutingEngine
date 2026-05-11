@@ -589,6 +589,14 @@ function HomePageInner() {
         if (isGastro && hasNocturna && arrivalHour >= 20) continue;
         if (isNocturna && hasNocturna && arrivalHour < 20) continue;
 
+        // No recomendar lugar a menos de 200m de uno ya seleccionado
+        if (place.lat != null && place.lng != null) {
+          const tooClose = selected.some(s =>
+            s.lat != null && s.lng != null && haversine(s.lat, s.lng, place.lat!, place.lng!) < 0.2
+          );
+          if (tooClose) continue;
+        }
+
         // Cafeterías: slot forzado según hora de inicio del itinerario
         const isCafe = matchesInterest(place.categoria, 'cafeterias');
         if (isCafe && hasCafeterias) {

@@ -18,16 +18,16 @@ const mkPlace = (overrides: Partial<Place> & { nombre: string; categoria: string
 
 const museo = mkPlace({ nombre: 'Museo Regional', categoria: 'Cultura, Museos', horaApertura: '09:00', horaCierre: '17:00', diasCerrado: 'lunes', lat: 20.67, lng: -103.34 });
 const taqueria = mkPlace({ nombre: 'Taquería El Rojo', categoria: 'Gastronomía Mexicana', horaApertura: '08:00', horaCierre: '22:00', diasCerrado: 'ninguno', lat: 20.68, lng: -103.35 });
-const birrieria = mkPlace({ nombre: 'La Birriería', categoria: 'Gastronomía Mexicana', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
-const cafe = mkPlace({ nombre: 'Café Central', categoria: 'Cafeterías', horaApertura: '07:00', horaCierre: '20:00', diasCerrado: 'ninguno', lat: 20.67, lng: -103.33 });
-const bar = mkPlace({ nombre: 'Bar La Fuente', categoria: 'Vida Nocturna', horaApertura: '20:00', horaCierre: '02:00', diasCerrado: 'ninguno', lat: 20.66, lng: -103.34 });
-const parque = mkPlace({ nombre: 'Parque Agua Azul', categoria: 'Naturaleza', horaApertura: '06:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.66, lng: -103.36 });
-const teatro = mkPlace({ nombre: 'Teatro Degollado', categoria: 'Música, Arte e Historia, Cultura', horaApertura: '10:00', horaCierre: '20:00', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
-const postre = mkPlace({ nombre: 'Heladería', categoria: 'Gastronomía, Postre', horaApertura: '10:00', horaCierre: '22:00', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
+const birrieria = mkPlace({ nombre: 'La Birriería', categoria: 'Gastronomía Mexicana', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.69, lng: -103.33 });
+const cafe = mkPlace({ nombre: 'Café Central', categoria: 'Cafeterías', horaApertura: '07:00', horaCierre: '20:00', diasCerrado: 'ninguno', lat: 20.65, lng: -103.33 });
+const bar = mkPlace({ nombre: 'Bar La Fuente', categoria: 'Vida Nocturna', horaApertura: '20:00', horaCierre: '02:00', diasCerrado: 'ninguno', lat: 20.66, lng: -103.36 });
+const parque = mkPlace({ nombre: 'Parque Agua Azul', categoria: 'Naturaleza', horaApertura: '06:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.64, lng: -103.37 });
+const teatro = mkPlace({ nombre: 'Teatro Degollado', categoria: 'Música, Arte e Historia, Cultura', horaApertura: '10:00', horaCierre: '20:00', diasCerrado: 'ninguno', lat: 20.71, lng: -103.34 });
+const postre = mkPlace({ nombre: 'Heladería', categoria: 'Gastronomía, Postre', horaApertura: '10:00', horaCierre: '22:00', diasCerrado: 'ninguno', lat: 20.72, lng: -103.36 });
 
-const palacio    = mkPlace({ nombre: 'Palacio de Gobierno', categoria: 'Cultura, Museos', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
-const mercado    = mkPlace({ nombre: 'Mercado San Juan', categoria: 'Gastronomía Mexicana', horaApertura: '08:00', horaCierre: '18:00', diasCerrado: 'domingo', lat: 20.68, lng: -103.34, costo: '$100' });
-const bosque     = mkPlace({ nombre: 'Bosque Colomos', categoria: 'Naturaleza, Aventura', horaApertura: '06:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.70, lng: -103.37 });
+const palacio    = mkPlace({ nombre: 'Palacio de Gobierno', categoria: 'Cultura, Museos', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.70, lng: -103.36 });
+const mercado    = mkPlace({ nombre: 'Mercado San Juan', categoria: 'Gastronomía Mexicana', horaApertura: '08:00', horaCierre: '18:00', diasCerrado: 'domingo', lat: 20.63, lng: -103.35, costo: '$100' });
+const bosque     = mkPlace({ nombre: 'Bosque Colomos', categoria: 'Naturaleza, Aventura', horaApertura: '06:00', horaCierre: '18:00', diasCerrado: 'ninguno', lat: 20.70, lng: -103.39 });
 
 const ALL_PLACES = [museo, taqueria, birrieria, cafe, bar, parque, teatro, postre, palacio, mercado, bosque];
 
@@ -196,9 +196,19 @@ describe('sortByProximity', () => {
     const result = sortByProximity([museo, taqueria, parque]);
     expect(result).toHaveLength(3);
   });
-  it('el primer lugar es siempre el mismo', () => {
-    const result = sortByProximity([museo, taqueria, parque]);
-    expect(result[0]).toBe(museo);
+  it('la ruta optimizada tiene distancia total menor o igual que el orden original', () => {
+    const places = [museo, taqueria, parque];
+    const result = sortByProximity(places);
+    // Distancia total de la ruta optimizada debe ser ≤ al orden de entrada
+    const dist = (arr: typeof places) => {
+      let d = 0;
+      for (let i = 0; i < arr.length - 1; i++) {
+        const a = arr[i], b = arr[i + 1];
+        if (a.lat != null && b.lat != null) d += haversine(a.lat, a.lng!, b.lat, b.lng!);
+      }
+      return d;
+    };
+    expect(dist(result)).toBeLessThanOrEqual(dist(places) + 0.001);
   });
   it('lugares sin coords no se pierden', () => {
     const sinCoords = mkPlace({ nombre: 'Sin coords', categoria: 'Cultura' });
