@@ -97,8 +97,6 @@ const INTEREST_OPTIONS = [
   { id: 'naturaleza', name: 'Naturaleza', emoji: '🌿' },
   { id: 'fotografia', name: 'Fotografía', emoji: '📷' },
   { id: 'compras', name: 'Compras', emoji: '🛍️' },
-  { id: 'musica', name: 'Música', emoji: '🎵' },
-  { id: 'aventura', name: 'Aventura', emoji: '🧗' },
   { id: 'vida-nocturna', name: 'Vida nocturna', emoji: '🌙' },
   { id: 'futbol', name: 'Fútbol', emoji: '⚽' },
 ];

@@ -68,10 +68,8 @@ export const INTEREST_MAP: Record<string, string[]> = {
   cultura:         ['cultura', 'museos', 'arte e historia', 'arquitectura'],
   compras:         ['compras'],
   naturaleza:      ['naturaleza', 'parque', 'verde'],
-  aventura:        ['aventura'],
   fotografia:      ['fotografia', 'mirador', 'vista'],
   arquitectura:    ['arquitectura', 'historico', 'patrimonio'],
-  musica:          ['musica', 'concierto'],
   arte:            ['arte e historia', 'arte'],
   cafeterias:      ['cafeteria', 'cafe', 'brunch', 'cafe de especialidad'],
 };
