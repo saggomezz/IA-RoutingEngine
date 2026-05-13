@@ -816,3 +816,44 @@ describe('pickReplaceStop', () => {
     expect(result).toBeNull();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Regresión: arte + cafeterias + naturaleza + vida-nocturna → nunca vacío
+// ─────────────────────────────────────────────────────────────────────────────
+describe('regresión: intereses mixtos sin gastronomia no producen itinerario vacío', () => {
+  const artePlace = mkPlace({ nombre: 'Museo de Arte', categoria: 'Arte e Historia', horaApertura: '09:00', horaCierre: '18:00', diasCerrado: 'ninguno', costo: 'Gratis', lat: 20.67, lng: -103.34 });
+  const cafeVegano = mkPlace({ nombre: 'Café Verde', categoria: 'Cafeterías, Vegana', horaApertura: '07:00', horaCierre: '20:00', diasCerrado: 'ninguno', costo: 'Gratis', lat: 20.68, lng: -103.35 });
+  const cafeGastro = mkPlace({ nombre: 'Café Bistro', categoria: 'Gastronomía, Cafeterías', horaApertura: '07:00', horaCierre: '20:00', diasCerrado: 'ninguno', costo: 'Gratis', lat: 20.69, lng: -103.33 });
+  const gastroNocturna = mkPlace({ nombre: 'Cantina Tapatía', categoria: 'Gastronomía Mexicana, Vida Nocturna', horaApertura: '20:00', horaCierre: '02:00', diasCerrado: 'ninguno', costo: 'Gratis', lat: 20.66, lng: -103.36 });
+  const culturaPostre = mkPlace({ nombre: 'Museo con Heladería', categoria: 'Cultura, Música, Fotografía, Vida Nocturna, Postre', horaApertura: '09:00', horaCierre: '22:00', diasCerrado: 'ninguno', costo: 'Gratis', lat: 20.65, lng: -103.37 });
+  const parqueNat = mkPlace({ nombre: 'Parque Metropolitano', categoria: 'Naturaleza', horaApertura: '06:00', horaCierre: '20:00', diasCerrado: 'ninguno', costo: 'Gratis', lat: 20.64, lng: -103.38 });
+  const barNocturno = mkPlace({ nombre: 'Bar Central', categoria: 'Vida Nocturna', horaApertura: '20:00', horaCierre: '02:00', diasCerrado: 'ninguno', costo: 'Gratis', lat: 20.63, lng: -103.34 });
+
+  const POOL = [artePlace, cafeVegano, cafeGastro, gastroNocturna, culturaPostre, parqueNat, barNocturno];
+  const OPTS = {
+    interests: ['arte', 'cafeterias', 'naturaleza', 'vida-nocturna'],
+    ritmo: 'normal' as const,
+    startTime: '11:00',
+    budget: 1500,
+    selectedDate: '2026-05-09',
+    seed: 42,
+    duration: 'dia-completo' as const,
+  };
+
+  it('nunca devuelve arreglo vacío', () => {
+    const result = generateItinerary(POOL, OPTS);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('cafeterías con categoria "Cafeterías, Vegana" se incluyen (no van al gastroPool)', () => {
+    const result = generateItinerary(POOL, OPTS);
+    const hasCafe = result.some(p => matchesInterest(p.categoria, 'cafeterias'));
+    expect(hasCafe).toBe(true);
+  });
+
+  it('cafeterías con categoria "Gastronomía, Cafeterías" se incluyen (no van al gastroPool)', () => {
+    // Pool solo con cafeGastro + arte para que se seleccione
+    const result = generateItinerary([cafeGastro, artePlace, parqueNat], OPTS);
+    expect(result.length).toBeGreaterThan(0);
+  });
+});

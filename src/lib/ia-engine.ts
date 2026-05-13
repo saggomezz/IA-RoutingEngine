@@ -532,7 +532,13 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   // ── Ordenar por proximidad + reparar gastro consecutiva ──────────────────────
   const nocturnaFinal = selected.filter(p => isNocturnaForPool(p));
   const dayStops = selected.filter(p => !nocturnaFinal.includes(p));
-  const sortedDay = repairConsecutiveGastro(sortByProximity(dayStops));
+  // Cafeterías mañaneras deben llegar antes de las 13:00 — fijarlas al frente
+  // antes del reordenamiento geográfico para que revalidateSlots no las descarte.
+  const morningCafes = (hasCafeterias && startHour < 13)
+    ? dayStops.filter(p => matchesInterest(p.categoria, 'cafeterias'))
+    : [];
+  const unpinned = dayStops.filter(p => !morningCafes.includes(p));
+  const sortedDay = repairConsecutiveGastro([...morningCafes, ...sortByProximity(unpinned)]);
 
   // FIX 2 — Revalidar reglas de slot tras el reordenamiento geográfico
   const revalidated = revalidateSlots(sortedDay, startTime, {
