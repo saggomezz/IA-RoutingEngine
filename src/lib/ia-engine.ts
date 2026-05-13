@@ -20,7 +20,7 @@ const MIN_GASTRO_GAP_MINS = 150;
 const EARTH_RADIUS_KM = 6371;
 
 // Ventanas horarias (en horas)
-const CAFE_MORNING_CUTOFF_HOUR = 13;
+const CAFE_MORNING_CUTOFF_HOUR = 12;
 const CAFE_EVENING_OPEN_HOUR = 18;
 const NOCTURNA_OPEN_HOUR = 20;
 const COMPRAS_OPEN_HOUR = 11;
@@ -128,6 +128,23 @@ export function norm(s: string): string {
 export function matchesInterest(categoria: string, interest: string): boolean {
   const cat = norm(categoria);
   return (INTEREST_MAP[interest] || []).some(kw => cat.includes(kw));
+}
+
+// Distingue cantinas/bares puros (bloqueados a 20 h) de restaurantes que
+// también tienen vida nocturna (pueden aparecer de día para comer).
+export function isPureNocturna(p: Place): boolean {
+  if (!matchesInterest(p.categoria, 'vida-nocturna')) return false;
+  const nombre = norm(p.nombre);
+  const cat = norm(p.categoria);
+  const isCantina = nombre.includes('cantina') || cat.includes('cantina');
+  // Restaurantes con gastronomía (que no sean cantinas) son flexibles
+  if (matchesInterest(p.categoria, 'gastronomia') && !isCantina) return false;
+  // Lugares culturales con vida nocturna también son flexibles de día
+  if (matchesInterest(p.categoria, 'cultura') ||
+      matchesInterest(p.categoria, 'arte') ||
+      matchesInterest(p.categoria, 'fotografia')) return false;
+  // Cantinas, bares y clubs puros → bloqueados a 20 h
+  return true;
 }
 
 export function getDayOfWeek(dateStr: string): string {
@@ -454,7 +471,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     : [];
 
   const isGastroForPool = (p: Place) => hasGastro && matchesInterest(p.categoria, 'gastronomia');
-  const isNocturnaForPool = (p: Place) => matchesInterest(p.categoria, 'vida-nocturna') && !isGastroForPool(p);
+  const isNocturnaForPool = (p: Place) => isPureNocturna(p) && !isGastroForPool(p);
 
   const gastroPool = hasGastro
     ? adjusted.filter(p => matchesInterest(p.categoria, 'gastronomia'))
@@ -499,7 +516,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (selected.length >= maxPlaces) return false;
     if (usedNames.has(place.nombre)) return false;
     const isGastro = hasGastro && matchesInterest(place.categoria, 'gastronomia');
-    const isNocturna = matchesInterest(place.categoria, 'vida-nocturna');
+    const isNocturna = isPureNocturna(place);
     const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT_MINS : 0));
     const arrHour = parseInt(estArrival.split(':')[0]);
     const arrMins = toMins(estArrival);
@@ -546,6 +563,15 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     return true;
   };
 
+  // Pre-selección: cafeterías mañaneras primero para que caigan dentro de la
+  // ventana horaria antes de que otros lugares consuman tiempo.
+  if (hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
+    for (const cafe of mainPool) {
+      if (!matchesInterest(cafe.categoria, 'cafeterias')) continue;
+      if (tryAdd(cafe)) break;
+    }
+  }
+
   for (const place of mainPool) {
     if (selected.length >= maxPlaces) break;
     tryAdd(place);
@@ -560,7 +586,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   }
 
   // Nocturna al final si aplica
-  if (hasNocturna && !selected.find(p => isNocturnaForPool(p))) {
+  if (hasNocturna && !selected.find(p => matchesInterest(p.categoria, 'vida-nocturna'))) {
     for (const place of nocturnaPool) {
       if (selected.length >= maxPlaces) break;
       if (usedNames.has(place.nombre)) continue;
@@ -612,7 +638,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   }
 
   // ── Ordenar por proximidad + reparar gastro consecutiva ──────────────────────
-  const nocturnaFinal = selected.filter(p => isNocturnaForPool(p));
+  const nocturnaFinal = selected.filter(p => isPureNocturna(p));
   const dayStops = selected.filter(p => !nocturnaFinal.includes(p));
   // Cafeterías mañaneras deben quedar al frente antes del reordenamiento
   const morningCafes = (hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR)
@@ -742,7 +768,7 @@ export function pickAddStop(
         if (!isPlaceOpen(p, estArrival, dayOfWeek)) return false;
 
         const isGastro = matchesInterest(p.categoria, 'gastronomia');
-        const isNocturna = matchesInterest(p.categoria, 'vida-nocturna');
+        const isNocturna = isPureNocturna(p);
         const isCafe = matchesInterest(p.categoria, 'cafeterias');
 
         // FIX A: aplicar mismas reglas que tryAdd
@@ -808,7 +834,6 @@ export function pickReplaceStop(
   const isMatchDay = selectedDate in MATCH_DAYS;
   const startHour = parseInt(startTime.split(':')[0]);
   const hasCafeterias = interests.includes('cafeterias');
-  const hasGastro = interests.includes('gastronomia');
   const hasNocturna = interests.includes('vida-nocturna');
 
   const current = currentPlaces[stopIndex];
@@ -863,7 +888,7 @@ export function pickReplaceStop(
       if (!isPlaceOpen(p, estArrival, dayOfWeek)) return false;
 
       const isGastro = matchesInterest(p.categoria, 'gastronomia');
-      const isNocturna = matchesInterest(p.categoria, 'vida-nocturna');
+      const isNocturna = isPureNocturna(p);
       const isCafe = matchesInterest(p.categoria, 'cafeterias');
 
       if (isGastro && hasNocturna && arrHour >= 20) return false;
