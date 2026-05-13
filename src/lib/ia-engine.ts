@@ -1,4 +1,48 @@
 // Funciones puras del motor de itinerarios — importables sin React
+//
+// REVISIÓN MAYO 2026 — Cambios principales:
+//   FIX A: pickAddStop y pickReplaceStop ahora calculan horarios reales
+//          considerando isMatch/isCamino y devuelven el lugar con
+//          forcedArrival para que buildSchedule lo respete.
+//   FIX B: pickAddStop respeta maxPlaces, intereses originales y valida
+//          que la nueva llegada no caiga fuera del horario operativo.
+//   FIX C: Itinerario vacío — múltiples salvavidas: el fallback final
+//          ahora valida con tryAdd relajando restricciones gradualmente
+//          en vez de hacer un push directo sin validar.
+//   FIX D: revalidateSlots ya no puede vaciar todo el itinerario; si
+//          quedaría vacío, conserva al menos la primera parada válida.
+//   FIX E: Constantes nombradas, helpers compartidos (toMins, isOpenWindow),
+//          tipos de comida no se duplican en pickAddStop/pickReplaceStop.
+
+// ── Constantes ───────────────────────────────────────────────────────────────
+const TRANSIT_MINS = 30;
+const MIN_GASTRO_GAP_MINS = 150;
+const EARTH_RADIUS_KM = 6371;
+
+// Ventanas horarias (en horas)
+const CAFE_MORNING_CUTOFF_HOUR = 13;
+const CAFE_EVENING_OPEN_HOUR = 18;
+const NOCTURNA_OPEN_HOUR = 20;
+const COMPRAS_OPEN_HOUR = 11;
+const LAST_REASONABLE_ARRIVAL_HOUR = 23; // tope absoluto para añadir paradas
+
+// Duración del día por modo (min)
+const DURATION_MINS: Record<'rapido' | 'medio-dia' | 'dia-completo', number> = {
+  'rapido': 180,
+  'medio-dia': 360,
+  'dia-completo': 540,
+};
+
+// ── Helpers de tiempo (compartidos) ──────────────────────────────────────────
+export function toMins(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+export function addMinutes(time: string, mins: number): string {
+  const total = toMins(time) + mins;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(((total % 60) + 60) % 60).padStart(2, '0')}`;
+}
 
 // ── Shuffle con semilla (evita aleatoriedad no determinista) ─────────────────
 function seededRandom(seed: number): () => number {
@@ -24,6 +68,7 @@ export function dailySeed(): number {
   return parseInt(new Date().toISOString().slice(0, 10).replace(/-/g, ''));
 }
 
+// ── Tipos ────────────────────────────────────────────────────────────────────
 export interface Place {
   nombre: string;
   categoria: string;
@@ -52,6 +97,7 @@ export interface Stop {
 export type MealContext = 'desayuno' | 'comida' | 'cena';
 export type Ritmo = 'tranquilo' | 'normal' | 'activo';
 
+// ── Datos estáticos ──────────────────────────────────────────────────────────
 export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron', 'complejo verde valle', 'tacos el super'];
 
 export const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: string }> = {
@@ -74,6 +120,7 @@ export const INTEREST_MAP: Record<string, string[]> = {
   cafeterias:      ['cafeteria', 'cafe', 'brunch', 'cafe de especialidad'],
 };
 
+// ── Helpers de strings y matching ────────────────────────────────────────────
 export function norm(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
@@ -83,30 +130,9 @@ export function matchesInterest(categoria: string, interest: string): boolean {
   return (INTEREST_MAP[interest] || []).some(kw => cat.includes(kw));
 }
 
-export function isPlaceOpen(place: Place, arrivalTime: string, dayOfWeek: string): boolean {
-  if (!place.horaApertura || !place.horaCierre) return true;
-  if (place.horaApertura === '00:00' && place.horaCierre === '23:59') return true;
-  if (place.diasCerrado && place.diasCerrado !== 'ninguno') {
-    const closed = place.diasCerrado.split(',').map(d => norm(d.trim()));
-    if (closed.includes(norm(dayOfWeek))) return false;
-  }
-  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  const arr = toMins(arrivalTime);
-  const open = toMins(place.horaApertura);
-  let close = toMins(place.horaCierre);
-  if (close <= open) close += 24 * 60;
-  return arr >= open && (arr + place.tiempoEstancia) <= close;
-}
-
 export function getDayOfWeek(dateStr: string): string {
   const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   return days[new Date(dateStr + 'T12:00:00').getDay()];
-}
-
-export function addMinutes(time: string, mins: number): string {
-  const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + mins;
-  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 export function getMealContext(time: string): MealContext {
@@ -122,6 +148,22 @@ export function parseCostMin(costoStr: string): number {
   return match ? parseInt(match[1]) : 0;
 }
 
+// ── Apertura ────────────────────────────────────────────────────────────────
+export function isPlaceOpen(place: Place, arrivalTime: string, dayOfWeek: string): boolean {
+  if (!place.horaApertura || !place.horaCierre) return true;
+  if (place.horaApertura === '00:00' && place.horaCierre === '23:59') return true;
+  if (place.diasCerrado && place.diasCerrado !== 'ninguno') {
+    const closed = place.diasCerrado.split(',').map(d => norm(d.trim()));
+    if (closed.includes(norm(dayOfWeek))) return false;
+  }
+  const arr = toMins(arrivalTime);
+  const open = toMins(place.horaApertura);
+  let close = toMins(place.horaCierre);
+  if (close <= open) close += 24 * 60;
+  return arr >= open && (arr + place.tiempoEstancia) <= close;
+}
+
+// ── Scoring de comida ────────────────────────────────────────────────────────
 export function mealScore(place: Place, meal: MealContext): number {
   const text = norm(`${place.nombre} ${place.categoria}`);
   const keywords: Record<MealContext, string[]> = {
@@ -153,13 +195,13 @@ export function getFoodType(place: Place): string {
   return `unique_${norm(place.nombre)}`;
 }
 
+// ── Geo ──────────────────────────────────────────────────────────────────────
 export function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function routeDistance(places: Place[]): number {
@@ -222,26 +264,44 @@ export function repairConsecutiveGastro(places: Place[]): Place[] {
   return arr;
 }
 
+// ── Schedule ─────────────────────────────────────────────────────────────────
 export function buildSchedule(places: Place[], startTime: string): Stop[] {
-  const TRANSIT = 30;
   let current = startTime;
   return places.map((place, i) => {
     if (place.forcedArrival) current = place.forcedArrival;
     const horaLlegada = current;
     const horaSalida = addMinutes(current, place.tiempoEstancia || 60);
-    current = addMinutes(horaSalida, i < places.length - 1 ? TRANSIT : 0);
+    current = addMinutes(horaSalida, i < places.length - 1 ? TRANSIT_MINS : 0);
     return { place, horaLlegada, horaSalida, traslado: '' };
   });
 }
 
+// FIX A: Calcula la hora real de llegada a la posición `targetIndex` en una
+// lista de paradas existentes, respetando forcedArrival de partidos/caminos.
+// Si targetIndex >= length, devuelve la hora de llegada al "siguiente hueco".
+export function estimateArrivalAt(
+  places: Place[],
+  targetIndex: number,
+  startTime: string
+): string {
+  const schedule = buildSchedule(places, startTime);
+  if (targetIndex < schedule.length) {
+    return schedule[targetIndex].horaLlegada;
+  }
+  if (schedule.length === 0) return startTime;
+  const last = schedule[schedule.length - 1];
+  return addMinutes(last.horaSalida, TRANSIT_MINS);
+}
+
 // Revalida reglas de horario tras el reordenamiento geográfico.
-// Avanza el reloj solo para los lugares que se mantienen.
+// FIX D: nunca vacía completamente la lista si había candidatos válidos al
+//        principio. Si todas las paradas fallan, conserva la primera del
+//        input para que el itinerario no salga vacío.
 function revalidateSlots(
   places: Place[],
   startTime: string,
   params: { hasCafeterias: boolean; isMatchDay: boolean; startHour: number; dayOfWeek: string }
 ): Place[] {
-  const TRANSIT = 30;
   const valid: Place[] = [];
   let time = startTime;
   for (const place of places) {
@@ -251,19 +311,26 @@ function revalidateSlots(
 
     if (!isPlaceOpen(place, time, params.dayOfWeek)) ok = false;
     if (isCafe && params.hasCafeterias) {
-      if (params.startHour < 13 && arrHour >= 13) ok = false;
-      if (params.startHour >= 13 && !params.isMatchDay && arrHour < 18) ok = false;
+      if (params.startHour < CAFE_MORNING_CUTOFF_HOUR && arrHour >= CAFE_MORNING_CUTOFF_HOUR) ok = false;
+      if (params.startHour >= CAFE_MORNING_CUTOFF_HOUR && !params.isMatchDay && arrHour < CAFE_EVENING_OPEN_HOUR) ok = false;
     }
-    if (norm(place.categoria).includes('compras') && arrHour < 11) ok = false;
+    if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) ok = false;
 
     if (ok) {
       valid.push(place);
-      time = addMinutes(addMinutes(time, place.tiempoEstancia), TRANSIT);
+      time = addMinutes(addMinutes(time, place.tiempoEstancia), TRANSIT_MINS);
     }
+  }
+
+  // FIX D: salvavidas — si todo se descartó pero había paradas, conserva la
+  // primera. Mejor un itinerario imperfecto que uno vacío.
+  if (valid.length === 0 && places.length > 0) {
+    return [places[0]];
   }
   return valid;
 }
 
+// ── Validación de inputs ──────────────────────────────────────────────────────
 export interface GenerateOptions {
   interests: string[];
   ritmo: Ritmo;
@@ -279,7 +346,6 @@ export interface GenerateOptions {
   reservedMins?: number;
 }
 
-// ── Validación de inputs ──────────────────────────────────────────────────────
 export function validateGenerateOptions(opts: GenerateOptions): string | null {
   if (!opts.interests || opts.interests.length === 0)
     return 'Debes seleccionar al menos un interés';
@@ -297,20 +363,18 @@ export function validateGenerateOptions(opts: GenerateOptions): string | null {
   return null;
 }
 
+// ── generateItinerary ────────────────────────────────────────────────────────
 export function generateItinerary(places: Place[], opts: GenerateOptions): Place[] {
   const error = validateGenerateOptions(opts);
   if (error) throw new Error(error);
 
   const { interests, ritmo, startTime, budget, selectedDate, seed = dailySeed() } = opts;
   const selectedDayOfWeek = getDayOfWeek(selectedDate);
-  const TRANSIT = 30;
-  const MIN_GASTRO_GAP = 150;
   const isMatchDay = selectedDate in MATCH_DAYS;
   const startHour = parseInt(startTime.split(':')[0]);
   const hasCafeterias = interests.includes('cafeterias');
   const hasGastro = interests.includes('gastronomia');
   const hasNocturna = interests.includes('vida-nocturna');
-  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
   // ── Pre-filters ──────────────────────────────────────────────────────────────
   let filtered = places.filter(p =>
@@ -319,6 +383,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     (parseCostMin(p.costo) === 0 || parseCostMin(p.costo) <= budget)
   );
 
+  // Salvavidas presupuesto: si filtros estrictos dejan <3, relaja presupuesto
   if (filtered.length < 3 && budget > 0) {
     const sinPresupuesto = places.filter(p =>
       !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
@@ -365,8 +430,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
   if (opts.duration) {
     const reservedMins = opts.reservedMins ?? 0;
-    const rawTarget = opts.duration === 'rapido' ? 180 : opts.duration === 'medio-dia' ? 360 : 540;
-    targetMins = rawTarget - reservedMins;
+    targetMins = DURATION_MINS[opts.duration] - reservedMins;
     const basePlaces = opts.duration === 'rapido' ? 3 : opts.duration === 'medio-dia' ? 6 : 10;
     maxPlaces = ritmo === 'activo' ? basePlaces + 2 : ritmo === 'tranquilo' ? Math.max(2, basePlaces - 1) : basePlaces;
   } else {
@@ -389,7 +453,6 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
         ), seed + 2)
     : [];
 
-  // Pool membership based on user intent: a place is "gastro" only if the user selected gastronomia
   const isGastroForPool = (p: Place) => hasGastro && matchesInterest(p.categoria, 'gastronomia');
   const isNocturnaForPool = (p: Place) => matchesInterest(p.categoria, 'vida-nocturna') && !isGastroForPool(p);
 
@@ -411,6 +474,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   const mainPool: Place[] = (() => {
     const others = hasNocturna ? othersPool : [...othersPool, ...nocturnaPool];
     if (!hasGastro || gastroPool.length === 0) return others;
+    if (others.length === 0) return gastroPool;
     const gap = Math.max(2, Math.floor(others.length / Math.max(1, maxGastro)));
     const result: Place[] = [];
     let gi = 0, oi = 0;
@@ -425,45 +489,49 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   const selected: Place[] = [];
   let totalTime = 0;
   let gastroCount = 0;
-  let lastGastroEndMins = -MIN_GASTRO_GAP;
+  let lastGastroEndMins = -MIN_GASTRO_GAP_MINS;
   let lastGastroArrivalMins = -1;
   const usedFoodTypes = new Set<string>();
   const usedNames = new Set<string>();
 
-  const tryAdd = (place: Place): boolean => {
+  // tryAdd con opción de relajar restricciones (FIX C: para fallback)
+  const tryAdd = (place: Place, relaxed = false): boolean => {
     if (selected.length >= maxPlaces) return false;
     if (usedNames.has(place.nombre)) return false;
     const isGastro = hasGastro && matchesInterest(place.categoria, 'gastronomia');
     const isNocturna = matchesInterest(place.categoria, 'vida-nocturna');
-    const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT : 0));
+    const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT_MINS : 0));
     const arrHour = parseInt(estArrival.split(':')[0]);
     const arrMins = toMins(estArrival);
 
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) return false;
-    if (isGastro && hasNocturna && arrHour >= 20) return false;
-    if (isNocturna && hasNocturna && arrHour < 20) return false;
 
-    const isCafe = matchesInterest(place.categoria, 'cafeterias');
-    if (isCafe && hasCafeterias) {
-      if (startHour < 13) {
-        if (arrHour >= 13) return false;
-      } else {
-        if (isMatchDay) return false;
-        if (arrHour < 18) return false;
+    if (!relaxed) {
+      if (isGastro && hasNocturna && arrHour >= 20) return false;
+      if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
+
+      const isCafe = matchesInterest(place.categoria, 'cafeterias');
+      if (isCafe && hasCafeterias) {
+        if (startHour < CAFE_MORNING_CUTOFF_HOUR) {
+          if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+        } else {
+          if (isMatchDay) return false;
+          if (arrHour < CAFE_EVENING_OPEN_HOUR) return false;
+        }
+      }
+
+      if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
+
+      if (isGastro) {
+        if (gastroCount >= maxGastro) return false;
+        if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) return false;
+        if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrMins < 14 * 60) return false;
+        const foodType = getFoodType(place);
+        if (usedFoodTypes.has(foodType)) return false;
       }
     }
 
-    if (norm(place.categoria).includes('compras') && arrHour < 11) return false;
-
-    if (isGastro) {
-      if (gastroCount >= maxGastro) return false;
-      if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP) return false;
-      if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrMins < 14 * 60) return false;
-      const foodType = getFoodType(place);
-      if (usedFoodTypes.has(foodType)) return false;
-    }
-
-    const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? TRANSIT : 0);
+    const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? TRANSIT_MINS : 0);
     if (targetMins !== null && totalTime + timeNeeded > targetMins) return false;
 
     selected.push(place);
@@ -483,7 +551,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     tryAdd(place);
   }
 
-  // Segunda pasada para llenar tiempo restante (solo con duration)
+  // Segunda pasada: llenar tiempo restante (solo con duration)
   if (targetMins !== null && totalTime < targetMins - 30 && selected.length < maxPlaces) {
     for (const place of [...othersPool, ...gastroPool]) {
       if (selected.length >= maxPlaces) break;
@@ -496,15 +564,15 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     for (const place of nocturnaPool) {
       if (selected.length >= maxPlaces) break;
       if (usedNames.has(place.nombre)) continue;
-      const estArrival = addMinutes(startTime, totalTime + TRANSIT);
-      if (parseInt(estArrival.split(':')[0]) < 20) continue;
+      const estArrival = addMinutes(startTime, totalTime + TRANSIT_MINS);
+      if (parseInt(estArrival.split(':')[0]) < NOCTURNA_OPEN_HOUR) continue;
       if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
       selected.push(place);
       break;
     }
   }
 
-  // FIX 3 — Garantizar al menos 1 parada por interés seleccionado (excepto nocturna y fútbol)
+  // Garantizar al menos 1 parada por interés (excepto nocturna y fútbol)
   for (const interest of interests) {
     if (interest === 'vida-nocturna' || interest === 'futbol') continue;
     if (selected.some(p => matchesInterest(p.categoria, interest))) continue;
@@ -516,31 +584,44 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (fallback) tryAdd(fallback);
   }
 
-  // FIX 4 — Parada nocturna post-partido con validación de horario y apertura
+  // Parada nocturna post-partido
   if ((opts.reservedMins ?? 0) > 0 && hasNocturna) {
     for (const place of nocturnaPool) {
       if (usedNames.has(place.nombre)) continue;
-      const estArrival = addMinutes(startTime, totalTime + TRANSIT);
+      const estArrival = addMinutes(startTime, totalTime + TRANSIT_MINS);
       if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
       selected.push(place);
       break;
     }
   }
 
-  if (selected.length === 0 && mainPool.length > 0) selected.push(mainPool[0]);
+  // FIX C: salvavidas anti-itinerario-vacío.
+  // En vez de hacer un push directo sin validar (que rompía reglas de horario),
+  // intentamos agregar con restricciones relajadas: ignora gap de gastro,
+  // ventanas de cafeterías, etc. Solo respeta isPlaceOpen y targetMins.
+  if (selected.length === 0) {
+    for (const place of mainPool) {
+      if (tryAdd(place, /* relaxed */ true)) break;
+    }
+    // Último recurso: probar todo el universo filtrado relajando todo.
+    if (selected.length === 0) {
+      for (const place of adjusted) {
+        if (tryAdd(place, /* relaxed */ true)) break;
+      }
+    }
+  }
 
   // ── Ordenar por proximidad + reparar gastro consecutiva ──────────────────────
   const nocturnaFinal = selected.filter(p => isNocturnaForPool(p));
   const dayStops = selected.filter(p => !nocturnaFinal.includes(p));
-  // Cafeterías mañaneras deben llegar antes de las 13:00 — fijarlas al frente
-  // antes del reordenamiento geográfico para que revalidateSlots no las descarte.
-  const morningCafes = (hasCafeterias && startHour < 13)
+  // Cafeterías mañaneras deben quedar al frente antes del reordenamiento
+  const morningCafes = (hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR)
     ? dayStops.filter(p => matchesInterest(p.categoria, 'cafeterias'))
     : [];
   const unpinned = dayStops.filter(p => !morningCafes.includes(p));
   const sortedDay = repairConsecutiveGastro([...morningCafes, ...sortByProximity(unpinned)]);
 
-  // FIX 2 — Revalidar reglas de slot tras el reordenamiento geográfico
+  // Revalidar reglas tras reordenamiento
   const revalidated = revalidateSlots(sortedDay, startTime, {
     hasCafeterias,
     isMatchDay,
@@ -548,7 +629,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     dayOfWeek: selectedDayOfWeek,
   });
 
-  // ── Inyección de postre (solo con duration + gastronomia) ────────────────────
+  // Inyección de postre
   if (postrePool.length > 0) {
     let simMins = 0;
     let lastComidaIdx = -1;
@@ -557,14 +638,14 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       if (matchesInterest(revalidated[i].categoria, 'gastronomia') && getMealContext(arrivalTime) === 'comida') {
         lastComidaIdx = i;
       }
-      simMins += revalidated[i].tiempoEstancia + (i < revalidated.length - 1 ? TRANSIT : 0);
+      simMins += revalidated[i].tiempoEstancia + (i < revalidated.length - 1 ? TRANSIT_MINS : 0);
     }
     if (lastComidaIdx >= 0) {
       const refPlace = revalidated[lastComidaIdx];
       let bestPostre: Place | null = null;
       let bestDist = Infinity;
       for (const p of postrePool) {
-        if (usedNames.has(p.nombre)) continue; // FIX 5 — no duplicar postre ya seleccionado
+        if (usedNames.has(p.nombre)) continue;
         if (refPlace.lat != null && refPlace.lng != null && p.lat != null && p.lng != null) {
           const d = haversine(refPlace.lat, refPlace.lng, p.lat, p.lng);
           if (d < bestDist) { bestDist = d; bestPostre = p; }
@@ -589,8 +670,18 @@ export interface ActionOptions {
   selectedDate: string;
   startTime: string;
   seed?: number;
+  maxPlaces?: number;       // FIX B: tope opcional para evitar crecimiento sin fin
+  ritmo?: Ritmo;            // FIX A: para escalar tiempoEstancia consistentemente
+  foodPreference?: string;  // FIX A: mismas restricciones que generateItinerary
 }
 
+// FIX A + FIX B: pickAddStop ahora:
+//   1. Calcula la hora real considerando isMatch/isCamino (vía buildSchedule).
+//   2. Respeta maxPlaces si se provee.
+//   3. Valida ventanas horarias (cafeterías, compras, nocturna).
+//   4. Devuelve el lugar con forcedArrival fijado para que el horario sea
+//      coherente al insertarlo al final.
+//   5. Aplica el multiplicador de ritmo al tiempoEstancia si se provee.
 export function pickAddStop(
   allPlaces: Place[],
   currentPlaces: Place[],
@@ -598,45 +689,114 @@ export function pickAddStop(
 ): Place | null {
   const { interests, budget, selectedDate, startTime, seed = dailySeed() } = opts;
   const dayOfWeek = getDayOfWeek(selectedDate);
-  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const isMatchDay = selectedDate in MATCH_DAYS;
+  const startHour = parseInt(startTime.split(':')[0]);
+  const hasCafeterias = interests.includes('cafeterias');
+  const hasGastro = interests.includes('gastronomia');
+  const hasNocturna = interests.includes('vida-nocturna');
 
-  const regular = currentPlaces.filter(p => !p.isMatch && !p.isCamino);
+  // Tope: si el itinerario actual ya alcanzó maxPlaces, no agregamos más.
+  if (opts.maxPlaces !== undefined && currentPlaces.length >= opts.maxPlaces) {
+    return null;
+  }
+
   const usedNames = new Set(currentPlaces.map(p => p.nombre));
+  const usedFoodTypes = new Set<string>();
+  currentPlaces.forEach(p => {
+    if (matchesInterest(p.categoria, 'gastronomia')) usedFoodTypes.add(getFoodType(p));
+  });
 
-  // Estimar hora de llegada para la nueva parada (al final de las regulares)
-  const totalTime = regular.reduce((sum, p, i) => sum + p.tiempoEstancia + (i > 0 ? 30 : 0), 0);
-  const estArrival = addMinutes(startTime, totalTime + (regular.length > 0 ? 30 : 0));
+  // FIX A: calcular hora real considerando TODAS las paradas (incluyendo
+  // partidos y caminos), no solo las "regulares".
+  const estArrival = estimateArrivalAt(currentPlaces, currentPlaces.length, startTime);
   const arrMins = toMins(estArrival);
+  const arrHour = parseInt(estArrival.split(':')[0]);
 
-  // Calcular fin del último gastro entre las paradas actuales
-  const schedule = buildSchedule(regular, startTime);
-  let lastGastroEndMins = -(150 + 1);
-  for (let i = 0; i < regular.length; i++) {
-    if (matchesInterest(regular[i].categoria, 'gastronomia')) {
+  // Si la llegada ya cae fuera del horario operativo razonable, no insertar.
+  if (arrHour >= LAST_REASONABLE_ARRIVAL_HOUR) return null;
+
+  // Calcular fin del último gastro entre las paradas actuales (usa schedule
+  // real, no estimación lineal).
+  const schedule = buildSchedule(currentPlaces, startTime);
+  let lastGastroEndMins = -(MIN_GASTRO_GAP_MINS + 1);
+  let gastroCount = 0;
+  for (let i = 0; i < currentPlaces.length; i++) {
+    if (matchesInterest(currentPlaces[i].categoria, 'gastronomia')) {
       lastGastroEndMins = toMins(schedule[i].horaSalida);
+      gastroCount++;
     }
   }
-  const lastRegular = regular[regular.length - 1];
+  const lastRegular = currentPlaces.filter(p => !p.isMatch && !p.isCamino).pop() ?? null;
+
+  // Ritmo: aplicar multiplicador como hace generateItinerary
+  const ritmoMult = opts.ritmo === 'tranquilo' ? 1.3 : opts.ritmo === 'activo' ? 0.8 : 1;
 
   const candidates = seededShuffle(
-    allPlaces.filter(p => {
-      if (usedNames.has(p.nombre)) return false;
-      if (BLACKLIST.some(bl => norm(p.nombre).includes(bl))) return false;
-      if (!interests.some(int => matchesInterest(p.categoria, int))) return false;
-      if (parseCostMin(p.costo) > 0 && parseCostMin(p.costo) > budget) return false;
-      if (!isPlaceOpen(p, estArrival, dayOfWeek)) return false;
-      if (matchesInterest(p.categoria, 'gastronomia')) {
-        if (arrMins - lastGastroEndMins < 150) return false;
-        if (lastRegular && matchesInterest(lastRegular.categoria, 'gastronomia')) return false;
-      }
-      return true;
-    }),
-    seed
+    allPlaces
+      .filter(p => {
+        if (usedNames.has(p.nombre)) return false;
+        if (BLACKLIST.some(bl => norm(p.nombre).includes(bl))) return false;
+        // Respeta los intereses originales del usuario
+        if (!interests.some(int => matchesInterest(p.categoria, int))) return false;
+        if (parseCostMin(p.costo) > 0 && parseCostMin(p.costo) > budget) return false;
+        if (!isPlaceOpen(p, estArrival, dayOfWeek)) return false;
+
+        const isGastro = matchesInterest(p.categoria, 'gastronomia');
+        const isNocturna = matchesInterest(p.categoria, 'vida-nocturna');
+        const isCafe = matchesInterest(p.categoria, 'cafeterias');
+
+        // FIX A: aplicar mismas reglas que tryAdd
+        if (isGastro && hasNocturna && arrHour >= 20) return false;
+        if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
+
+        if (isCafe && hasCafeterias) {
+          if (startHour < CAFE_MORNING_CUTOFF_HOUR) {
+            if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+          } else {
+            if (isMatchDay) return false;
+            if (arrHour < CAFE_EVENING_OPEN_HOUR) return false;
+          }
+        }
+
+        if (norm(p.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
+
+        if (isGastro) {
+          if (hasGastro && gastroCount >= 3) return false; // cap suave al agregar manualmente
+          if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) return false;
+          if (lastRegular && matchesInterest(lastRegular.categoria, 'gastronomia')) return false;
+          if (usedFoodTypes.has(getFoodType(p))) return false;
+        }
+        // Aplica filtros de foodPreference de forma consistente
+        if (opts.foodPreference === 'vegetariano' && isGastro) {
+          const cat = norm(p.categoria);
+          if (!(cat.includes('vegana') || cat.includes('vegetaria') || cat.includes('sano'))) return false;
+        }
+        if (opts.foodPreference === 'nocturna' && isGastro) {
+          if (!matchesInterest(p.categoria, 'vida-nocturna')) return false;
+        }
+        return true;
+      }),
+    seed + arrMins // varía el orden según el momento del día
   );
 
-  return candidates[0] ?? null;
+  const pick = candidates[0];
+  if (!pick) return null;
+
+  // FIX A: devolver el lugar con tiempoEstancia ajustado por ritmo y
+  // forcedArrival fijado, para que el horario quede coherente al insertarse
+  // al final. La UI puede confiar en buildSchedule para renderizar.
+  return {
+    ...pick,
+    tiempoEstancia: Math.round(pick.tiempoEstancia * ritmoMult),
+    forcedArrival: estArrival,
+  };
 }
 
+// FIX A: pickReplaceStop ahora:
+//   1. Considera spacing con TODOS los gastro previos y posteriores, no solo
+//      con el inmediatamente vecino.
+//   2. Conserva el forcedArrival del slot original para preservar el horario.
+//   3. Aplica multiplicador de ritmo al tiempoEstancia.
 export function pickReplaceStop(
   allPlaces: Place[],
   currentPlaces: Place[],
@@ -645,7 +805,11 @@ export function pickReplaceStop(
 ): Place | null {
   const { interests, budget, selectedDate, startTime, seed = dailySeed() } = opts;
   const dayOfWeek = getDayOfWeek(selectedDate);
-  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const isMatchDay = selectedDate in MATCH_DAYS;
+  const startHour = parseInt(startTime.split(':')[0]);
+  const hasCafeterias = interests.includes('cafeterias');
+  const hasGastro = interests.includes('gastronomia');
+  const hasNocturna = interests.includes('vida-nocturna');
 
   const current = currentPlaces[stopIndex];
   if (!current) return null;
@@ -656,17 +820,39 @@ export function pickReplaceStop(
   const schedule = buildSchedule(currentPlaces, startTime);
   const estArrival = schedule[stopIndex]?.horaLlegada ?? startTime;
   const arrMins = toMins(estArrival);
+  const arrHour = parseInt(estArrival.split(':')[0]);
 
+  // El reemplazo debe matchear AL MENOS un interés que ya cubría el lugar
+  // original — así respeta lo que el usuario pidió originalmente.
   const matchingInterest = interests.find(int => matchesInterest(current.categoria, int)) ?? interests[0];
+
   const prevPlace = stopIndex > 0 ? currentPlaces[stopIndex - 1] : null;
   const nextPlace = stopIndex < currentPlaces.length - 1 ? currentPlaces[stopIndex + 1] : null;
 
-  let lastGastroEndMins = -(150 + 1);
+  // Spacing con TODOS los gastros previos y posteriores (no solo vecinos)
+  let lastGastroEndMins = -(MIN_GASTRO_GAP_MINS + 1);
   for (let i = 0; i < stopIndex; i++) {
     if (matchesInterest(currentPlaces[i].categoria, 'gastronomia')) {
       lastGastroEndMins = toMins(schedule[i].horaSalida);
     }
   }
+  let nextGastroStartMins = Infinity;
+  for (let i = stopIndex + 1; i < currentPlaces.length; i++) {
+    if (matchesInterest(currentPlaces[i].categoria, 'gastronomia')) {
+      nextGastroStartMins = toMins(schedule[i].horaLlegada);
+      break;
+    }
+  }
+
+  // Tipos de comida ya usados (excluyendo el que se reemplaza)
+  const usedFoodTypes = new Set<string>();
+  currentPlaces.forEach((p, i) => {
+    if (i !== stopIndex && matchesInterest(p.categoria, 'gastronomia')) {
+      usedFoodTypes.add(getFoodType(p));
+    }
+  });
+
+  const ritmoMult = opts.ritmo === 'tranquilo' ? 1.3 : opts.ritmo === 'activo' ? 0.8 : 1;
 
   const candidates = seededShuffle(
     allPlaces.filter(p => {
@@ -675,15 +861,57 @@ export function pickReplaceStop(
       if (!matchesInterest(p.categoria, matchingInterest)) return false;
       if (parseCostMin(p.costo) > 0 && parseCostMin(p.costo) > budget) return false;
       if (!isPlaceOpen(p, estArrival, dayOfWeek)) return false;
-      if (matchesInterest(p.categoria, 'gastronomia')) {
-        if (arrMins - lastGastroEndMins < 150) return false;
+
+      const isGastro = matchesInterest(p.categoria, 'gastronomia');
+      const isNocturna = matchesInterest(p.categoria, 'vida-nocturna');
+      const isCafe = matchesInterest(p.categoria, 'cafeterias');
+
+      if (isGastro && hasNocturna && arrHour >= 20) return false;
+      if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
+
+      if (isCafe && hasCafeterias) {
+        if (startHour < CAFE_MORNING_CUTOFF_HOUR) {
+          if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+        } else {
+          if (isMatchDay) return false;
+          if (arrHour < CAFE_EVENING_OPEN_HOUR) return false;
+        }
+      }
+
+      if (norm(p.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
+
+      if (isGastro) {
+        if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) return false;
+        const endMins = arrMins + Math.round(p.tiempoEstancia * ritmoMult);
+        if (nextGastroStartMins - endMins < MIN_GASTRO_GAP_MINS) return false;
         if (prevPlace && matchesInterest(prevPlace.categoria, 'gastronomia')) return false;
         if (nextPlace && matchesInterest(nextPlace.categoria, 'gastronomia')) return false;
+        if (usedFoodTypes.has(getFoodType(p))) return false;
+      }
+
+      if (opts.foodPreference === 'vegetariano' && isGastro) {
+        const cat = norm(p.categoria);
+        if (!(cat.includes('vegana') || cat.includes('vegetaria') || cat.includes('sano'))) return false;
+      }
+      if (opts.foodPreference === 'nocturna' && isGastro) {
+        if (!matchesInterest(p.categoria, 'vida-nocturna')) return false;
       }
       return true;
     }),
-    seed
+    seed + arrMins
   );
 
-  return candidates[0] ?? null;
+  const pick = candidates[0];
+  if (!pick) return null;
+
+  // FIX A: conservar forcedArrival del slot original para mantener el horario.
+  // Si el original tenía forcedArrival (p.ej. un partido), no lo sobreescribimos
+  // — pero los partidos no se reemplazan vía esta función. Para paradas
+  // regulares, fijar forcedArrival = horaLlegada original asegura que el resto
+  // del schedule no se desplace.
+  return {
+    ...pick,
+    tiempoEstancia: Math.round(pick.tiempoEstancia * ritmoMult),
+    forcedArrival: estArrival,
+  };
 }
