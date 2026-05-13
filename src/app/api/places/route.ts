@@ -71,9 +71,31 @@ function parseCsvPlaces(): Record<string, any>[] {
   }
 }
 
-// ── horariosJson → horaApertura / horaCierre / diasCerrado ───────────────────
+// ── horariosJson ↔ horaApertura / horaCierre / diasCerrado ───────────────────
 
 const DIAS_ORDER = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+
+// CSV flat hours → horariosJson (formato que entiende Firebase y el Frontend)
+function csvHoursToHorariosJson(horaApertura: string, horaCierre: string, diasCerrado: string): string {
+  const cerrados = diasCerrado === 'ninguno' || !diasCerrado
+    ? []
+    : diasCerrado.split(',').map(d => d.trim().toLowerCase());
+  const h: Record<string, any> = {};
+  for (const dia of DIAS_ORDER) {
+    h[dia] = cerrados.includes(dia) ? 'cerrado' : { apertura: horaApertura, cierre: horaCierre };
+  }
+  return JSON.stringify(h);
+}
+
+// Persiste horarios en Firebase via backend (fire-and-forget: no bloquea la respuesta)
+function writeHorariosToFirebase(nombre: string, horariosJson: string): void {
+  fetch(`${BACKEND}/api/lugares/${encodeURIComponent(nombre)}/info`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ horariosJson }),
+    signal: AbortSignal.timeout(4000),
+  }).catch(() => {}); // intencionalmente sin await
+}
 
 function horariosToFields(horariosJson?: string): { horaApertura: string; horaCierre: string; diasCerrado: string } {
   if (!horariosJson) return { horaApertura: '', horaCierre: '', diasCerrado: 'ninguno' };
@@ -191,9 +213,16 @@ export async function GET() {
         // Fill missing coords from CSV
         if (!fbPlace['Latitud'] && csvPlace['Latitud']) fbPlace['Latitud'] = csvPlace['Latitud'];
         if (!fbPlace['Longitud'] && csvPlace['Longitud']) fbPlace['Longitud'] = csvPlace['Longitud'];
-        if (!fbPlace['horaApertura'] && csvPlace['horaApertura']) fbPlace['horaApertura'] = csvPlace['horaApertura'];
-        if (!fbPlace['horaCierre'] && csvPlace['horaCierre']) fbPlace['horaCierre'] = csvPlace['horaCierre'];
-        if (!fbPlace['diasCerrado'] || fbPlace['diasCerrado'] === 'ninguno') {
+        if (!fbPlace['horaApertura'] && csvPlace['horaApertura'] && csvPlace['horaCierre']) {
+          fbPlace['horaApertura'] = csvPlace['horaApertura'];
+          fbPlace['horaCierre'] = csvPlace['horaCierre'];
+          fbPlace['diasCerrado'] = csvPlace['diasCerrado'] || 'ninguno';
+          // Write-through: persiste en Firebase para que el Frontend también lo vea
+          writeHorariosToFirebase(
+            fbPlace['Nombre del Lugar'],
+            csvHoursToHorariosJson(csvPlace['horaApertura'], csvPlace['horaCierre'], csvPlace['diasCerrado'] || 'ninguno')
+          );
+        } else if (!fbPlace['diasCerrado'] || fbPlace['diasCerrado'] === 'ninguno') {
           fbPlace['diasCerrado'] = csvPlace['diasCerrado'] || 'ninguno';
         }
         continue;
