@@ -62,8 +62,8 @@ export const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora
 };
 
 export const INTEREST_MAP: Record<string, string[]> = {
-  futbol:          ['futbol'],
-  gastronomia:     ['gastronomia', 'mexicana', 'postre', 'vegana', 'comida calle', 'cafeteria'],
+  futbol:          ['futbol', 'fan zone', 'fanzone', 'deportivo', 'zona deportiva'],
+  gastronomia:     ['gastronomia', 'mexicana', 'postre', 'vegana', 'comida calle'],
   'vida-nocturna': ['nocturna', 'bar', 'cantina'],
   cultura:         ['cultura', 'museos', 'arte e historia', 'arquitectura'],
   compras:         ['compras'],
@@ -234,6 +234,36 @@ export function buildSchedule(places: Place[], startTime: string): Stop[] {
   });
 }
 
+// Revalida reglas de horario tras el reordenamiento geográfico.
+// Avanza el reloj solo para los lugares que se mantienen.
+function revalidateSlots(
+  places: Place[],
+  startTime: string,
+  params: { hasCafeterias: boolean; isMatchDay: boolean; startHour: number; dayOfWeek: string }
+): Place[] {
+  const TRANSIT = 30;
+  const valid: Place[] = [];
+  let time = startTime;
+  for (const place of places) {
+    const arrHour = parseInt(time.split(':')[0]);
+    const isCafe = matchesInterest(place.categoria, 'cafeterias');
+    let ok = true;
+
+    if (!isPlaceOpen(place, time, params.dayOfWeek)) ok = false;
+    if (isCafe && params.hasCafeterias) {
+      if (params.startHour < 13 && arrHour >= 13) ok = false;
+      if (params.startHour >= 13 && !params.isMatchDay && arrHour < 18) ok = false;
+    }
+    if (norm(place.categoria).includes('compras') && arrHour < 11) ok = false;
+
+    if (ok) {
+      valid.push(place);
+      time = addMinutes(addMinutes(time, place.tiempoEstancia), TRANSIT);
+    }
+  }
+  return valid;
+}
+
 export interface GenerateOptions {
   interests: string[];
   ritmo: Ritmo;
@@ -278,7 +308,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   const isMatchDay = selectedDate in MATCH_DAYS;
   const startHour = parseInt(startTime.split(':')[0]);
   const hasCafeterias = interests.includes('cafeterias');
-  const hasGastro = interests.some(int => ['gastronomia', 'cafeterias'].includes(int));
+  const hasGastro = interests.includes('gastronomia');
   const hasNocturna = interests.includes('vida-nocturna');
   const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
@@ -469,10 +499,27 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
   }
 
-  // Parada nocturna post-partido (solo cuando hay reservedMins > 0 y hasNocturna)
+  // FIX 3 — Garantizar al menos 1 parada por interés seleccionado (excepto nocturna y fútbol)
+  for (const interest of interests) {
+    if (interest === 'vida-nocturna' || interest === 'futbol') continue;
+    if (selected.some(p => matchesInterest(p.categoria, interest))) continue;
+    const fallback = [...othersPool, ...gastroPool].find(p =>
+      !usedNames.has(p.nombre) &&
+      !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
+      matchesInterest(p.categoria, interest)
+    );
+    if (fallback) tryAdd(fallback);
+  }
+
+  // FIX 4 — Parada nocturna post-partido con validación de horario y apertura
   if ((opts.reservedMins ?? 0) > 0 && hasNocturna) {
-    const afterMatch = nocturnaPool.find(p => !usedNames.has(p.nombre));
-    if (afterMatch) selected.push(afterMatch);
+    for (const place of nocturnaPool) {
+      if (usedNames.has(place.nombre)) continue;
+      const estArrival = addMinutes(startTime, totalTime + TRANSIT);
+      if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
+      selected.push(place);
+      break;
+    }
   }
 
   if (selected.length === 0 && mainPool.length > 0) selected.push(mainPool[0]);
@@ -484,36 +531,45 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   const dayStops = selected.filter(p => !nocturnaFinal.includes(p));
   const sortedDay = repairConsecutiveGastro(sortByProximity(dayStops));
 
+  // FIX 2 — Revalidar reglas de slot tras el reordenamiento geográfico
+  const revalidated = revalidateSlots(sortedDay, startTime, {
+    hasCafeterias,
+    isMatchDay,
+    startHour,
+    dayOfWeek: selectedDayOfWeek,
+  });
+
   // ── Inyección de postre (solo con duration + gastronomia) ────────────────────
   if (postrePool.length > 0) {
     let simMins = 0;
     let lastComidaIdx = -1;
-    for (let i = 0; i < sortedDay.length; i++) {
+    for (let i = 0; i < revalidated.length; i++) {
       const arrivalTime = addMinutes(startTime, simMins);
-      if (matchesInterest(sortedDay[i].categoria, 'gastronomia') && getMealContext(arrivalTime) === 'comida') {
+      if (matchesInterest(revalidated[i].categoria, 'gastronomia') && getMealContext(arrivalTime) === 'comida') {
         lastComidaIdx = i;
       }
-      simMins += sortedDay[i].tiempoEstancia + (i < sortedDay.length - 1 ? TRANSIT : 0);
+      simMins += revalidated[i].tiempoEstancia + (i < revalidated.length - 1 ? TRANSIT : 0);
     }
     if (lastComidaIdx >= 0) {
-      const refPlace = sortedDay[lastComidaIdx];
+      const refPlace = revalidated[lastComidaIdx];
       let bestPostre: Place | null = null;
       let bestDist = Infinity;
       for (const p of postrePool) {
+        if (usedNames.has(p.nombre)) continue; // FIX 5 — no duplicar postre ya seleccionado
         if (refPlace.lat != null && refPlace.lng != null && p.lat != null && p.lng != null) {
           const d = haversine(refPlace.lat, refPlace.lng, p.lat, p.lng);
           if (d < bestDist) { bestDist = d; bestPostre = p; }
         } else if (!bestPostre) bestPostre = p;
       }
-      if (bestPostre && sortedDay.length < maxPlaces) {
-        sortedDay.splice(lastComidaIdx + 1, 0, bestPostre);
-        const repaired = repairConsecutiveGastro(sortedDay);
-        sortedDay.splice(0, sortedDay.length, ...repaired);
+      if (bestPostre && revalidated.length < maxPlaces) {
+        revalidated.splice(lastComidaIdx + 1, 0, bestPostre);
+        const repaired = repairConsecutiveGastro(revalidated);
+        revalidated.splice(0, revalidated.length, ...repaired);
       }
     }
   }
 
-  return [...sortedDay, ...nocturnaFinal];
+  return [...revalidated, ...nocturnaFinal];
 }
 
 // ── Lógica pura para agregar/reemplazar paradas ───────────────────────────────
