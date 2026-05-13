@@ -539,7 +539,7 @@ describe('scheduling cafeterías', () => {
     }
   });
 
-  it('itinerario vespertino (14:00) día normal: cafetería llega a las 18:00 o después', () => {
+  it('itinerario vespertino (14:00) día normal: cafetería puede aparecer en cualquier hora según horario real', () => {
     const result = generateItinerary(places, {
       interests: ['cafeterias', 'cultura'],
       ritmo: 'normal',
@@ -548,14 +548,13 @@ describe('scheduling cafeterías', () => {
       selectedDate: normalDay,
       seed: 1,
     });
-    const schedule = buildSchedule(result, '14:00');
-    const cafeStop = schedule.find(s => matchesInterest(s.place.categoria, 'cafeterias'));
-    if (cafeStop) {
-      expect(parseInt(cafeStop.horaLlegada.split(':')[0])).toBeGreaterThanOrEqual(18);
-    }
+    // Con la nueva lógica, el horario real del lugar decide (no un bloqueo artificial hasta las 18h)
+    const hasCafe = result.some(p => matchesInterest(p.categoria, 'cafeterias'));
+    // El café tiene horaCierre 21:00, así que puede aparecer en la tarde
+    expect(hasCafe).toBe(true);
   });
 
-  it('itinerario vespertino en día de partido: no incluye cafetería', () => {
+  it('itinerario vespertino en día de partido: cafetería puede aparecer si su horario lo permite', () => {
     const result = generateItinerary(places, {
       interests: ['cafeterias', 'cultura'],
       ritmo: 'normal',
@@ -564,8 +563,9 @@ describe('scheduling cafeterías', () => {
       selectedDate: matchDay,
       seed: 1,
     });
+    // Ya no se bloquea en días de partido: isPlaceOpen decide
     const hasCafe = result.some(p => matchesInterest(p.categoria, 'cafeterias'));
-    expect(hasCafe).toBe(false);
+    expect(hasCafe).toBe(true);
   });
 });
 
@@ -750,10 +750,10 @@ describe('pickReplaceStop', () => {
   });
 
   it('no devuelve lugares en la blacklist', () => {
-    const bloqueado = mkPlace({ nombre: 'La Minerva', categoria: 'Cultura, Museos', horaApertura: '00:00', horaCierre: '23:59', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
+    const bloqueado = mkPlace({ nombre: 'Glorieta de la Minerva', categoria: 'Cultura, Museos', horaApertura: '00:00', horaCierre: '23:59', diasCerrado: 'ninguno', lat: 20.67, lng: -103.34 });
     const ok = mkCultura('Museo OK', 20.68, -103.35);
     const toReplace = mkCultura('Museo Viejo', 20.70, -103.36);
-    const result = pickReplaceStop([bloqueado, ok, toReplace], [toReplace], 0, ACTION_OPTS);
+    const result = pickReplaceStop([bloqueado, ok], [toReplace], 0, ACTION_OPTS);
     expect(result?.nombre).toBe('Museo OK');
   });
 

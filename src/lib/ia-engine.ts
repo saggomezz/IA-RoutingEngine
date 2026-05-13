@@ -21,7 +21,6 @@ const EARTH_RADIUS_KM = 6371;
 
 // Ventanas horarias (en horas)
 const CAFE_MORNING_CUTOFF_HOUR = 12;
-const CAFE_EVENING_OPEN_HOUR = 18;
 const NOCTURNA_OPEN_HOUR = 20;
 const COMPRAS_OPEN_HOUR = 11;
 const LAST_REASONABLE_ARRIVAL_HOUR = 23; // tope absoluto para añadir paradas
@@ -329,7 +328,7 @@ function revalidateSlots(
     if (!isPlaceOpen(place, time, params.dayOfWeek)) ok = false;
     if (isCafe && params.hasCafeterias) {
       if (params.startHour < CAFE_MORNING_CUTOFF_HOUR && arrHour >= CAFE_MORNING_CUTOFF_HOUR) ok = false;
-      if (params.startHour >= CAFE_MORNING_CUTOFF_HOUR && !params.isMatchDay && arrHour < CAFE_EVENING_OPEN_HOUR) ok = false;
+      // tarde/noche: isPlaceOpen ya filtra por horario real del lugar
     }
     if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) ok = false;
 
@@ -528,13 +527,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
 
       const isCafe = matchesInterest(place.categoria, 'cafeterias');
-      if (isCafe && hasCafeterias) {
-        if (startHour < CAFE_MORNING_CUTOFF_HOUR) {
-          if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-        } else {
-          if (isMatchDay) return false;
-          if (arrHour < CAFE_EVENING_OPEN_HOUR) return false;
-        }
+      if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
+        if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+        // tarde/noche: isPlaceOpen ya filtra por horario real del lugar
       }
 
       if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
@@ -715,7 +710,6 @@ export function pickAddStop(
 ): Place | null {
   const { interests, budget, selectedDate, startTime, seed = dailySeed() } = opts;
   const dayOfWeek = getDayOfWeek(selectedDate);
-  const isMatchDay = selectedDate in MATCH_DAYS;
   const startHour = parseInt(startTime.split(':')[0]);
   const hasCafeterias = interests.includes('cafeterias');
   const hasGastro = interests.includes('gastronomia');
@@ -775,13 +769,8 @@ export function pickAddStop(
         if (isGastro && hasNocturna && arrHour >= 20) return false;
         if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
 
-        if (isCafe && hasCafeterias) {
-          if (startHour < CAFE_MORNING_CUTOFF_HOUR) {
-            if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-          } else {
-            if (isMatchDay) return false;
-            if (arrHour < CAFE_EVENING_OPEN_HOUR) return false;
-          }
+        if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
+          if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
         }
 
         if (norm(p.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
@@ -831,7 +820,6 @@ export function pickReplaceStop(
 ): Place | null {
   const { interests, budget, selectedDate, startTime, seed = dailySeed() } = opts;
   const dayOfWeek = getDayOfWeek(selectedDate);
-  const isMatchDay = selectedDate in MATCH_DAYS;
   const startHour = parseInt(startTime.split(':')[0]);
   const hasCafeterias = interests.includes('cafeterias');
   const hasNocturna = interests.includes('vida-nocturna');
@@ -894,13 +882,8 @@ export function pickReplaceStop(
       if (isGastro && hasNocturna && arrHour >= 20) return false;
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
 
-      if (isCafe && hasCafeterias) {
-        if (startHour < CAFE_MORNING_CUTOFF_HOUR) {
-          if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-        } else {
-          if (isMatchDay) return false;
-          if (arrHour < CAFE_EVENING_OPEN_HOUR) return false;
-        }
+      if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
+        if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
       }
 
       if (norm(p.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
