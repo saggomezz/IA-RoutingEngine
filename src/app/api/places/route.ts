@@ -121,7 +121,7 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
       const { horaApertura, horaCierre, diasCerrado } = horariosToFields(lugar.horariosJson);
 
       const categoria = Array.isArray(lugar.categorias) && lugar.categorias.length > 0
-        ? lugar.categorias[0]
+        ? lugar.categorias.join(', ')
         : (lugar.categoria || '');
 
       map.set(normName(nombre), {
@@ -171,8 +171,15 @@ export async function GET() {
       if (deleted.has(key) || deleted.has(keyShort)) continue;
 
       if (firebaseMap.has(key) || firebaseMap.has(keyShort)) {
-        // Firebase has this place — enrich with CSV foto if Firebase has none
+        // Firebase has this place — enrich with CSV data
         const fbPlace = firebaseMap.get(key) || firebaseMap.get(keyShort)!;
+        // Merge CSV categories so el motor de IA puede hacer matching correcto
+        const csvCat = csvPlace['Categoria'] || '';
+        if (csvCat) {
+          const fbCat = fbPlace['Categoria'] || '';
+          const parts = [...new Set([fbCat, csvCat].filter(Boolean))];
+          fbPlace['Categoria'] = parts.join(', ');
+        }
         if (!fbPlace['fotos']?.length && csvPlace['Imagen']) {
           fbPlace['fotos'] = [csvPlace['Imagen']];
         }
