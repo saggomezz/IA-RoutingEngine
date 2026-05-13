@@ -561,13 +561,6 @@ function HomePageInner() {
     setStops(buildSchedule([...regular, newPlace, ...match], startTime));
   };
 
-  const removeLastStop = () => {
-    const regularIdxs = stops.map((s, i) => i).filter(i => !stops[i].place.isMatch);
-    if (regularIdxs.length <= 1) return;
-    const lastIdx = regularIdxs[regularIdxs.length - 1];
-    setStops(buildSchedule(stops.filter((_, i) => i !== lastIdx).map(s => s.place), startTime));
-  };
-
   const replaceStop = (i: number) => {
     const currentPlaces = stops.map(s => s.place);
     const newPlace = pickReplaceStop(allPlaces, currentPlaces, i, {
@@ -1060,12 +1053,7 @@ function HomePageInner() {
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
 
       {/* Header resultado */}
-      <motion.div
-        className="bg-gradient-to-r from-[#0D1F14] to-[#1A4D2E] text-white px-4 py-6 print:hidden"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
+      <div className="flex-shrink-0 bg-gradient-to-r from-[#0D1F14] to-[#1A4D2E] text-white px-4 py-6 print:hidden">
         <div className="flex items-center gap-3 w-full">
           <motion.button
             onClick={() => setShowResults(false)}
@@ -1099,11 +1087,8 @@ function HomePageInner() {
                 📅 <span className="hidden sm:inline">Calendario</span>
               </a>
             )}
-            {/* Controles de cantidad de paradas */}
+            {/* Agregar parada */}
             <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-xl px-2 py-1">
-              <span className="hidden md:inline text-xs text-white/60 font-medium">Restar lugar</span>
-              <button onClick={removeLastStop} title="Quitar último lugar"
-                className="w-6 h-6 rounded-lg text-white/70 hover:text-white hover:bg-white/20 text-sm font-bold transition-all flex items-center justify-center">−</button>
               <span className="text-xs text-white/60 px-1 font-medium">{stops.filter(s => !s.place.isMatch).length}</span>
               <button onClick={addStop} title="Agregar lugar"
                 className="w-6 h-6 rounded-lg text-white/70 hover:text-white hover:bg-white/20 text-sm font-bold transition-all flex items-center justify-center">+</button>
@@ -1122,7 +1107,7 @@ function HomePageInner() {
             </motion.button>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       <div className="flex flex-row items-start flex-1 min-h-0">
 
@@ -1146,27 +1131,7 @@ function HomePageInner() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <h2 className="text-lg font-bold text-[#1A4D2E] mb-3 capitalize">{meta.title}</h2>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { icon: '💰', text: meta.budget },
-              { icon: '👥', text: meta.groupSize },
-              { icon: '⏱️', text: meta.duration },
-              { icon: '📍', text: `${stops.length} lugares` },
-              { icon: ritmo === 'tranquilo' ? '🌿' : ritmo === 'activo' ? '🔥' : '⚡', text: ritmo === 'tranquilo' ? 'Tranquilo' : ritmo === 'activo' ? 'Activo' : 'Normal' },
-              { icon: transporte === 'a-pie' ? '🚶' : transporte === 'auto' ? '🚙' : '🚗', text: transporte === 'a-pie' ? 'A pie' : transporte === 'auto' ? 'Auto propio' : 'Uber / Taxi' },
-            ].map((tag, i) => (
-              <motion.span
-                key={i}
-                className="inline-flex items-center gap-1 bg-[#F0F7F0] text-[#1A4D2E] text-xs font-medium px-3 py-1.5 rounded-full"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                {tag.icon} {tag.text}
-              </motion.span>
-            ))}
-          </div>
+          <h2 className="text-lg font-bold text-[#1A4D2E] capitalize">{meta.title}</h2>
         </motion.div>
 
         {/* Timeline */}
@@ -1295,11 +1260,14 @@ function HomePageInner() {
                       {stop.place.direccion}
                     </p>
 
-                    <div className="hidden sm:flex items-center gap-3 mt-1.5">
-                      <span className="text-xs text-gray-500 flex items-center gap-0.5">
-                        <FiDollarSign size={10} /> {stop.place.costo}
-                      </span>
-                    </div>
+                    {stop.place.costo && stop.place.costo !== 'No disponible' && (
+                      <div className="hidden sm:flex items-center gap-1 mt-1.5">
+                        <FiDollarSign size={10} className={/gratis/i.test(stop.place.costo) ? 'text-[#0D601E]' : 'text-gray-400'} />
+                        <span className={`text-xs font-medium ${/gratis/i.test(stop.place.costo) ? 'text-[#0D601E]' : 'text-gray-500'}`}>
+                          {stop.place.costo}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="hidden sm:flex items-center gap-2 mt-3 print:hidden">
                       <motion.button
