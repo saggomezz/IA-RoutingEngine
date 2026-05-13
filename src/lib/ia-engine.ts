@@ -389,17 +389,22 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
         ), seed + 2)
     : [];
 
-  const gastroPool = adjusted
-    .filter(p => matchesInterest(p.categoria, 'gastronomia'))
-    .sort((a, b) => mealScore(b, mealCtx) - mealScore(a, mealCtx));
+  // Pool membership based on user intent: a place is "gastro" only if the user selected gastronomia
+  const isGastroForPool = (p: Place) => hasGastro && matchesInterest(p.categoria, 'gastronomia');
+  const isNocturnaForPool = (p: Place) => matchesInterest(p.categoria, 'vida-nocturna') && !isGastroForPool(p);
+
+  const gastroPool = hasGastro
+    ? adjusted.filter(p => matchesInterest(p.categoria, 'gastronomia'))
+              .sort((a, b) => mealScore(b, mealCtx) - mealScore(a, mealCtx))
+    : [];
 
   const nocturnaPool = seededShuffle(
-    adjusted.filter(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia')),
+    adjusted.filter(p => isNocturnaForPool(p)),
     seed
   );
 
   const othersPool = seededShuffle(
-    adjusted.filter(p => !matchesInterest(p.categoria, 'gastronomia') && !matchesInterest(p.categoria, 'vida-nocturna')),
+    adjusted.filter(p => !isGastroForPool(p) && !isNocturnaForPool(p)),
     seed + 1
   );
 
@@ -428,7 +433,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   const tryAdd = (place: Place): boolean => {
     if (selected.length >= maxPlaces) return false;
     if (usedNames.has(place.nombre)) return false;
-    const isGastro = matchesInterest(place.categoria, 'gastronomia');
+    const isGastro = hasGastro && matchesInterest(place.categoria, 'gastronomia');
     const isNocturna = matchesInterest(place.categoria, 'vida-nocturna');
     const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT : 0));
     const arrHour = parseInt(estArrival.split(':')[0]);
@@ -487,7 +492,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   }
 
   // Nocturna al final si aplica
-  if (hasNocturna && !selected.find(p => matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia'))) {
+  if (hasNocturna && !selected.find(p => isNocturnaForPool(p))) {
     for (const place of nocturnaPool) {
       if (selected.length >= maxPlaces) break;
       if (usedNames.has(place.nombre)) continue;
@@ -525,9 +530,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   if (selected.length === 0 && mainPool.length > 0) selected.push(mainPool[0]);
 
   // ── Ordenar por proximidad + reparar gastro consecutiva ──────────────────────
-  const nocturnaFinal = selected.filter(p =>
-    matchesInterest(p.categoria, 'vida-nocturna') && !matchesInterest(p.categoria, 'gastronomia')
-  );
+  const nocturnaFinal = selected.filter(p => isNocturnaForPool(p));
   const dayStops = selected.filter(p => !nocturnaFinal.includes(p));
   const sortedDay = repairConsecutiveGastro(sortByProximity(dayStops));
 
