@@ -1199,10 +1199,10 @@ function HomePageInner() {
         </div>
       </div>
 
-      <div className="flex flex-col flex-1 overflow-y-auto">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
 
-        {/* ── Lista de paradas (ancho completo) ── */}
-        <div className="w-full px-3 sm:px-4 md:px-6 py-4">
+        {/* ── Lista de paradas ── */}
+        <div className="w-full lg:w-[42%] lg:flex-shrink-0 lg:overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4">
 
         {/* Print header — visible solo al imprimir */}
         <div className="hidden print:block print-header mb-6">
@@ -1437,8 +1437,8 @@ function HomePageInner() {
 
         </div>{/* fin lista de paradas */}
 
-        {/* ── Mapa — debajo de todas las paradas ── */}
-        <div className="w-full print:hidden" style={{ height: 320 }}>
+        {/* ── Mapa: abajo en móvil/tablet, derecha en desktop ── */}
+        <div className="w-full h-[300px] lg:flex-1 lg:h-full print:hidden">
           {(() => {
             const mapStops: MapStop[] = stops
               .filter(s => s.place.lat && s.place.lng)
