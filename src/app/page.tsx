@@ -217,6 +217,7 @@ function HomePageInner() {
   const [savedItineraryId, setSavedItineraryId] = useState<string | null>(null);
   const [calendarUrl, setCalendarUrl] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
   const [calendarView, setCalendarView] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
@@ -1361,10 +1362,7 @@ function HomePageInner() {
 
                     <div className="flex items-center gap-1.5 mt-2 print:hidden">
                       <motion.button
-                        onClick={() => {
-                          const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
-                          window.open(`${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`, '_blank', 'noopener,noreferrer');
-                        }}
+                        onClick={() => setSelectedStop(stop)}
                         className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2 py-1 hover:bg-[#E8F5E9] transition-colors"
                         whileHover={{ scale: 1.03 }}
                       >
@@ -1441,13 +1439,14 @@ function HomePageInner() {
         <div className="w-full h-[300px] lg:flex-1 lg:h-full print:hidden">
           {(() => {
             const mapStops: MapStop[] = stops
-              .filter(s => s.place.lat && s.place.lng)
-              .map((s, idx) => ({
+              .map((s, originalIdx) => ({ s, originalIdx }))
+              .filter(({ s }) => s.place.lat && s.place.lng)
+              .map(({ s, originalIdx }) => ({
                 lat: s.place.lat!,
                 lng: s.place.lng!,
                 nombre: s.place.nombre,
                 foto: s.place.fotos?.[0],
-                num: idx + 1,
+                num: originalIdx + 1,
                 isMatch: s.place.isMatch,
                 isCamino: s.place.isCamino,
               }));
@@ -1463,6 +1462,108 @@ function HomePageInner() {
         </div>
 
       </div>{/* fin flex col */}
+
+      {/* Modal detalle de lugar */}
+      <AnimatePresence>
+        {selectedStop && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedStop(null)}
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <motion.div
+              className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={e => e.stopPropagation()}
+            >
+              {selectedStop.place.fotos?.[0] ? (
+                <div className="relative w-full h-48 sm:h-56">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={selectedStop.place.fotos[0]}
+                    alt={selectedStop.place.nombre}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <button
+                    onClick={() => setSelectedStop(null)}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors text-sm"
+                  >✕</button>
+                </div>
+              ) : (
+                <div className="relative flex items-center justify-center h-20 bg-[#1A4D2E]">
+                  <span className="text-4xl">📍</span>
+                  <button
+                    onClick={() => setSelectedStop(null)}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/40 transition-colors text-sm"
+                  >✕</button>
+                </div>
+              )}
+
+              <div className="p-5">
+                <h2 className="text-lg font-black text-[#1A4D2E] leading-snug mb-2">
+                  {selectedStop.place.nombre}
+                </h2>
+
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {INTEREST_OPTIONS.filter(opt =>
+                    selectedInterests.includes(opt.id) && matchesInterest(selectedStop.place.categoria, opt.id)
+                  ).map(opt => (
+                    <span key={opt.id} className="text-xs font-semibold bg-[#E8F5E9] text-[#1A4D2E] px-2 py-0.5 rounded-full">
+                      {opt.emoji} {opt.name}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-600 text-sm">
+                    <FiClock size={14} className="text-[#1A4D2E] shrink-0" />
+                    <span>{formatTime12(selectedStop.horaLlegada)} → {formatTime12(selectedStop.horaSalida)}</span>
+                    <span className="text-gray-400 text-xs">({selectedStop.place.tiempoEstancia} min)</span>
+                  </div>
+
+                  {selectedStop.place.direccion && (
+                    <div className="flex items-start gap-2 text-gray-600">
+                      <FiMapPin size={14} className="text-[#1A4D2E] shrink-0 mt-0.5" />
+                      <span className="text-xs leading-snug">{selectedStop.place.direccion}</span>
+                    </div>
+                  )}
+
+                  {selectedStop.place.horaApertura && selectedStop.place.horaCierre && (
+                    <div className="flex items-center gap-2 text-gray-500 text-xs">
+                      <span>🕐</span>
+                      <span>Abre {selectedStop.place.horaApertura} – cierra {selectedStop.place.horaCierre}</span>
+                    </div>
+                  )}
+
+                  {selectedStop.place.costo && selectedStop.place.costo !== 'No disponible' && (
+                    <div className="flex items-center gap-2">
+                      <FiDollarSign size={14} className={/gratis/i.test(selectedStop.place.costo) ? 'text-[#0D601E]' : 'text-gray-400'} />
+                      <span className={`text-sm font-medium ${/gratis/i.test(selectedStop.place.costo) ? 'text-[#0D601E] font-bold' : 'text-gray-600'}`}>
+                        {selectedStop.place.costo}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setSelectedStop(null)}
+                  className="mt-5 w-full py-3 rounded-2xl bg-[#1A4D2E] text-white font-bold text-sm hover:bg-[#0D601E] transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
