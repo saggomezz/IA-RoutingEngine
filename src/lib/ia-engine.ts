@@ -262,19 +262,31 @@ export function sortByProximity(places: Place[]): Place[] {
 }
 
 export function repairConsecutiveGastro(places: Place[]): Place[] {
+  const isFood = (p: Place) =>
+    matchesInterest(p.categoria, 'gastronomia') || matchesInterest(p.categoria, 'cafeterias');
+
   const arr = [...places];
   for (let i = 0; i < arr.length - 1; i++) {
-    if (matchesInterest(arr[i].categoria, 'gastronomia') && matchesInterest(arr[i + 1].categoria, 'gastronomia')) {
-      let swapIdx = -1;
-      for (let j = i + 2; j < arr.length; j++) {
-        if (!matchesInterest(arr[j].categoria, 'gastronomia')) { swapIdx = j; break; }
-      }
-      if (swapIdx >= 0) {
-        const tmp = arr[swapIdx];
-        arr.splice(swapIdx, 1);
-        arr.splice(i + 1, 0, tmp);
-        i = Math.max(0, i - 1);
-      }
+    const aFood = isFood(arr[i]);
+    const bFood = isFood(arr[i + 1]);
+    if (!aFood || !bFood) continue;
+
+    // Mismo tipo de "comida" consecutivo → buscar un no-comida para intercalar
+    const sameType =
+      (matchesInterest(arr[i].categoria, 'gastronomia') && matchesInterest(arr[i + 1].categoria, 'gastronomia')) ||
+      (matchesInterest(arr[i].categoria, 'cafeterias')  && matchesInterest(arr[i + 1].categoria, 'cafeterias'));
+    if (!sameType) continue;
+
+    const pairType = matchesInterest(arr[i].categoria, 'gastronomia') ? 'gastronomia' : 'cafeterias';
+    let swapIdx = -1;
+    for (let j = i + 2; j < arr.length; j++) {
+      if (!matchesInterest(arr[j].categoria, pairType)) { swapIdx = j; break; }
+    }
+    if (swapIdx >= 0) {
+      const tmp = arr[swapIdx];
+      arr.splice(swapIdx, 1);
+      arr.splice(i + 1, 0, tmp);
+      i = Math.max(0, i - 1);
     }
   }
   return arr;

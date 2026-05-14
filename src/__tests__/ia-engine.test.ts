@@ -219,6 +219,8 @@ describe('sortByProximity', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('repairConsecutiveGastro', () => {
+  const cafe2 = mkPlace({ nombre: 'Café Dos', categoria: 'Cafeterías', horaApertura: '07:00', horaCierre: '20:00', diasCerrado: 'ninguno' });
+
   it('sin gastro consecutiva no cambia el orden', () => {
     const input = [museo, taqueria, teatro];
     expect(repairConsecutiveGastro(input)).toEqual(input);
@@ -231,6 +233,20 @@ describe('repairConsecutiveGastro', () => {
                          matchesInterest(result[i + 1].categoria, 'gastronomia');
       expect(bothGastro).toBe(false);
     }
+  });
+  it('separa dos cafeterías consecutivas', () => {
+    const input = [cafe, cafe2, museo];
+    const result = repairConsecutiveGastro(input);
+    for (let i = 0; i < result.length - 1; i++) {
+      const bothCafe = matchesInterest(result[i].categoria, 'cafeterias') &&
+                       matchesInterest(result[i + 1].categoria, 'cafeterias');
+      expect(bothCafe).toBe(false);
+    }
+  });
+  it('permite gastro seguida de cafetería (tipos distintos)', () => {
+    const input = [taqueria, cafe, museo];
+    const result = repairConsecutiveGastro(input);
+    expect(result).toEqual(input); // no debe moverse
   });
   it('conserva todos los lugares', () => {
     const input = [taqueria, birrieria, museo, cafe];
@@ -272,6 +288,7 @@ describe('generateItinerary — conteo por ritmo', () => {
     startTime: '09:00',
     budget: 500,
     selectedDate: '2026-05-09', // sábado
+    seed: 1,
   };
 
   it('tranquilo devuelve exactamente 3 paradas', () => {
