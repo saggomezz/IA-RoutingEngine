@@ -518,7 +518,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   let totalTime = 0;
   let gastroCount = 0;
   let lastGastroEndMins = -MIN_GASTRO_GAP_MINS;
-  let lastGastroArrivalMins = -1;
+  let lastFoodArrivalMins = -1; // gastro O cafetería
   const usedFoodTypes = new Set<string>();
   const usedNames = new Set<string>();
 
@@ -527,6 +527,8 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (selected.length >= maxPlaces) return false;
     if (usedNames.has(place.nombre)) return false;
     const isGastro = hasGastro && matchesInterest(place.categoria, 'gastronomia');
+    const isCafe = matchesInterest(place.categoria, 'cafeterias');
+    const isFood = isGastro || isCafe;
     const isNocturna = isPureNocturna(place);
     const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT_MINS : 0));
     const arrHour = parseInt(estArrival.split(':')[0]);
@@ -538,18 +540,19 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       if (isGastro && hasNocturna && arrHour >= 20) return false;
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
 
-      const isCafe = matchesInterest(place.categoria, 'cafeterias');
       if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
         if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-        // tarde/noche: isPlaceOpen ya filtra por horario real del lugar
       }
 
       if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
 
+      // Un lugar de comida (gastro o café) antes de las 12:00 bloquea el
+      // siguiente hasta las 14:00 — las personas no comen tan seguido.
+      if (isFood && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 12 * 60 && arrMins < 14 * 60) return false;
+
       if (isGastro) {
         if (gastroCount >= maxGastro) return false;
         if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) return false;
-        if (lastGastroArrivalMins >= 0 && lastGastroArrivalMins < 13 * 60 && arrMins < 14 * 60) return false;
         const foodType = getFoodType(place);
         if (usedFoodTypes.has(foodType)) return false;
       }
@@ -565,8 +568,8 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       usedFoodTypes.add(getFoodType(place));
       gastroCount++;
       lastGastroEndMins = arrMins + place.tiempoEstancia;
-      lastGastroArrivalMins = arrMins;
     }
+    if (isFood) lastFoodArrivalMins = arrMins;
     return true;
   };
 
@@ -747,16 +750,19 @@ export function pickAddStop(
   // Si la llegada ya cae fuera del horario operativo razonable, no insertar.
   if (arrHour >= LAST_REASONABLE_ARRIVAL_HOUR) return null;
 
-  // Calcular fin del último gastro entre las paradas actuales (usa schedule
-  // real, no estimación lineal).
+  // Calcular fin del último gastro y último food arrival entre las paradas actuales.
   const schedule = buildSchedule(currentPlaces, startTime);
   let lastGastroEndMins = -(MIN_GASTRO_GAP_MINS + 1);
   let gastroCount = 0;
+  let lastFoodArrivalMins = -1;
   for (let i = 0; i < currentPlaces.length; i++) {
-    if (matchesInterest(currentPlaces[i].categoria, 'gastronomia')) {
+    const isG = matchesInterest(currentPlaces[i].categoria, 'gastronomia');
+    const isC = matchesInterest(currentPlaces[i].categoria, 'cafeterias');
+    if (isG) {
       lastGastroEndMins = toMins(schedule[i].horaSalida);
       gastroCount++;
     }
+    if (isG || isC) lastFoodArrivalMins = toMins(schedule[i].horaLlegada);
   }
   const lastRegular = currentPlaces.filter(p => !p.isMatch && !p.isCamino).pop() ?? null;
 
@@ -776,6 +782,7 @@ export function pickAddStop(
         const isGastro = matchesInterest(p.categoria, 'gastronomia');
         const isNocturna = isPureNocturna(p);
         const isCafe = matchesInterest(p.categoria, 'cafeterias');
+        const isFood = isGastro || isCafe;
 
         // FIX A: aplicar mismas reglas que tryAdd
         if (isGastro && hasNocturna && arrHour >= 20) return false;
@@ -786,6 +793,8 @@ export function pickAddStop(
         }
 
         if (norm(p.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
+
+        if (isFood && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 12 * 60 && arrMins < 14 * 60) return false;
 
         if (isGastro) {
           if (hasGastro && gastroCount >= 3) return false; // cap suave al agregar manualmente
