@@ -424,6 +424,96 @@ function HomePageInner() {
     setAuthTrigger(null);
   };
 
+  const downloadPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const contentW = pageW - margin * 2;
+
+    // Header verde
+    doc.setFillColor(26, 77, 46);
+    doc.rect(0, 0, pageW, 32, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('Pitzbol', margin, 18);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Mundial 2026 Guadalajara', margin, 26);
+    doc.setFontSize(10);
+    doc.text(meta.title, pageW - margin, 22, { align: 'right' });
+
+    let y = 46;
+
+    stops.forEach((stop, i) => {
+      if (y > 265) { doc.addPage(); y = 20; }
+
+      // Circulo numerado
+      doc.setFillColor(26, 77, 46);
+      doc.circle(margin + 4, y - 2, 4.5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text(String(i + 1), margin + 4, y, { align: 'center' });
+
+      // Horario
+      doc.setTextColor(13, 96, 30);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(`${stop.horaLlegada} - ${stop.horaSalida}`, margin + 12, y);
+
+      // Nombre
+      y += 6;
+      doc.setTextColor(26, 77, 46);
+      doc.setFontSize(12);
+      const nameLines = doc.splitTextToSize(stop.place.nombre, contentW - 12);
+      doc.text(nameLines, margin + 12, y);
+      y += nameLines.length * 5.5;
+
+      // Dirección
+      if (stop.place.direccion) {
+        doc.setTextColor(100, 100, 100);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const dirLines = doc.splitTextToSize(stop.place.direccion, contentW - 12);
+        doc.text(dirLines, margin + 12, y);
+        y += dirLines.length * 4.5;
+      }
+
+      // Costo
+      if (stop.place.costo && stop.place.costo !== 'No disponible') {
+        doc.setTextColor(100, 100, 100);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`Costo aprox: ${stop.place.costo}`, margin + 12, y);
+        y += 4.5;
+      }
+
+      // Duración
+      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(8);
+      doc.text(`Tiempo de visita: ${stop.place.tiempoEstancia} min`, margin + 12, y);
+      y += 4;
+
+      // Línea separadora
+      y += 4;
+      if (i < stops.length - 1) {
+        doc.setDrawColor(220, 220, 220);
+        doc.line(margin + 12, y - 2, pageW - margin, y - 2);
+        y += 4;
+      }
+    });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(180, 180, 180);
+    doc.text('Generado por Pitzbol — ia.pitzbol.me', margin, doc.internal.pageSize.getHeight() - 8);
+
+    const filename = `itinerario-pitzbol-${meta.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`;
+    doc.save(filename);
+  };
+
   const handleGenerate = async () => {
     if (!selectedDate || selectedInterests.length < 2) {
       alert('Selecciona una fecha y al menos 2 intereses para un itinerario variado');
@@ -1095,7 +1185,7 @@ function HomePageInner() {
               <span className="hidden md:inline text-xs text-white/60 font-medium">Agregar lugar</span>
             </div>
             <motion.button
-              onClick={() => window.print()}
+              onClick={() => downloadPDF()}
               className="flex items-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -1109,10 +1199,10 @@ function HomePageInner() {
         </div>
       </div>
 
-      <div className="flex flex-row items-start flex-1 min-h-0">
+      <div className="flex flex-col flex-1 overflow-y-auto">
 
-        {/* ── Columna izquierda: lista de paradas ── */}
-        <div className="w-1/3 md:w-[38%] flex-shrink-0 px-1.5 sm:px-3 md:px-4 py-2 md:py-6 overflow-y-auto h-full">
+        {/* ── Lista de paradas (ancho completo) ── */}
+        <div className="w-full px-3 sm:px-4 md:px-6 py-4">
 
         {/* Print header — visible solo al imprimir */}
         <div className="hidden print:block print-header mb-6">
@@ -1223,24 +1313,24 @@ function HomePageInner() {
                 </div>
               ) : (
               /* Tarjeta normal de lugar */
-              <div className="flex-1 rounded-xl sm:rounded-2xl border border-gray-100 bg-white overflow-hidden mb-1 print-card shadow-sm">
+              <div className="flex-1 rounded-xl border border-gray-100 bg-white overflow-hidden mb-1 print-card shadow-sm">
                 <div className="flex items-stretch">
                   {stop.place.fotos?.[0] && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={stop.place.fotos?.[0]} alt={stop.place.nombre}
-                      className="hidden sm:block w-20 md:w-32 object-cover shrink-0 self-stretch print:hidden"
+                      className="w-20 sm:w-24 md:w-32 object-cover shrink-0 self-stretch print:hidden"
                       referrerPolicy="no-referrer" />
                   )}
-                  <div className="flex-1 p-2 sm:p-3 md:p-4 min-w-0">
-                    <div className="flex items-center gap-1 sm:gap-2 mb-1">
-                      <span className="text-xs sm:text-sm font-black text-[#0D601E] leading-none">{formatTime12(stop.horaLlegada)}</span>
-                      <span className="hidden sm:inline text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
-                      <span className="hidden sm:flex ml-auto text-xs text-gray-400 items-center gap-0.5">
+                  <div className="flex-1 p-3 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                      <span className="text-sm font-black text-[#0D601E] leading-none">{formatTime12(stop.horaLlegada)}</span>
+                      <span className="text-xs text-gray-400">→ {formatTime12(stop.horaSalida)}</span>
+                      <span className="ml-auto text-xs text-gray-400 flex items-center gap-0.5 shrink-0">
                         <FiClock size={10} /> {stop.place.tiempoEstancia} min
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-xs sm:text-sm leading-snug text-[#1A4D2E] line-clamp-2">{stop.place.nombre}</h3>
+                    <h3 className="font-bold text-sm leading-snug text-[#1A4D2E] line-clamp-2">{stop.place.nombre}</h3>
 
                     <div className="hidden sm:flex flex-wrap gap-1 mt-1.5">
                       {INTEREST_OPTIONS.filter(opt =>
@@ -1257,28 +1347,28 @@ function HomePageInner() {
 
                     <p className="hidden sm:flex text-xs text-gray-400 mt-1.5 items-start gap-1">
                       <FiMapPin size={10} className="shrink-0 mt-0.5" />
-                      {stop.place.direccion}
+                      <span className="line-clamp-1">{stop.place.direccion}</span>
                     </p>
 
                     {stop.place.costo && stop.place.costo !== 'No disponible' && (
-                      <div className="hidden sm:flex items-center gap-1 mt-1.5">
+                      <div className="flex items-center gap-1 mt-1.5">
                         <FiDollarSign size={10} className={/gratis/i.test(stop.place.costo) ? 'text-[#0D601E]' : 'text-gray-400'} />
-                        <span className={`text-xs font-medium ${/gratis/i.test(stop.place.costo) ? 'text-[#0D601E]' : 'text-gray-500'}`}>
+                        <span className={`text-xs font-medium ${/gratis/i.test(stop.place.costo) ? 'text-[#0D601E] font-bold' : 'text-gray-500'}`}>
                           {stop.place.costo}
                         </span>
                       </div>
                     )}
 
-                    <div className="hidden sm:flex items-center gap-2 mt-3 print:hidden">
+                    <div className="flex items-center gap-1.5 mt-2 print:hidden">
                       <motion.button
                         onClick={() => {
                           const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
                           window.open(`${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`, '_blank', 'noopener,noreferrer');
                         }}
-                        className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2.5 py-1 hover:bg-[#E8F5E9] transition-colors"
+                        className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2 py-1 hover:bg-[#E8F5E9] transition-colors"
                         whileHover={{ scale: 1.03 }}
                       >
-                        Ver más →
+                        Ver →
                       </motion.button>
                       <div className="ml-auto flex gap-1">
                         <button onClick={() => moveUp(i)} disabled={i === 0} title="Subir"
@@ -1334,7 +1424,7 @@ function HomePageInner() {
             <span className="hidden sm:inline">↺ Generar de nuevo</span>
           </motion.button>
           <motion.button
-            onClick={() => window.print()}
+            onClick={() => downloadPDF()}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white text-sm font-bold hover:shadow-lg transition-all"
             whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(13,96,30,0.3)' }}
             whileTap={{ scale: 0.98 }}
@@ -1345,10 +1435,10 @@ function HomePageInner() {
           </motion.button>
         </motion.div>
 
-        </div>{/* fin columna izquierda */}
+        </div>{/* fin lista de paradas */}
 
-        {/* ── Columna derecha: mapa ── */}
-        <div className="flex-1 h-full print:hidden">
+        {/* ── Mapa — debajo de todas las paradas ── */}
+        <div className="w-full print:hidden" style={{ height: 320 }}>
           {(() => {
             const mapStops: MapStop[] = stops
               .filter(s => s.place.lat && s.place.lng)
@@ -1372,7 +1462,7 @@ function HomePageInner() {
           })()}
         </div>
 
-      </div>{/* fin flex two-col */}
+      </div>{/* fin flex col */}
     </div>
   );
 }
