@@ -1362,7 +1362,10 @@ function HomePageInner() {
 
                     <div className="flex items-center gap-1.5 mt-2 print:hidden">
                       <motion.button
-                        onClick={() => setSelectedStop(stop)}
+                        onClick={() => {
+                          const base = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me';
+                          window.location.href = `${base}/informacion/${encodeURIComponent(stop.place.nombre)}?from=itinerario`;
+                        }}
                         className="text-xs font-semibold text-[#0D601E] border border-[#81C784] rounded-lg px-2 py-1 hover:bg-[#E8F5E9] transition-colors"
                         whileHover={{ scale: 1.03 }}
                       >
