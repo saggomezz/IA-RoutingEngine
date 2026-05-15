@@ -16,7 +16,7 @@ import {
   addMinutes, buildSchedule, MATCH_DAYS,
   generateItinerary as engineGenerateItinerary,
   pickAddStop, pickReplaceStop,
-  dailySeed,
+  dailySeed, rawToPlace,
   type Place, type Stop, type GenerateOptions,
 } from '@/lib/ia-engine';
 
@@ -72,15 +72,6 @@ const CAMINO_AL_PARTIDO_BASE: Place = {
   isMatch: true,
   isCamino: true,
 };
-
-// ---- Geo helpers ----
-function parseCoord(s: string): number | null {
-  if (!s) return null;
-  const cleaned = s.replace(',', '.');
-  if ((cleaned.match(/\./g) || []).length > 1) return null;
-  const val = parseFloat(cleaned);
-  return isNaN(val) ? null : val;
-}
 
 // ---- Helpers ----
 function formatTime12(time: string): string {
@@ -203,6 +194,7 @@ function HomePageInner() {
   const [ritmo, setRitmo] = useState<'tranquilo' | 'normal' | 'activo'>('normal');
   const [transporte, setTransporte] = useState<'a-pie' | 'taxi' | 'auto'>('taxi');
   const [isGenerating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [meta, setMeta] = useState<ItineraryMeta>({ title: '', budget: '', groupSize: '', duration: '' });
@@ -517,7 +509,7 @@ function HomePageInner() {
 
   const handleGenerate = async () => {
     if (!selectedDate || selectedInterests.length < 2) {
-      alert('Selecciona una fecha y al menos 2 intereses para un itinerario variado');
+      setGenerateError('Selecciona una fecha y al menos 2 intereses para continuar.');
       return;
     }
     const guestCount = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
@@ -526,29 +518,17 @@ function HomePageInner() {
       setShowAuthModal(true);
       return;
     }
+    setGenerateError(null);
     setGenerating(true);
     const loadStart = Date.now();
     try {
       const res = await fetch('/api/places');
       const raw: Record<string, any>[] = await res.json();
 
-      const places: Place[] = raw.map(p => ({
-        nombre: p['Nombre del Lugar'] || '',
-        categoria: p['Categoria'] || '',
-        direccion: p['Dirección'] || '',
-        tiempoEstancia: parseInt(p['Tiempo de Estancia']) || 60,
-        costo: p['Costo Estimado'] || 'No disponible',
-        calificacion: p['Calificacion'] || '',
-        fotos: Array.isArray(p['fotos']) ? p['fotos'] : [],
-        lat: parseCoord(p['Latitud']) ?? undefined,
-        lng: parseCoord(p['Longitud']) ?? undefined,
-        horaApertura: p['horaApertura'] || undefined,
-        horaCierre: p['horaCierre'] || undefined,
-        diasCerrado: p['diasCerrado'] || 'ninguno',
-      })).filter(p => p.nombre);
+      const places: Place[] = raw.map(rawToPlace).filter((p): p is Place => p !== null);
 
       if (places.length === 0) {
-        alert('No encontramos lugares que coincidan con tu selección. Prueba con otros intereses o aumenta el presupuesto.');
+        setGenerateError('No encontramos lugares disponibles. Inténtalo de nuevo en unos momentos.');
         return;
       }
 
@@ -570,7 +550,7 @@ function HomePageInner() {
       const regularPlaces = engineGenerateItinerary(places, engineOpts);
 
       if (regularPlaces.length === 0) {
-        alert('No encontramos lugares que coincidan con tu selección. Prueba con otros intereses o aumenta el presupuesto.');
+        setGenerateError('No encontramos lugares con esos filtros. Prueba con más intereses o aumenta el presupuesto.');
         return;
       }
 
@@ -612,7 +592,7 @@ function HomePageInner() {
       }
     } catch (error) {
       console.error(error);
-      alert('Error al generar el itinerario. Inténtalo de nuevo.');
+      setGenerateError('Error al generar el itinerario. Inténtalo de nuevo.');
     } finally {
       const elapsed = Date.now() - loadStart;
       if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
@@ -1129,6 +1109,17 @@ function HomePageInner() {
                 >
                   Selecciona al menos 2 intereses para continuar
                 </motion.p>
+              )}
+
+              {generateError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3"
+                >
+                  <span className="mt-0.5 shrink-0">⚠️</span>
+                  <span>{generateError}</span>
+                </motion.div>
               )}
             </motion.div>
           </form>

@@ -944,3 +944,33 @@ export function pickReplaceStop(
     forcedArrival: estArrival,
   };
 }
+
+// ── Conversión de datos raw → Place ──────────────────────────────────────────
+// /api/places devuelve claves en formato CSV ('Nombre del Lugar', 'Categoria',
+// etc.). Esta función es la única fuente de verdad para ese mapeo.
+// Úsala en page.tsx, route.ts o cualquier cliente que consuma /api/places.
+
+function parseCoord(s: unknown): number | undefined {
+  if (!s) return undefined;
+  const v = parseFloat(String(s).replace(',', '.'));
+  return isNaN(v) ? undefined : v;
+}
+
+export function rawToPlace(p: Record<string, any>): Place | null {
+  const nombre = String(p['Nombre del Lugar'] || '').trim();
+  if (!nombre) return null;
+  return {
+    nombre,
+    categoria:      p['Categoria']        || '',
+    direccion:      p['Dirección']        || '',
+    tiempoEstancia: parseInt(p['Tiempo de Estancia']) || 60,
+    costo:          p['Costo Estimado']   || 'No disponible',
+    calificacion:   p['Calificacion']     || '',
+    fotos:          Array.isArray(p['fotos']) ? p['fotos'] : [],
+    lat:            parseCoord(p['Latitud']),
+    lng:            parseCoord(p['Longitud']),
+    horaApertura:   p['horaApertura']     || undefined,
+    horaCierre:     p['horaCierre']       || undefined,
+    diasCerrado:    p['diasCerrado']      || 'ninguno',
+  };
+}

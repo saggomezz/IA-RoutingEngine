@@ -1,108 +1,124 @@
 import { NextResponse } from 'next/server';
-import ollama from 'ollama';
-import fs from 'fs';
-import path from 'path';
-import csv from 'csv-parser';
+import {
+  generateItinerary,
+  buildSchedule,
+  validateGenerateOptions,
+  dailySeed,
+  rawToPlace,
+  type Place,
+  type GenerateOptions,
+} from '@/lib/ia-engine';
 
-export const maxDuration = 60; 
-export const dynamic = 'force-dynamic';
+// GET — documentación del endpoint
+export async function GET() {
+  return NextResponse.json({
+    endpoint: 'POST /api/itinerary',
+    motor: 'hybrid-constraint-knn',
+    descripcion: 'Genera un itinerario usando ia-engine.ts (constraint-based scheduling + KNN geográfico).',
+    body: {
+      interests:      'string[]  — categorías: cultura, gastronomia, cafeterias, etc.',
+      budget:         'number    — presupuesto en MXN',
+      selectedDate:   'string    — YYYY-MM-DD',
+      startTime:      'string?   — HH:MM (default: "09:00")',
+      ritmo:          'string?   — tranquilo | normal | activo (default: "normal")',
+      duration:       'string?   — rapido | medio-dia | dia-completo (default: "dia-completo")',
+      foodPreference: 'string?   — tradicional | vegetariano | nocturna',
+      userLat:        'number?   — latitud del usuario (para modo a pie)',
+      userLng:        'number?   — longitud del usuario',
+      walkRadius:     'number?   — radio en km para modo a pie',
+      reservedMins:   'number?   — minutos reservados (ej. partido: 240)',
+    },
+  });
+}
 
+// POST — genera el itinerario con el motor híbrido
 export async function POST(req: Request) {
   try {
-    const rawBody = await req.text();
-    if (!rawBody) {
-      return NextResponse.json({ error: "Cuerpo de petición vacío" }, { status: 400 });
-    }
-    const body = JSON.parse(rawBody);
-    
-    console.log("📥 Datos recibidos del Front:", body);
-
-    const places: any[] = [];
-    const csvPath = path.join(process.cwd(), 'datosLugares.csv');
-    
-    if (!fs.existsSync(csvPath)) {
-        console.error("❌ No se encontró datosLugares.csv en la raíz");
-        return NextResponse.json({ error: "Base de datos no encontrada" }, { status: 500 });
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: 'Cuerpo de petición inválido o vacío' }, { status: 400 });
     }
 
-    await new Promise((resolve) => {
-      fs.createReadStream(csvPath)
-        .pipe(csv())
-        .on('data', (row) => {
-          const match = body.interests.some((i: string) => 
-            row.Categoria?.toLowerCase().includes(i.toLowerCase())
-          );
-          
-          if (match || row.premium === 'true') {
-            places.push(row);
-          }
-        })
-        .on('end', () => {
-          //solo enviar los primeros 15 resultados para no confundir a la IA
-          const limitedPlaces = places
-            .sort(() => 0.5 - Math.random()) // Mezclamos un poco
-            .slice(0, 15); 
-            
-          console.log(`Filtrado: Enviando ${places.length} lugares relevantes a la IA.`);
-          resolve(limitedPlaces);
-        });
+    // Construir GenerateOptions con defaults para campos opcionales
+    const opts: GenerateOptions = {
+      interests:      body.interests     ?? [],
+      ritmo:          body.ritmo         ?? 'normal',
+      startTime:      body.startTime     ?? '09:00',
+      budget:         Number(body.budget ?? 500),
+      selectedDate:   body.selectedDate  ?? new Date().toISOString().slice(0, 10),
+      seed:           body.seed          ?? dailySeed(),
+      duration:       body.duration      ?? 'dia-completo',
+      foodPreference: body.foodPreference,
+      userLat:        body.userLat       != null ? Number(body.userLat) : undefined,
+      userLng:        body.userLng       != null ? Number(body.userLng) : undefined,
+      walkRadius:     body.walkRadius    != null ? Number(body.walkRadius) : undefined,
+      reservedMins:   Number(body.reservedMins ?? 0),
+    };
+
+    const validationError = validateGenerateOptions(opts);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
+    // Cargar lugares desde /api/places (fusión Firebase + CSV)
+    const base = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3003';
+
+    const placesRes = await fetch(`${base}/api/places`, { cache: 'no-store' });
+    if (!placesRes.ok) {
+      return NextResponse.json(
+        { error: 'No se pudo cargar el catálogo de lugares' },
+        { status: 503 }
+      );
+    }
+
+    const rawPlaces: Record<string, any>[] = await placesRes.json();
+    const places: Place[] = rawPlaces
+      .map(rawToPlace)
+      .filter((p): p is Place => p !== null);
+
+    if (places.length === 0) {
+      return NextResponse.json({ error: 'Catálogo de lugares vacío' }, { status: 503 });
+    }
+
+    // Motor híbrido: constraint-based scheduling + KNN geográfico
+    const result = generateItinerary(places, opts);
+
+    if (result.length === 0) {
+      return NextResponse.json({
+        error: 'No encontramos lugares que coincidan con tu selección.',
+        sugerencias: [
+          'Amplía tu presupuesto',
+          'Agrega más categorías de interés',
+          'Cambia la hora de inicio',
+        ],
+      }, { status: 422 });
+    }
+
+    // Construir horario con llegadas y salidas reales
+    const stops = buildSchedule(result, opts.startTime);
+
+    return NextResponse.json({
+      success: true,
+      motor: 'hybrid-constraint-knn',
+      generatedAt: new Date().toISOString(),
+      opts: {
+        interests:    opts.interests,
+        ritmo:        opts.ritmo,
+        startTime:    opts.startTime,
+        budget:       opts.budget,
+        selectedDate: opts.selectedDate,
+        duration:     opts.duration,
+      },
+      totalParadas: result.length,
+      stops,
     });
 
-    
-
-    // 2. Llamada a Ollama inyectando los lugares filtrados
-    const response = await ollama.chat({
-      model: 'pitzbol-ai',
-      messages: [{ 
-        role: 'user', 
-      content: `
-        Actúa como experto local de Guadalajara.
-        PRESUPUESTO: ${body.budget} MXN.
-        INTERESES: ${body.interests.join(', ')}.
-        UBICACIÓN INICIAL: ${body.location}.
-
-        LISTA DE LUGARES DISPONIBLES:
-        ${JSON.stringify(places)}
-
-        INSTRUCCIONES:
-        1. Selecciona actividades cuyo costo sumado sea MENOR o IGUAL a ${body.budget}.
-        2. En el campo 'presupuesto_total', escribe la suma real de los lugares elegidos.
-        3. No inventes precios.
-
-        INSTRUCCIÓN OBLIGATORIA:
-        Responde ÚNICAMENTE con un JSON que tenga esta estructura exacta:
-        {
-          "titulo": "Nombre del viaje",
-          "presupuesto_total": "Suma total en MXN",
-          "plan_detallado": [
-            {"hora": "HH:MM", "actividad": "Nombre", "tiempo_estancia": "mins", "traslado_proximo": "mins"}
-          ],
-          "descripcion": "Justificación de la ruta",
-          "tips": "Consejos locales"
-        }
-      `
-      }],
-      format: 'json',
-      options: {
-        temperature: 0.6, // Subimos un poco la temperatura para que "escriba" más
-        num_predict: 1500
-      }
-    });
-
-    // 3. Procesar respuesta
-    const aiContent = response.message.content;
-    const aiResult = JSON.parse(aiContent);
-
-    // Monitoreo en la terminal de VS Code
-    console.log("IA GENERÓ ITINERARIO EXITOSAMENTE");
-    console.dir(aiResult, { depth: null }); 
-
-    return NextResponse.json(aiResult);
-
-  } catch (error) {
-    console.error("Error en el motor de itinerarios:", error);
+  } catch (error: any) {
+    console.error('[/api/itinerary] Error en motor híbrido:', error?.message ?? error);
     return NextResponse.json(
-      { error: "Error de conexión con la IA o procesamiento de datos" }, 
+      { error: 'Error interno del motor de itinerarios' },
       { status: 500 }
     );
   }

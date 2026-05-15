@@ -131,39 +131,63 @@ function horariosToFields(horariosJson?: string): { horaApertura: string; horaCi
 
 async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> {
   try {
-    const res = await fetch(`${BACKEND}/api/lugares`, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) return new Map();
+    const res = await fetch(`${BACKEND}/api/lugares`, { signal: AbortSignal.timeout(7000) });
+
+    if (!res.ok) {
+      console.warn(`[/api/places] Backend /api/lugares respondió ${res.status} — usando solo CSV`);
+      return new Map();
+    }
+
     const data = await res.json();
+
+    // Acepta { lugares: [...] } (formato actual) y [...] (formato directo),
+    // por si el backend cambia su estructura en el futuro.
+    const lugares: unknown[] = Array.isArray(data?.lugares)
+      ? data.lugares
+      : Array.isArray(data)
+      ? data
+      : [];
+
+    if (lugares.length === 0) {
+      console.warn('[/api/places] Firebase devolvió 0 lugares — usando solo CSV');
+    }
+
     const map = new Map<string, Record<string, any>>();
 
-    for (const lugar of (data.lugares || [])) {
-      const nombre = String(lugar.nombre || '').trim();
+    for (const lugar of lugares) {
+      if (!lugar || typeof lugar !== 'object') continue;
+      const l = lugar as Record<string, any>;
+      const nombre = String(l.nombre || '').trim();
       if (!nombre) continue;
 
-      const { horaApertura, horaCierre, diasCerrado } = horariosToFields(lugar.horariosJson);
+      const { horaApertura, horaCierre, diasCerrado } = horariosToFields(l.horariosJson);
 
-      const categoria = Array.isArray(lugar.categorias) && lugar.categorias.length > 0
-        ? lugar.categorias.join(', ')
-        : (lugar.categoria || '');
+      const categoria = Array.isArray(l.categorias) && l.categorias.length > 0
+        ? l.categorias.join(', ')
+        : (l.categoria || '');
 
       map.set(normName(nombre), {
         'Nombre del Lugar': nombre,
         'Categoria': categoria,
-        'Dirección': lugar.ubicacion || '',
-        'Latitud': lugar.latitud || '',
-        'Longitud': lugar.longitud || '',
-        'Tiempo de Estancia': lugar.tiempoEstancia ? String(lugar.tiempoEstancia) : '60',
-        'Costo Estimado': lugar.costoEstimado || '',
+        'Dirección': l.ubicacion || '',
+        'Latitud': l.latitud || '',
+        'Longitud': l.longitud || '',
+        'Tiempo de Estancia': l.tiempoEstancia ? String(l.tiempoEstancia) : '60',
+        'Costo Estimado': l.costoEstimado || '',
         'Imagen': '',
         'horaApertura': horaApertura,
         'horaCierre': horaCierre,
         'diasCerrado': diasCerrado,
-        'fotos': Array.isArray(lugar.fotos) ? lugar.fotos : [],
+        'fotos': Array.isArray(l.fotos) ? l.fotos : [],
       });
     }
 
     return map;
-  } catch {
+  } catch (err) {
+    console.warn(
+      '[/api/places] No se pudo obtener datos de Firebase — usando solo CSV.',
+      err instanceof Error ? err.message : err
+    );
     return new Map();
   }
 }
