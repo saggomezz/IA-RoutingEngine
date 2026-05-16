@@ -15,7 +15,7 @@
 //          tipos de comida no se duplican en pickAddStop/pickReplaceStop.
 
 // ── Constantes ───────────────────────────────────────────────────────────────
-const TRANSIT_MINS = 30;
+const TRANSIT_MINS = 15; // fallback cuando no hay coordenadas
 const MIN_GASTRO_GAP_MINS = 150;
 const EARTH_RADIUS_KM = 6371;
 
@@ -293,13 +293,15 @@ export function repairConsecutiveGastro(places: Place[]): Place[] {
 }
 
 // ── Schedule ─────────────────────────────────────────────────────────────────
-export function buildSchedule(places: Place[], startTime: string): Stop[] {
+export function buildSchedule(places: Place[], startTime: string, transporte: Transporte = 'taxi'): Stop[] {
   let current = startTime;
   return places.map((place, i) => {
     if (place.forcedArrival) current = place.forcedArrival;
     const horaLlegada = current;
     const horaSalida = addMinutes(current, place.tiempoEstancia || 60);
-    current = addMinutes(horaSalida, i < places.length - 1 ? TRANSIT_MINS : 0);
+    const next = places[i + 1];
+    const transit = next ? transitMins(place, next, transporte) : 0;
+    current = addMinutes(horaSalida, transit);
     return { place, horaLlegada, horaSalida, traslado: '' };
   });
 }
@@ -359,6 +361,22 @@ function revalidateSlots(
 }
 
 // ── Validación de inputs ──────────────────────────────────────────────────────
+export type Transporte = 'a-pie' | 'taxi' | 'auto';
+
+export function transitMins(a: Place, b: Place, transporte: Transporte = 'taxi'): number {
+  if (a.lat == null || a.lng == null || b.lat == null || b.lng == null) return TRANSIT_MINS;
+  const dist = haversine(a.lat, a.lng, b.lat, b.lng);
+  if (transporte === 'a-pie') {
+    return Math.max(5, Math.round(dist * 15)); // ~4 km/h
+  }
+  // Taxi / Auto en ciudad
+  if (dist < 0.5) return 5;
+  if (dist < 1.5) return 8;
+  if (dist < 3)   return 12;
+  if (dist < 6)   return 18;
+  return 25;
+}
+
 export interface GenerateOptions {
   interests: string[];
   ritmo: Ritmo;
@@ -372,6 +390,7 @@ export interface GenerateOptions {
   userLng?: number;
   walkRadius?: number;
   reservedMins?: number;
+  transporte?: Transporte;
 }
 
 export function validateGenerateOptions(opts: GenerateOptions): string | null {

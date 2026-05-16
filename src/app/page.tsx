@@ -17,7 +17,7 @@ import {
   generateItinerary as engineGenerateItinerary,
   pickAddStop, pickReplaceStop,
   dailySeed, rawToPlace,
-  type Place, type Stop, type GenerateOptions,
+  type Place, type Stop, type GenerateOptions, type Transporte,
 } from '@/lib/ia-engine';
 
 const ItineraryMap = dynamic(() => import('@/components/ItineraryMap'), { ssr: false });
@@ -192,7 +192,7 @@ function HomePageInner() {
   const [foodPreference, setFoodPreference] = useState('');
   const [attendsMatch, setAttendsMatch] = useState<boolean | null>(null);
   const [ritmo, setRitmo] = useState<'tranquilo' | 'normal' | 'activo'>('normal');
-  const [transporte, setTransporte] = useState<'a-pie' | 'taxi' | 'auto'>('taxi');
+  const [transporte, setTransporte] = useState<Transporte>('taxi');
   const [isGenerating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
@@ -541,6 +541,7 @@ function HomePageInner() {
         seed: dailySeed(),
         duration: duration as 'rapido' | 'medio-dia' | 'dia-completo',
         foodPreference,
+        transporte,
         userLat: transporte === 'a-pie' ? (userLocation?.lat ?? 20.6736) : undefined,
         userLng: transporte === 'a-pie' ? (userLocation?.lng ?? -103.3440) : undefined,
         walkRadius: transporte === 'a-pie' ? (userLocation ? 2 : 3) : undefined,
@@ -571,7 +572,7 @@ function HomePageInner() {
       const finalSelected = [...regularPlaces, ...matchCards];
 
       setAllPlaces(places);
-      const schedule = buildSchedule(finalSelected, startTime);
+      const schedule = buildSchedule(finalSelected, startTime, transporte);
       setStops(schedule);
 
       const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-MX', {
@@ -603,18 +604,18 @@ function HomePageInner() {
   const moveUp = (i: number) => {
     if (i === 0) return;
     const arr = [...stops]; [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime));
+    setStops(buildSchedule(arr.map(s => s.place), startTime, transporte));
   };
 
   const moveDown = (i: number) => {
     if (i === stops.length - 1) return;
     const arr = [...stops]; [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
-    setStops(buildSchedule(arr.map(s => s.place), startTime));
+    setStops(buildSchedule(arr.map(s => s.place), startTime, transporte));
   };
 
   const removeStop = (i: number) => {
     const newPlaces = stops.filter((_, idx) => idx !== i).map(s => s.place);
-    setStops(buildSchedule(newPlaces, startTime));
+    setStops(buildSchedule(newPlaces, startTime, transporte));
   };
 
   const addStop = () => {
@@ -629,7 +630,7 @@ function HomePageInner() {
     if (!newPlace) return;
     const regular = stops.filter(s => !s.place.isMatch).map(s => s.place);
     const match = stops.filter(s => s.place.isMatch).map(s => s.place);
-    setStops(buildSchedule([...regular, newPlace, ...match], startTime));
+    setStops(buildSchedule([...regular, newPlace, ...match], startTime, transporte));
   };
 
   const replaceStop = (i: number) => {
@@ -643,7 +644,7 @@ function HomePageInner() {
     });
     if (!newPlace) return;
     const newPlaces = currentPlaces.map((p, idx) => idx === i ? newPlace : p);
-    setStops(buildSchedule(newPlaces, startTime));
+    setStops(buildSchedule(newPlaces, startTime, transporte));
   };
 
   // ===== FORM =====
