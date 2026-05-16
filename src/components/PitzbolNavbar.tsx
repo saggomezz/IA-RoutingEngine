@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { FiCalendar, FiHome, FiUser } from "react-icons/fi";
+import { FiCalendar, FiHome, FiUser, FiMap } from "react-icons/fi";
 import imglogo from "./logoPitzbol.png";
 import imgPasto from "./pastoVerde.png";
 
@@ -68,6 +68,9 @@ export default function PitzbolNavbar() {
             <div className="flex items-center gap-4">
 <Link href={FRONTEND_URL} className="hover:text-[#F00808] transition-colors" title="Inicio">
                     <FiHome size={22} />
+                </Link>
+                <Link href={`${FRONTEND_URL}/itinerarios`} className="hover:text-[#F00808] transition-colors" title="Mis itinerarios">
+                    <FiMap size={22} />
                 </Link>
                 <Link href={`${FRONTEND_URL}/calendario`} className="relative hover:text-[#F00808] transition-colors" title="Mi calendario">
                     <FiCalendar size={22} />

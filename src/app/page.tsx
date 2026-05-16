@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
 import {
   FiCalendar, FiClock, FiDollarSign, FiUsers, FiMapPin,
-  FiZap, FiDownload, FiArrowLeft,
+  FiZap, FiDownload,
 } from 'react-icons/fi';
 import AuthModal from '@/components/AuthModal';
 import type { MapStop } from '@/components/ItineraryMap';
@@ -1136,65 +1136,6 @@ function HomePageInner() {
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
 
       {/* Header resultado */}
-      <div className="flex-shrink-0 bg-gradient-to-r from-[#0D1F14] to-[#1A4D2E] text-white px-4 py-6 print:hidden">
-        <div className="flex items-center gap-3 w-full">
-          {/* Izquierda: navegación */}
-          <div className="flex items-center gap-3 mr-auto shrink-0">
-            <motion.button
-              onClick={() => setShowResults(false)}
-              className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors"
-              whileHover={{ x: -3 }}
-            >
-              <FiArrowLeft size={16} /> Volver
-            </motion.button>
-            <a
-              href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me'}/itinerarios`}
-              className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors"
-            >
-              🗺️ <span className="hidden sm:inline">Itinerarios</span>
-            </a>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            <motion.button
-              onClick={() => {
-                if (savedOk && savedItineraryId) unsaveItinerary();
-                else if (!userId) { setAuthTrigger('save'); setShowAuthModal(true); }
-                else saveItinerary();
-              }}
-              disabled={isSaving}
-              title={savedOk ? 'Quitar guardado' : 'Guardar itinerario'}
-              className="flex items-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all disabled:opacity-50"
-              whileTap={{ scale: 0.95 }}
-            >
-              {isSaving
-                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : savedOk
-                  ? <><FaBookmark size={15} className="sm:hidden" /><FaBookmark size={13} className="hidden sm:inline" /><span className="hidden sm:inline ml-1">Guardado</span></>
-                  : <><FaRegBookmark size={15} className="sm:hidden" /><FaRegBookmark size={13} className="hidden sm:inline" /><span className="hidden sm:inline ml-1">Guardar</span></>
-              }
-            </motion.button>
-            {/* Agregar parada */}
-            <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-xl px-2 py-1">
-              <span className="text-xs text-white/60 px-1 font-medium">{stops.filter(s => !s.place.isMatch).length}</span>
-              <button onClick={addStop} title="Agregar lugar"
-                className="w-6 h-6 rounded-lg text-white/70 hover:text-white hover:bg-white/20 text-sm font-bold transition-all flex items-center justify-center">+</button>
-              <span className="hidden md:inline text-xs text-white/60 font-medium">Agregar lugar</span>
-            </div>
-            <motion.button
-              onClick={() => downloadPDF()}
-              className="flex items-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-xl bg-white text-[#1A4D2E] text-xs font-bold hover:bg-[#E8F5E9] transition-all"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title="Descargar PDF"
-            >
-              <FiDownload size={15} className="sm:hidden" />
-              <FiDownload size={13} className="hidden sm:inline" />
-              <span className="hidden sm:inline ml-1">Descargar PDF</span>
-            </motion.button>
-          </div>
-        </div>
-      </div>
-
       <div className="flex flex-col lg:flex-row flex-1 min-h-0">
 
         {/* ── Lista de paradas ── */}
@@ -1210,14 +1151,62 @@ function HomePageInner() {
           <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>{meta.title}</div>
         </div>
 
+        {/* Barra de acciones */}
+        <motion.div
+          className="flex items-center gap-2 mb-3 print:hidden flex-wrap"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {/* Guardar */}
+          <motion.button
+            onClick={() => {
+              if (savedOk && savedItineraryId) unsaveItinerary();
+              else if (!userId) { setAuthTrigger('save'); setShowAuthModal(true); }
+              else saveItinerary();
+            }}
+            disabled={isSaving}
+            title={savedOk ? 'Quitar guardado' : 'Guardar itinerario'}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 border ${savedOk ? 'bg-[#E8F5E9] border-[#1A4D2E] text-[#1A4D2E]' : 'bg-white border-gray-200 text-gray-600 hover:border-[#1A4D2E] hover:text-[#1A4D2E]'}`}
+            whileTap={{ scale: 0.95 }}
+          >
+            {isSaving
+              ? <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-[#1A4D2E] rounded-full animate-spin" />
+              : savedOk
+                ? <><FaBookmark size={13} className="text-[#1A4D2E]" /><span className="hidden sm:inline">Guardado</span></>
+                : <><FaRegBookmark size={13} /><span className="hidden sm:inline">Guardar</span></>
+            }
+          </motion.button>
+
+          {/* Agregar lugar */}
+          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-2 hover:border-[#1A4D2E] transition-colors">
+            <span className="text-xs text-gray-400 font-medium">{stops.filter(s => !s.place.isMatch).length}</span>
+            <button onClick={addStop} title="Agregar lugar"
+              className="text-[#1A4D2E] font-bold text-sm leading-none">+</button>
+            <span className="hidden sm:inline text-xs text-gray-500 font-medium">Agregar lugar</span>
+          </div>
+
+          {/* Descargar PDF */}
+          <motion.button
+            onClick={() => downloadPDF()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1A4D2E] text-white text-xs font-bold hover:bg-[#0D601E] transition-all ml-auto"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            title="Descargar PDF"
+          >
+            <FiDownload size={14} />
+            <span className="hidden sm:inline">Descargar PDF</span>
+          </motion.button>
+        </motion.div>
+
         {/* Meta del itinerario */}
         <motion.div
-          className="hidden sm:block bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4 print:hidden"
+          className="hidden sm:block bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4 print:hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <h2 className="text-lg font-bold text-[#1A4D2E] capitalize">{meta.title}</h2>
+          <h2 className="text-base font-bold text-[#1A4D2E] capitalize">{meta.title}</h2>
         </motion.div>
 
         {/* Timeline */}
