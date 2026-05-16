@@ -1138,13 +1138,22 @@ function HomePageInner() {
       {/* Header resultado */}
       <div className="flex-shrink-0 bg-gradient-to-r from-[#0D1F14] to-[#1A4D2E] text-white px-4 py-6 print:hidden">
         <div className="flex items-center gap-3 w-full">
-          <motion.button
-            onClick={() => setShowResults(false)}
-            className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors shrink-0 mr-auto"
-            whileHover={{ x: -3 }}
-          >
-            <FiArrowLeft size={16} /> Volver
-          </motion.button>
+          {/* Izquierda: navegación */}
+          <div className="flex items-center gap-3 mr-auto shrink-0">
+            <motion.button
+              onClick={() => setShowResults(false)}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors"
+              whileHover={{ x: -3 }}
+            >
+              <FiArrowLeft size={16} /> Volver
+            </motion.button>
+            <a
+              href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me'}/itinerarios`}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors"
+            >
+              🗺️ <span className="hidden sm:inline">Itinerarios</span>
+            </a>
+          </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             <motion.button
               onClick={() => {
@@ -1164,12 +1173,6 @@ function HomePageInner() {
                   : <><FaRegBookmark size={15} className="sm:hidden" /><FaRegBookmark size={13} className="hidden sm:inline" /><span className="hidden sm:inline ml-1">Guardar</span></>
               }
             </motion.button>
-            {savedOk && (
-              <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me'}/itinerarios`}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all">
-                🗺️ <span className="hidden sm:inline">Ver itinerarios</span>
-              </a>
-            )}
             {/* Agregar parada */}
             <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-xl px-2 py-1">
               <span className="text-xs text-white/60 px-1 font-medium">{stops.filter(s => !s.place.isMatch).length}</span>
@@ -1398,15 +1401,13 @@ function HomePageInner() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          {savedOk && (
-            <motion.a
-              href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me'}/itinerarios`}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#E8F5E9] text-[#1A4D2E] text-sm font-bold hover:bg-[#C8E6C9] transition-all"
-              whileHover={{ scale: 1.02 }}
-            >
-              🗺️ Ver mis itinerarios
-            </motion.a>
-          )}
+          <motion.a
+            href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me'}/itinerarios`}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#E8F5E9] text-[#1A4D2E] text-sm font-bold hover:bg-[#C8E6C9] transition-all"
+            whileHover={{ scale: 1.02 }}
+          >
+            🗺️ Ver mis itinerarios
+          </motion.a>
           <motion.button
             onClick={handleGenerate}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border border-[#1A4D2E] text-[#1A4D2E] text-sm font-bold hover:bg-[#E8F5E9] transition-all"
