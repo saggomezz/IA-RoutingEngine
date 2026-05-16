@@ -1,6 +1,5 @@
 Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo Estimado,Imagen,horaApertura,horaCierre,diasCerrado
 "Estadio Akron, Guadalajara",Fútbol,Cto. J.V.C. 2800,"20,6817764","-103,4626455",180,"$400 - $2,500",,09:00,22:00,ninguno
-"Museo Chivas, Guadalajara",Arquitectura,Cto. J.V.C. 2800,"20,6820","-103,4630",90,$150,,10:30,16:30,ninguno
 "La Gran Plaza Fashion Mall, Guadalajara","Eventos, Compras",La Gran Plaza Fashion Mall,"20,6737855","-103,4047841",90,$100,,10:00,19:00,ninguno
 "Tortas Ahogadas ""El Güerito"", Guadalajara",Gastronomía Mexicana,Calle Francisco I. Madero 13,"20,6730994","-103,3436262",60,$100 - $200,,09:30,18:30,ninguno
 "Centro Histórico de Tlaquepaque, Guadalajara","Cultura, Eventos, Postre, Mercados Locales, Museos, Aventura, Compras, Vida Nocturna, Fotografía, Música, Arquitectura, Arte e Historia",Calle Independencia,"20,6393535","-103,3149955",60,Gratis,,09:00,19:00,ninguno
@@ -33,8 +32,6 @@ Nombre del Lugar,Categoria,Dirección,Latitud,Longitud,Tiempo de Estancia,Costo 
 "Expiatorio del Santísimo Sacramento, Guadalajara","Cultura, Museos, Arquitectura, Arte e Historia",C. Manuel López Cotilla 935,"20,6736946","-103,3589671",45,Gratis,,06:30,22:00,ninguno
 "Nieves Chapalita Tepeyac, Guadalajara",Postre,Av. Tepeyac 1207,"20,6615796","-103,4059981",15,$50 - $100,,10:00,22:00,ninguno
 "Nieves de Garrafa Chapalita Juárez, Guadalajara",Postre,C. Juárez 246,"20,6383582","-103,3145029",15,$50 - $100,,10:00,22:00,ninguno
-"Nieves de Garrafa Chapalita Nueva Escocia, Guadalajara",Postre,C. Nueva Escocia 1468A,"20,696276","-103,3900136",15,$50 - $100,,10:00,22:00,ninguno
-"Nieves de Garrafa Chapalita Gourmet, Guadalajara",Postre,Calle Independencia 321,"20,6392819","-103,3161748",15,$50 - $100,,10:00,22:00,ninguno
 "Churros ""La Bombilla"", Guadalajara",Postre,C. Manuel López Cotilla 751-A,"20,6740596","-103,3558814",45,$100 - $200,,17:30,23:00,martes
 "Dulces Regionales ""Nuestros Dulces"", Guadalajara",Postre,Av. 16 de Septiembre 133,"20,6746863","-103,3471794",45,$100,,10:00,19:00,ninguno
 "El Gallo Altanero, Guadalajara",Vida Nocturna,Calle Marsella 126,"20,6740616","-103,3707624",30,$60 - $120,,18:00,02:00,"lunes,martes"
