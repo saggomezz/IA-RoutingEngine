@@ -1164,10 +1164,10 @@ function HomePageInner() {
                   : <><FaRegBookmark size={15} className="sm:hidden" /><FaRegBookmark size={13} className="hidden sm:inline" /><span className="hidden sm:inline ml-1">Guardar</span></>
               }
             </motion.button>
-            {calendarUrl && (
-              <a href={calendarUrl}
+            {savedOk && (
+              <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me'}/itinerarios`}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all">
-                📅 <span className="hidden sm:inline">Calendario</span>
+                🗺️ <span className="hidden sm:inline">Ver itinerarios</span>
               </a>
             )}
             {/* Agregar parada */}
@@ -1398,12 +1398,13 @@ function HomePageInner() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          {calendarUrl && (
-            <motion.a href={calendarUrl}
+          {savedOk && (
+            <motion.a
+              href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.pitzbol.me'}/itinerarios`}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#E8F5E9] text-[#1A4D2E] text-sm font-bold hover:bg-[#C8E6C9] transition-all"
               whileHover={{ scale: 1.02 }}
             >
-              📅 Ver en calendario
+              🗺️ Ver mis itinerarios
             </motion.a>
           )}
           <motion.button
