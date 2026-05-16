@@ -19,6 +19,10 @@ const roboto = Roboto({ variable: "--font-roboto", subsets: ["latin"], weight: [
 export const metadata: Metadata = {
   title: "PitzBol IA",
   description: "Generador de itinerarios con IA para Guadalajara",
+  icons: {
+    icon: "/logoPitzbol.png",
+    apple: "/logoPitzbol.png",
+  },
 };
 
 export default function RootLayout({
