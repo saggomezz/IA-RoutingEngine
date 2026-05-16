@@ -97,7 +97,25 @@ export type MealContext = 'desayuno' | 'comida' | 'cena';
 export type Ritmo = 'tranquilo' | 'normal' | 'activo';
 
 // ── Datos estáticos ──────────────────────────────────────────────────────────
-export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron', 'complejo verde valle', 'tacos el super'];
+export const BLACKLIST = ['glorieta de la minerva', 'julieta venegas', 'sebastian yatra', 'akron', 'tacos el super', 'estadio jalisco'];
+
+// Lugares disponibles solo durante el Mundial GDL 2026 (11 jun – 19 jul)
+const MUNDIAL_START = '2026-06-11';
+const MUNDIAL_END   = '2026-07-19';
+
+// Programa Late: solo en fechas con función confirmada
+const PROGRAMA_LATE_DATES = new Set([
+  '2026-06-05', '2026-06-06',  // Las Fabulosas Loma's Girls
+  '2026-06-12', '2026-06-13',  // Las Fabulosas Loma's Girls
+  '2026-06-18',                 // Los 5 días fuera del tiempo
+  '2026-06-20',                 // Pop Sinfónico
+  '2026-06-21',                 // Al son bebé (13:00)
+  '2026-06-26', '2026-06-27',  // Tempestad
+]);
+
+function isDateBetween(date: string, start: string, end: string): boolean {
+  return date >= start && date <= end;
+}
 
 export const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora: string }> = {
   '2026-06-11': { partido: 'Grupo A · Estadio Akron', equipos: 'Corea del Sur vs. Chequia',    hora: '20:00' },
@@ -420,6 +438,18 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     interests.some(interest => matchesInterest(p.categoria, interest)) &&
     (parseCostMin(p.costo) === 0 || parseCostMin(p.costo) <= budget)
   );
+
+  // Filtro por fecha para lugares con disponibilidad condicional
+  const isMundial = isDateBetween(selectedDate, MUNDIAL_START, MUNDIAL_END);
+  filtered = filtered.filter(p => {
+    const n = norm(p.nombre);
+    // Complejo Verde Valle y Fan Fest: solo durante el Mundial GDL
+    if (n.includes('verde valle')) return isMundial;
+    if (n.includes('fan fest') || n.includes('fanfest')) return isMundial;
+    // Programa Late: solo en días con función confirmada
+    if (n.includes('programa late')) return PROGRAMA_LATE_DATES.has(selectedDate);
+    return true;
+  });
 
   // Salvavidas presupuesto: si filtros estrictos dejan <3, relaja presupuesto
   if (filtered.length < 3 && budget > 0) {
