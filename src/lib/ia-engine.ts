@@ -267,20 +267,11 @@ export function repairConsecutiveGastro(places: Place[]): Place[] {
 
   const arr = [...places];
   for (let i = 0; i < arr.length - 1; i++) {
-    const aFood = isFood(arr[i]);
-    const bFood = isFood(arr[i + 1]);
-    if (!aFood || !bFood) continue;
-
-    // Mismo tipo de "comida" consecutivo → buscar un no-comida para intercalar
-    const sameType =
-      (matchesInterest(arr[i].categoria, 'gastronomia') && matchesInterest(arr[i + 1].categoria, 'gastronomia')) ||
-      (matchesInterest(arr[i].categoria, 'cafeterias')  && matchesInterest(arr[i + 1].categoria, 'cafeterias'));
-    if (!sameType) continue;
-
-    const pairType = matchesInterest(arr[i].categoria, 'gastronomia') ? 'gastronomia' : 'cafeterias';
+    if (!isFood(arr[i]) || !isFood(arr[i + 1])) continue;
+    // Cualquier par food+food consecutivo (gastro+gastro, café+café, gastro+café) → separar
     let swapIdx = -1;
     for (let j = i + 2; j < arr.length; j++) {
-      if (!matchesInterest(arr[j].categoria, pairType)) { swapIdx = j; break; }
+      if (!isFood(arr[j])) { swapIdx = j; break; }
     }
     if (swapIdx >= 0) {
       const tmp = arr[swapIdx];
@@ -558,16 +549,21 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (!relaxed) {
       if (isGastro && hasNocturna && arrHour >= 20) return false;
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
-
-      if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
-        if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-      }
-
       if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
 
-      // Un lugar de comida (gastro o café) antes de las 12:00 bloquea el
-      // siguiente hasta las 14:00 — las personas no comen tan seguido.
-      if (isFood && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 12 * 60 && arrMins < 14 * 60) return false;
+      if (startHour <= 11) {
+        // ── Plan de mañana (inicio ≤ 11:59) ──────────────────────────────────
+        // Café solo en ventana mañanera; bloqueado desde las 12:00
+        if (isCafe && hasCafeterias && arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+        // Segundo lugar de comida solo a las 15:00+ si el primero fue antes de las 12:00
+        if (isFood && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 12 * 60 && arrMins < 15 * 60) return false;
+      } else {
+        // ── Plan de tarde (inicio ≥ 12:00) ───────────────────────────────────
+        // Gastronomía: solo a partir de las 14:30
+        if (isGastro && arrMins < 14 * 60 + 30) return false;
+        // Cafetería: solo a partir de las 17:30
+        if (isCafe && hasCafeterias && arrMins < 17 * 60 + 30) return false;
+      }
 
       if (isGastro) {
         if (gastroCount >= maxGastro) return false;
@@ -592,12 +588,19 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     return true;
   };
 
-  // Pre-selección: cafeterías mañaneras primero para que caigan dentro de la
-  // ventana horaria antes de que otros lugares consuman tiempo.
-  if (hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
-    for (const cafe of mainPool) {
-      if (!matchesInterest(cafe.categoria, 'cafeterias')) continue;
-      if (tryAdd(cafe)) break;
+  // Pre-selección: en planes de mañana (≤ 11:59) la comida va PRIMERO.
+  // Café+gastro → café primero; solo gastro → gastro primero; solo café → café primero.
+  if (startHour <= 11 && (hasCafeterias || hasGastro)) {
+    if (hasCafeterias) {
+      for (const p of mainPool) {
+        if (!matchesInterest(p.categoria, 'cafeterias')) continue;
+        if (tryAdd(p)) break;
+      }
+    } else {
+      // Solo gastronomía seleccionada: gastro como primera parada
+      for (const p of gastroPool) {
+        if (tryAdd(p)) break;
+      }
     }
   }
 
@@ -806,14 +809,15 @@ export function pickAddStop(
         // FIX A: aplicar mismas reglas que tryAdd
         if (isGastro && hasNocturna && arrHour >= 20) return false;
         if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
-
-        if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
-          if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-        }
-
         if (norm(p.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
 
-        if (isFood && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 12 * 60 && arrMins < 14 * 60) return false;
+        if (startHour <= 11) {
+          if (isCafe && hasCafeterias && arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+          if (isFood && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 12 * 60 && arrMins < 15 * 60) return false;
+        } else {
+          if (isGastro && arrMins < 14 * 60 + 30) return false;
+          if (isCafe && hasCafeterias && arrMins < 17 * 60 + 30) return false;
+        }
 
         if (isGastro) {
           if (hasGastro && gastroCount >= 3) return false; // cap suave al agregar manualmente
@@ -921,12 +925,14 @@ export function pickReplaceStop(
 
       if (isGastro && hasNocturna && arrHour >= 20) return false;
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
-
-      if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR) {
-        if (arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-      }
-
       if (norm(p.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
+
+      if (startHour <= 11) {
+        if (isCafe && hasCafeterias && arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+      } else {
+        if (isGastro && arrMins < 14 * 60 + 30) return false;
+        if (isCafe && hasCafeterias && arrMins < 17 * 60 + 30) return false;
+      }
 
       if (isGastro) {
         if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) return false;
