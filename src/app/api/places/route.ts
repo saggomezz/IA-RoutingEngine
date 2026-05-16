@@ -183,10 +183,21 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
   }
 }
 
+// ── Cache en memoria para /api/places ────────────────────────────────────────
+const PLACES_TTL = 5 * 60 * 1000; // 5 minutos
+let placesCache: { data: any[] | null; expiresAt: number } = { data: null, expiresAt: 0 };
+
 // ── GET ───────────────────────────────────────────────────────────────────────
 
 export async function GET() {
   try {
+    // Servir desde caché si está vigente
+    if (placesCache.data && placesCache.expiresAt > Date.now()) {
+      return NextResponse.json(placesCache.data, {
+        headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' },
+      });
+    }
+
     const deleted = await loadDeletedPlaces();
 
     // Firebase is primary source
@@ -257,7 +268,13 @@ export async function GET() {
       const { _adminCats, ...rest } = p as any;
       return rest;
     });
-    return NextResponse.json(result);
+
+    // Guardar en caché
+    placesCache = { data: result, expiresAt: Date.now() + PLACES_TTL };
+
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' },
+    });
   } catch (error) {
     console.error('Error building places list:', error);
     return NextResponse.json([], { status: 500 });
