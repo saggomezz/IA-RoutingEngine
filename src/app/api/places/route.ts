@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFileSync, appendFileSync, writeFileSync } from 'fs';
+import { readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 const BACKEND = process.env.BACKEND_INTERNAL_URL || 'https://api.pitzbol.me:8443';
 
@@ -28,26 +29,14 @@ function normName(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
-function loadDeletedPlaces(): Set<string> {
+// Carga los lugares eliminados desde Firebase (persiste en Vercel, a diferencia del filesystem)
+async function loadDeletedPlaces(): Promise<Set<string>> {
   try {
-    const raw = readFileSync(join(process.cwd(), 'deleted_places.json'), 'utf-8');
-    const list: string[] = JSON.parse(raw);
-    return new Set(list.map(normName));
+    const snap = await adminDb.collection('lugares_eliminados').get();
+    return new Set(snap.docs.map(d => normName(String(d.data().nombre || d.id))));
   } catch {
     return new Set();
   }
-}
-
-function saveDeletedPlace(nombre: string): void {
-  try {
-    const path = join(process.cwd(), 'deleted_places.json');
-    const raw = readFileSync(path, 'utf-8');
-    const list: string[] = JSON.parse(raw);
-    if (!list.map(normName).includes(normName(nombre))) {
-      list.push(nombre);
-      writeFileSync(path, JSON.stringify(list, null, 2), 'utf-8');
-    }
-  } catch { /* no-op */ }
 }
 
 function stripCity(name: string): string {
@@ -162,13 +151,15 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
 
       const { horaApertura, horaCierre, diasCerrado } = horariosToFields(l.horariosJson);
 
-      const categoria = Array.isArray(l.categorias) && l.categorias.length > 0
+      const hasAdminCats = Array.isArray(l.categorias) && l.categorias.length > 0;
+      const categoria = hasAdminCats
         ? l.categorias.join(', ')
         : (l.categoria || '');
 
       map.set(normName(nombre), {
         'Nombre del Lugar': nombre,
         'Categoria': categoria,
+        '_adminCats': hasAdminCats,   // si true, el admin editó: no mezclar con CSV
         'Dirección': l.ubicacion || '',
         'Latitud': l.latitud || '',
         'Longitud': l.longitud || '',
@@ -196,7 +187,7 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
 
 export async function GET() {
   try {
-    const deleted = loadDeletedPlaces();
+    const deleted = await loadDeletedPlaces();
 
     // Firebase is primary source
     const firebaseMap = await fetchFirebasePlaces();
@@ -219,9 +210,10 @@ export async function GET() {
       if (firebaseMap.has(key) || firebaseMap.has(keyShort)) {
         // Firebase has this place — enrich with CSV data
         const fbPlace = firebaseMap.get(key) || firebaseMap.get(keyShort)!;
-        // Merge CSV categories so el motor de IA puede hacer matching correcto
+        // Si el admin editó categorías en Firebase (_adminCats=true), son autoritativas.
+        // Solo mezclar categorías del CSV cuando Firebase no tiene categorias[] explícitas.
         const csvCat = csvPlace['Categoria'] || '';
-        if (csvCat) {
+        if (csvCat && !fbPlace['_adminCats']) {
           const fbCat = fbPlace['Categoria'] || '';
           const parts = [...new Set([fbCat, csvCat].filter(Boolean))];
           fbPlace['Categoria'] = parts.join(', ');
@@ -260,7 +252,12 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(Array.from(firebaseMap.values()));
+    // Limpiar campos internos antes de devolver
+    const result = Array.from(firebaseMap.values()).map(p => {
+      const { _adminCats, ...rest } = p as any;
+      return rest;
+    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error building places list:', error);
     return NextResponse.json([], { status: 500 });
@@ -311,15 +308,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── DELETE — registra un lugar como eliminado para que no reaparezca del CSV ──
-export async function DELETE(req: NextRequest) {
-  try {
-    const { nombre } = await req.json();
-    if (!nombre) return NextResponse.json({ error: 'nombre requerido' }, { status: 400 });
-    saveDeletedPlace(nombre);
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error('Error registering deleted place:', error);
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
-  }
+// DELETE ya no es necesario aquí — el Backend guarda en Firebase lugares_eliminados
+// y el GET de arriba carga esa colección directamente vía adminDb
 }
