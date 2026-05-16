@@ -33,7 +33,7 @@ function getCurrentRoundedHour(): string {
   const next = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours();
   return `${String(Math.min(next, 23)).padStart(2, '0')}:00`;
 }
-const ALL_START_TIMES = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+const ALL_START_TIMES = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -1179,12 +1179,15 @@ function HomePageInner() {
           </motion.button>
 
           {/* Agregar lugar */}
-          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-2 hover:border-[#1A4D2E] transition-colors">
-            <span className="text-xs text-gray-400 font-medium">{stops.filter(s => !s.place.isMatch).length}</span>
-            <button onClick={addStop} title="Agregar lugar"
-              className="text-[#1A4D2E] font-bold text-sm leading-none">+</button>
-            <span className="hidden sm:inline text-xs text-gray-500 font-medium">Agregar lugar</span>
-          </div>
+          <button
+            onClick={addStop}
+            title="Agregar lugar"
+            className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-2 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors text-gray-600"
+          >
+            <span className="text-xs font-medium text-gray-400">{stops.filter(s => !s.place.isMatch).length}</span>
+            <span className="font-bold text-sm text-[#1A4D2E]">+</span>
+            <span className="hidden sm:inline text-xs font-medium">Agregar lugar</span>
+          </button>
 
           {/* Descargar PDF */}
           <motion.button
