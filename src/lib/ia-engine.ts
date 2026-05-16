@@ -546,6 +546,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) return false;
 
+    // Día completo: último lugar llega como máximo a las 20:00
+    if (!relaxed && opts.duration === 'dia-completo' && arrHour >= 20) return false;
+
     if (!relaxed) {
       if (isGastro && hasNocturna && arrHour >= 20) return false;
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
