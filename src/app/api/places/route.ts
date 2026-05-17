@@ -327,4 +327,3 @@ export async function POST(req: NextRequest) {
 
 // DELETE ya no es necesario aquí — el Backend guarda en Firebase lugares_eliminados
 // y el GET de arriba carga esa colección directamente vía adminDb
-}
