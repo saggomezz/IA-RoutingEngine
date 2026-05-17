@@ -15,10 +15,20 @@ import {
   norm, matchesInterest, haversine,
   addMinutes, buildSchedule, MATCH_DAYS,
   generateItinerary as engineGenerateItinerary,
-  pickAddStop, pickReplaceStop,
+  pickAddStop, getAlternativesForStop,
   dailySeed, rawToPlace,
   type Place, type Stop, type GenerateOptions, type Transporte,
 } from '@/lib/ia-engine';
+
+// ── Helper: parsear rango de costo ────────────────────────────────────────────
+function parseCostRange(costo: string): { min: number; max: number } {
+  if (!costo || /gratis/i.test(costo) || costo === 'No disponible') return { min: 0, max: 0 };
+  const nums = (costo.replace(/[,.\s]/g, '')).match(/\d+/g);
+  if (!nums) return { min: 0, max: 0 };
+  const vals = nums.map(Number).filter(n => n > 0 && n < 100000);
+  if (!vals.length) return { min: 0, max: 0 };
+  return { min: Math.min(...vals), max: Math.max(...vals) };
+}
 
 const ItineraryMap = dynamic(() => import('@/components/ItineraryMap'), { ssr: false });
 
@@ -207,6 +217,7 @@ function HomePageInner() {
   const [savedOk, setSavedOk] = useState(false);
   const [savedItineraryId, setSavedItineraryId] = useState<string | null>(null);
   const [calendarUrl, setCalendarUrl] = useState('');
+  const [alternatives, setAlternatives] = useState<{ stopIndex: number; places: Place[] } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
   const [calendarView, setCalendarView] = useState(() => {
@@ -654,18 +665,19 @@ function HomePageInner() {
     setStops(buildSchedule([...regular, newPlace, ...match], startTime, transporte));
   };
 
-  const replaceStop = (i: number) => {
+  const showAlternatives = (i: number) => {
+    if (alternatives?.stopIndex === i) { setAlternatives(null); return; }
     const currentPlaces = stops.map(s => s.place);
-    const newPlace = pickReplaceStop(allPlaces, currentPlaces, i, {
-      interests: selectedInterests,
-      budget,
-      selectedDate,
-      startTime,
-      seed: dailySeed(),
-    });
-    if (!newPlace) return;
-    const newPlaces = currentPlaces.map((p, idx) => idx === i ? newPlace : p);
+    const opts = { interests: selectedInterests, budget, selectedDate, startTime, seed: dailySeed() };
+    const alts = getAlternativesForStop(allPlaces, currentPlaces, i, opts, 3);
+    setAlternatives(alts.length > 0 ? { stopIndex: i, places: alts } : null);
+  };
+
+  const applyAlternative = (stopIndex: number, newPlace: Place) => {
+    const currentPlaces = stops.map(s => s.place);
+    const newPlaces = currentPlaces.map((p, idx) => idx === stopIndex ? newPlace : p);
     setStops(buildSchedule(newPlaces, startTime, transporte));
+    setAlternatives(null);
   };
 
   // ===== FORM =====
@@ -1221,7 +1233,27 @@ function HomePageInner() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <h2 className="text-base font-bold text-[#1A4D2E] capitalize">{meta.title}</h2>
+          <h2 className="text-base font-bold text-[#1A4D2E] capitalize mb-1">{meta.title}</h2>
+          {(() => {
+            const regularStops = stops.filter(s => !s.place.isMatch && !s.place.isCamino);
+            let totalMin = 0, totalMax = 0;
+            regularStops.forEach(s => {
+              const { min, max } = parseCostRange(s.place.costo);
+              totalMin += min; totalMax += max;
+            });
+            if (totalMax === 0) return null;
+            return (
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                <FiDollarSign size={11} className="text-[#0D601E]" />
+                Costo estimado del día:{' '}
+                <span className="font-semibold text-gray-600">
+                  {totalMin === totalMax
+                    ? `$${totalMin.toLocaleString('es-MX')} MXN`
+                    : `$${totalMin.toLocaleString('es-MX')} – $${totalMax.toLocaleString('es-MX')} MXN`}
+                </span>
+              </p>
+            );
+          })()}
         </motion.div>
 
         {/* Timeline */}
@@ -1375,8 +1407,11 @@ function HomePageInner() {
                           className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↑</button>
                         <button onClick={() => moveDown(i)} disabled={i === stops.length - 1} title="Bajar"
                           className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↓</button>
-                        <button onClick={() => replaceStop(i)} title="Sugerir otro"
-                          className="w-7 h-7 rounded-lg border border-[#81C784] text-[#0D601E] text-xs hover:bg-[#E8F5E9] transition-colors flex items-center justify-center">↺</button>
+                        <button
+                          onClick={() => showAlternatives(i)}
+                          title="Ver alternativas"
+                          className={`w-7 h-7 rounded-lg border text-xs transition-colors flex items-center justify-center ${alternatives?.stopIndex === i ? 'bg-[#E8F5E9] border-[#1A4D2E] text-[#1A4D2E]' : 'border-[#81C784] text-[#0D601E] hover:bg-[#E8F5E9]'}`}
+                        >↺</button>
                         <button onClick={() => removeStop(i)} title="Eliminar"
                           className="w-7 h-7 rounded-lg border border-red-100 text-red-400 text-xs hover:bg-red-50 transition-colors flex items-center justify-center">✕</button>
                       </div>
@@ -1393,6 +1428,39 @@ function HomePageInner() {
                 <span>Al visitar <strong>{stop.place.nombre}</strong> puedes pasar a <strong>{next!.place.nombre}</strong> — está a solo {Math.round(nearbyTip * 1000)} metros.</span>
               </div>
             )}
+
+            {/* Panel de alternativas */}
+            <AnimatePresence>
+              {alternatives?.stopIndex === i && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -6, height: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="bg-[#F7FBF7] border border-[#81C784] rounded-xl p-3 print:hidden overflow-hidden"
+                >
+                  <p className="text-[10px] font-bold text-[#1A4D2E] uppercase tracking-widest mb-2">Elige una alternativa</p>
+                  <div className="flex flex-col gap-1.5">
+                    {alternatives.places.map((alt, ai) => (
+                      <button
+                        key={ai}
+                        onClick={() => applyAlternative(i, alt)}
+                        className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-100 hover:border-[#1A4D2E] hover:bg-[#E8F5E9] transition-all text-left w-full group"
+                      >
+                        <span className="text-xs font-semibold text-[#1A4D2E] flex-1 leading-snug">{alt.nombre}</span>
+                        <span className="text-[10px] text-gray-400 shrink-0">{alt.costo && alt.costo !== 'No disponible' ? alt.costo : 'Gratis'}</span>
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setAlternatives(null)}
+                      className="text-[10px] text-gray-400 hover:text-gray-600 text-center mt-1 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             </React.Fragment>
           );
           })}

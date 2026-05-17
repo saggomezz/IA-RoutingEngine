@@ -1009,6 +1009,73 @@ export function pickReplaceStop(
   };
 }
 
+// Devuelve hasta `count` alternativas válidas para una parada (para mostrar opciones al usuario)
+export function getAlternativesForStop(
+  allPlaces: Place[],
+  currentPlaces: Place[],
+  stopIndex: number,
+  opts: ActionOptions,
+  count = 3
+): Place[] {
+  const { interests, budget, selectedDate, startTime, seed = dailySeed() } = opts;
+  const dayOfWeek = getDayOfWeek(selectedDate);
+  const startHour = parseInt(startTime.split(':')[0]);
+  const hasCafeterias = interests.includes('cafeterias');
+  const hasNocturna = interests.includes('vida-nocturna');
+  const ritmoMult = opts.ritmo === 'tranquilo' ? 1.3 : opts.ritmo === 'activo' ? 0.8 : 1;
+
+  const current = currentPlaces[stopIndex];
+  if (!current) return [];
+
+  const usedNames = new Set(currentPlaces.map(p => p.nombre));
+  usedNames.delete(current.nombre);
+
+  const schedule = buildSchedule(currentPlaces, startTime);
+  const estArrival = schedule[stopIndex]?.horaLlegada ?? startTime;
+  const arrMins = toMins(estArrival);
+  const arrHour = parseInt(estArrival.split(':')[0]);
+  const matchingInterest = interests.find(int => matchesInterest(current.categoria, int)) ?? interests[0];
+
+  let lastGastroEndMins = -(MIN_GASTRO_GAP_MINS + 1);
+  for (let i = 0; i < stopIndex; i++) {
+    if (matchesInterest(currentPlaces[i].categoria, 'gastronomia')) {
+      lastGastroEndMins = toMins(schedule[i].horaSalida);
+    }
+  }
+  const usedFoodTypes = new Set<string>();
+  currentPlaces.forEach((p, i) => {
+    if (i !== stopIndex && matchesInterest(p.categoria, 'gastronomia')) usedFoodTypes.add(getFoodType(p));
+  });
+
+  const candidates = seededShuffle(
+    allPlaces.filter(p => {
+      if (usedNames.has(p.nombre)) return false;
+      if (BLACKLIST.some(bl => norm(p.nombre).includes(bl))) return false;
+      if (!matchesInterest(p.categoria, matchingInterest)) return false;
+      if (parseCostMin(p.costo) > 0 && parseCostMin(p.costo) > budget) return false;
+      if (!isPlaceOpen(p, estArrival, dayOfWeek)) return false;
+      const isGastro = matchesInterest(p.categoria, 'gastronomia');
+      const isNocturna = isPureNocturna(p);
+      const isCafe = matchesInterest(p.categoria, 'cafeterias');
+      if (isGastro && hasNocturna && arrHour >= 20) return false;
+      if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
+      if (isCafe && hasCafeterias && startHour < CAFE_MORNING_CUTOFF_HOUR && arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
+      if (isGastro) {
+        if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) return false;
+        if (usedFoodTypes.has(getFoodType(p))) return false;
+      }
+      return true;
+    }),
+    seed + arrMins + stopIndex
+  );
+
+  return candidates.slice(0, count).map(p => ({
+    ...p,
+    tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult),
+    forcedArrival: estArrival,
+  }));
+}
+
 // ── Conversión de datos raw → Place ──────────────────────────────────────────
 // /api/places devuelve claves en formato CSV ('Nombre del Lugar', 'Categoria',
 // etc.). Esta función es la única fuente de verdad para ese mapeo.
