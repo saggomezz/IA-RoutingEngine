@@ -119,17 +119,12 @@ export const MATCH_DAYS: Record<string, { partido: string; equipos: string; hora
   '2026-06-26': { partido: 'Grupo H · Estadio Akron', equipos: 'Uruguay vs. España',            hora: '18:00' },
 };
 
+// INTEREST_MAP generado desde la taxonomía centralizada (lib/categories.ts)
+import { INTEREST_MAP_FROM_TAXONOMY } from './categories';
 export const INTEREST_MAP: Record<string, string[]> = {
-  futbol:          ['futbol', 'fan zone', 'fanzone', 'deportivo', 'zona deportiva'],
-  gastronomia:     ['gastronomia', 'mexicana', 'postre', 'vegana', 'comida calle'],
-  'vida-nocturna': ['nocturna', 'bar', 'cantina'],
-  cultura:         ['cultura', 'museos', 'arte e historia', 'arquitectura'],
-  compras:         ['compras'],
-  naturaleza:      ['naturaleza', 'parque', 'verde'],
-  fotografia:      ['fotografia', 'mirador', 'vista'],
-  arquitectura:    ['arquitectura', 'historico', 'patrimonio'],
-  arte:            ['arte e historia', 'arte'],
-  cafeterias:      ['cafeteria', 'cafe', 'brunch', 'cafe de especialidad'],
+  ...INTEREST_MAP_FROM_TAXONOMY,
+  // Alias para que 'vida-nocturna' (id del formulario) apunte a los keywords de clubs/bar
+  'vida-nocturna': INTEREST_MAP_FROM_TAXONOMY['vida-nocturna'] ?? ['nocturna', 'bar', 'cantina', 'club', 'mezcal'],
 };
 
 // ── Helpers de strings y matching ────────────────────────────────────────────
