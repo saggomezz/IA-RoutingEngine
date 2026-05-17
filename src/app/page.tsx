@@ -185,7 +185,6 @@ function HomePageInner() {
     const available = ALL_START_TIMES.filter(t => t >= min);
     return available.length > 0 ? available[0] : '09:00';
   });
-  const [duration, setDuration] = useState('dia-completo');
   const [budget, setBudget] = useState(1500);
   const [groupSize, setGroupSize] = useState(2);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -552,7 +551,6 @@ function HomePageInner() {
         budget,
         selectedDate,
         seed: dailySeed(),
-        duration: duration as 'rapido' | 'medio-dia' | 'dia-completo',
         foodPreference,
         transporte,
         userLat: transporte === 'a-pie' ? (userLocation?.lat ?? 20.6736) : undefined,
@@ -597,7 +595,7 @@ function HomePageInner() {
         title: `Itinerario ${dateLabel}`,
         budget: `$${budget.toLocaleString('es-MX')} MXN`,
         groupSize: `${groupSize} persona${groupSize > 1 ? 's' : ''}`,
-        duration: duration === 'rapido' ? '2–3 hrs' : duration === 'medio-dia' ? '5–6 hrs' : '8–9 hrs',
+        duration: 'Día completo',
       });
       setShowResults(true);
       setSavedOk(false);
@@ -866,7 +864,7 @@ function HomePageInner() {
                   </AnimatePresence>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1.5 font-medium">Hora de inicio</label>
                     <div className="relative">
@@ -881,15 +879,6 @@ function HomePageInner() {
                         ))}
                       </select>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5 font-medium">Duración</label>
-                    <select value={duration} onChange={e => setDuration(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-100 rounded-xl text-sm bg-[#F7F9F4] text-gray-800 focus:outline-none focus:border-[#1A4D2E]">
-                      <option value="rapido">Rápido</option>
-                      <option value="medio-dia">Medio día</option>
-                      <option value="dia-completo">Día completo</option>
-                    </select>
                   </div>
                 </div>
               </motion.div>

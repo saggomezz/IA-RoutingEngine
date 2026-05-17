@@ -23,14 +23,9 @@ const EARTH_RADIUS_KM = 6371;
 const CAFE_MORNING_CUTOFF_HOUR = 12;
 const NOCTURNA_OPEN_HOUR = 20;
 const COMPRAS_OPEN_HOUR = 11;
-const LAST_REASONABLE_ARRIVAL_HOUR = 23; // tope absoluto para añadir paradas
+const LAST_REASONABLE_ARRIVAL_HOUR = 23;
+const END_REGULAR_HOUR = 18; // último lugar regular llega como máximo a las 18:00
 
-// Duración del día por modo (min)
-const DURATION_MINS: Record<'rapido' | 'medio-dia' | 'dia-completo', number> = {
-  'rapido': 180,
-  'medio-dia': 360,
-  'dia-completo': 540,
-};
 
 // ── Helpers de tiempo (compartidos) ──────────────────────────────────────────
 export function toMins(time: string): number {
@@ -400,7 +395,8 @@ export interface GenerateOptions {
   walkRadius?: number;
   reservedMins?: number;
   transporte?: Transporte;
-  seenNames?: Set<string>;  // lugares ya mostrados en esta sesión (van al final del pool)
+  seenNames?: Set<string>;
+  // duration ya no se expone — el engine siempre genera día completo (startTime → 18:00)
 }
 
 export function validateGenerateOptions(opts: GenerateOptions): string | null {
@@ -490,31 +486,26 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
   if (filtered.length === 0) return [];
 
-  // ── Capacity planning ────────────────────────────────────────────────────────
+  // ── Capacity planning — siempre día completo (startTime → 18:00) ─────────────
   const ritmoMult = ritmo === 'tranquilo' ? 1.3 : ritmo === 'activo' ? 0.8 : 1;
   const adjusted = filtered.map(p => ({ ...p, tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult) }));
 
-  let maxPlaces: number;
-  let targetMins: number | null;
+  const reservedMins = opts.reservedMins ?? 0;
+  // Minutos disponibles desde la hora de inicio hasta las 18:00 (menos tiempo reservado para partido)
+  const availableMins = Math.max(60, END_REGULAR_HOUR * 60 - toMins(startTime) - reservedMins);
+  const targetMins: number = availableMins;
 
-  if (opts.duration) {
-    const reservedMins = opts.reservedMins ?? 0;
-    targetMins = DURATION_MINS[opts.duration] - reservedMins;
-    const basePlaces = opts.duration === 'rapido' ? 3 : opts.duration === 'medio-dia' ? 6 : 10;
-    maxPlaces = ritmo === 'activo' ? basePlaces + 2 : ritmo === 'tranquilo' ? Math.max(2, basePlaces - 1) : basePlaces;
-  } else {
-    targetMins = null;
-    maxPlaces = ritmo === 'tranquilo' ? 3 : ritmo === 'normal' ? 4 : 5;
-  }
+  // Lugares máximos según ritmo y tiempo disponible (aprox 75-90 min por lugar con traslado)
+  const minsPerPlace = ritmo === 'tranquilo' ? 90 : ritmo === 'activo' ? 60 : 75;
+  const maxPlaces = Math.min(12, Math.max(2, Math.floor(availableMins / minsPerPlace)));
 
-  const maxGastro = opts.duration
-    ? (opts.duration === 'rapido' ? 1 : opts.duration === 'medio-dia' ? 2 : startHour < 11 ? 3 : 2)
-    : (ritmo === 'tranquilo' ? 1 : 2);
+  // Máximo de lugares de comida según tiempo disponible
+  const maxGastro = availableMins >= 420 ? 2 : 1;
 
   const mealCtx = getMealContext(startTime);
 
   // ── Pool building ────────────────────────────────────────────────────────────
-  const postrePool: Place[] = (opts.duration && interests.includes('gastronomia'))
+  const postrePool: Place[] = interests.includes('gastronomia')
     ? seededShuffle(
         adjusted.filter(p =>
           norm(p.categoria).includes('postre') &&
@@ -590,8 +581,8 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) return false;
 
-    // Día completo: último lugar llega como máximo a las 20:00
-    if (!relaxed && opts.duration === 'dia-completo' && arrHour >= 20) return false;
+    // Lugares regulares (no nocturna) llegan como máximo a las 18:00
+    if (!relaxed && !isPureNocturna(place) && arrHour >= END_REGULAR_HOUR) return false;
 
     if (!relaxed) {
       if (isGastro && hasNocturna && arrHour >= 20) return false;
