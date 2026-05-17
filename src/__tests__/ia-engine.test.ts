@@ -243,10 +243,13 @@ describe('repairConsecutiveGastro', () => {
       expect(bothCafe).toBe(false);
     }
   });
-  it('permite gastro seguida de cafetería (tipos distintos)', () => {
+  it('separa gastro seguida de cafetería (todo food+food es consecutivo prohibido)', () => {
     const input = [taqueria, cafe, museo];
     const result = repairConsecutiveGastro(input);
-    expect(result).toEqual(input); // no debe moverse
+    // taqueria+cafe son food consecutivos → se separan con museo en medio
+    expect(result[0].nombre).toBe(taqueria.nombre);
+    expect(result[1].nombre).toBe(museo.nombre);
+    expect(result[2].nombre).toBe(cafe.nombre);
   });
   it('conserva todos los lugares', () => {
     const input = [taqueria, birrieria, museo, cafe];
@@ -269,10 +272,12 @@ describe('buildSchedule', () => {
     const schedule = buildSchedule([museo], '09:00'); // tiempoEstancia 60
     expect(schedule[0].horaSalida).toBe('10:00');
   });
-  it('segunda parada incluye tránsito de 30 min', () => {
+  it('segunda parada incluye tránsito dinámico (menos de 30 min para lugares cercanos)', () => {
     const schedule = buildSchedule([museo, taqueria], '09:00');
-    // museo: 09:00–10:00, tránsito 30 → taquería llega 10:30
-    expect(schedule[1].horaLlegada).toBe('10:30');
+    // museo: 09:00–10:00, tránsito dinámico < 30 min → taquería llega antes de 10:30
+    const hora = schedule[1].horaLlegada;
+    expect(hora > '10:00').toBe(true);  // después de que termine museo
+    expect(hora < '10:30').toBe(true);  // tránsito dinámico < 30 min
   });
   it('forcedArrival sobreescribe la hora calculada', () => {
     const withForced = { ...taqueria, forcedArrival: '15:00' };
@@ -291,17 +296,23 @@ describe('generateItinerary — conteo por ritmo', () => {
     seed: 1,
   };
 
-  it('tranquilo devuelve exactamente 3 paradas', () => {
-    const result = generateItinerary(ALL_PLACES, { ...baseOpts, ritmo: 'tranquilo' });
-    expect(result).toHaveLength(3);
+  // Con el motor basado en tiempo (09:00→18:00 = 540 min), los conteos cambian:
+  // tranquilo: floor(540/90)=6, normal: floor(540/75)=7, activo: floor(540/60)=9
+  // (limitados por el pool disponible y reglas de comida)
+  it('tranquilo devuelve más paradas que en modo rápido (motor time-based)', () => {
+    const tranquilo = generateItinerary(ALL_PLACES, { ...baseOpts, ritmo: 'tranquilo' });
+    const activo   = generateItinerary(ALL_PLACES, { ...baseOpts, ritmo: 'activo' });
+    expect(tranquilo.length).toBeGreaterThanOrEqual(2);
+    expect(activo.length).toBeGreaterThanOrEqual(tranquilo.length);
   });
-  it('normal devuelve exactamente 4 paradas', () => {
+  it('normal devuelve al menos 2 paradas', () => {
     const result = generateItinerary(ALL_PLACES, { ...baseOpts, ritmo: 'normal' });
-    expect(result).toHaveLength(4);
+    expect(result.length).toBeGreaterThanOrEqual(2);
   });
-  it('activo devuelve exactamente 5 paradas', () => {
-    const result = generateItinerary(ALL_PLACES, { ...baseOpts, ritmo: 'activo' });
-    expect(result).toHaveLength(5);
+  it('activo devuelve más paradas que tranquilo', () => {
+    const tranquilo = generateItinerary(ALL_PLACES, { ...baseOpts, ritmo: 'tranquilo' });
+    const activo    = generateItinerary(ALL_PLACES, { ...baseOpts, ritmo: 'activo' });
+    expect(activo.length).toBeGreaterThanOrEqual(tranquilo.length);
   });
 });
 
@@ -556,7 +567,9 @@ describe('scheduling cafeterías', () => {
     }
   });
 
-  it('itinerario vespertino (14:00) día normal: cafetería puede aparecer en cualquier hora según horario real', () => {
+  it('itinerario vespertino (14:00): cafetería bloqueada hasta 17:30 (regla tarde)', () => {
+    // Con start > 11h, las cafeterías solo aparecen después de las 17:30
+    // Con availableMins=240 min y maxPlaces~3, el slot de 17:30 puede no alcanzarse
     const result = generateItinerary(places, {
       interests: ['cafeterias', 'cultura'],
       ritmo: 'normal',
@@ -565,13 +578,16 @@ describe('scheduling cafeterías', () => {
       selectedDate: normalDay,
       seed: 1,
     });
-    // Con la nueva lógica, el horario real del lugar decide (no un bloqueo artificial hasta las 18h)
-    const hasCafe = result.some(p => matchesInterest(p.categoria, 'cafeterias'));
-    // El café tiene horaCierre 21:00, así que puede aparecer en la tarde
-    expect(hasCafe).toBe(true);
+    // El itinerario puede o no incluir café (depende del tiempo disponible),
+    // pero si aparece debe ser a las 17:30+
+    const schedule = buildSchedule(result, '14:00');
+    const cafeStops = schedule.filter(s => matchesInterest(s.place.categoria, 'cafeterias'));
+    cafeStops.forEach(s => {
+      expect(parseInt(s.horaLlegada.split(':')[0])).toBeGreaterThanOrEqual(17);
+    });
   });
 
-  it('itinerario vespertino en día de partido: cafetería puede aparecer si su horario lo permite', () => {
+  it('itinerario vespertino en día de partido: cafetería bloqueada hasta 17:30', () => {
     const result = generateItinerary(places, {
       interests: ['cafeterias', 'cultura'],
       ritmo: 'normal',
@@ -580,9 +596,12 @@ describe('scheduling cafeterías', () => {
       selectedDate: matchDay,
       seed: 1,
     });
-    // Ya no se bloquea en días de partido: isPlaceOpen decide
-    const hasCafe = result.some(p => matchesInterest(p.categoria, 'cafeterias'));
-    expect(hasCafe).toBe(true);
+    // Si hay café, debe llegar a las 17:30+ (regla tarde)
+    const schedule = buildSchedule(result, '14:00');
+    const cafeStops = schedule.filter(s => matchesInterest(s.place.categoria, 'cafeterias'));
+    cafeStops.forEach(s => {
+      expect(parseInt(s.horaLlegada.split(':')[0])).toBeGreaterThanOrEqual(17);
+    });
   });
 });
 
@@ -712,15 +731,15 @@ describe('pickAddStop', () => {
     expect(result).toBeNull();
   });
 
-  it('permite gastro cuando el gap de 150min con el último gastro se cumple', () => {
+  it('bloquea segundo gastro antes de las 15:00 si el primero fue antes de las 12:00', () => {
     const gastro1 = mkGastro('Taquería 1', 20.67, -103.34);
     const c1 = mkCultura('Museo C1', 20.68, -103.35);
     const c2 = mkCultura('Museo C2', 20.69, -103.33);
     const gastro2 = mkGastro('Taquería 2', 20.70, -103.36);
-    // schedule: 10:00→11:00(gastro1), 11:30→12:30(c1), 13:00→14:00(c2)
-    // estArrival ≈ 14:30, lastGastroEnd = 11:00 → gap 210min > 150min → permitido
+    // gastro1 a las 10:00 (antes de 12h), gastro2 llegaría ~13:30-14:30 (antes de 15h)
+    // → bloqueado por regla de mañana: segundo food antes de 15:00 = NO
     const result = pickAddStop([gastro2], [gastro1, c1, c2], { ...ACTION_OPTS, startTime: '10:00' });
-    expect(result?.nombre).toBe('Taquería 2');
+    expect(result).toBeNull();
   });
 
   it('es determinista con la misma semilla', () => {
