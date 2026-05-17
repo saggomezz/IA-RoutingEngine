@@ -539,6 +539,12 @@ function HomePageInner() {
         return;
       }
 
+      // Memoria de sesión: cargar lugares ya vistos en esta sesión
+      const seenRaw = sessionStorage.getItem('pitzbol_seen_places');
+      const seenNames = new Set<string>(
+        seenRaw ? (JSON.parse(seenRaw) as string[]).map((n: string) => n.toLowerCase()) : []
+      );
+
       const engineOpts: GenerateOptions = {
         interests: selectedInterests,
         ritmo,
@@ -553,6 +559,7 @@ function HomePageInner() {
         userLng: transporte === 'a-pie' ? (userLocation?.lng ?? -103.3440) : undefined,
         walkRadius: transporte === 'a-pie' ? (userLocation ? 2 : 3) : undefined,
         reservedMins: attendsMatch ? 240 : 0,
+        seenNames,
       };
 
       const regularPlaces = engineGenerateItinerary(places, engineOpts);
@@ -596,6 +603,13 @@ function HomePageInner() {
       setSavedOk(false);
       // Añadir entrada al historial para que el botón atrás del navegador funcione
       window.history.pushState({ itinerario: true }, '');
+
+      // Guardar lugares mostrados en sessionStorage para evitar repeticiones
+      const newSeen = new Set<string>(seenNames);
+      regularPlaces.forEach(p => newSeen.add(p.nombre.toLowerCase()));
+      // Máximo 40 nombres guardados; si se supera, limpia los más viejos
+      const seenList = Array.from(newSeen).slice(-40);
+      sessionStorage.setItem('pitzbol_seen_places', JSON.stringify(seenList));
       if (!userId) {
         const prev = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
         sessionStorage.setItem('pitzbol_guest_count', String(prev + 1));

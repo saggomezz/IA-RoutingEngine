@@ -400,6 +400,7 @@ export interface GenerateOptions {
   walkRadius?: number;
   reservedMins?: number;
   transporte?: Transporte;
+  seenNames?: Set<string>;  // lugares ya mostrados en esta sesión (van al final del pool)
 }
 
 export function validateGenerateOptions(opts: GenerateOptions): string | null {
@@ -552,6 +553,19 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
     return result;
   })();
+
+  // ── Memoria de sesión: lugares ya vistos van al final del pool ───────────────
+  if (opts.seenNames && opts.seenNames.size > 0) {
+    const seen = opts.seenNames;
+    const isSeen = (p: Place) => seen.has(norm(p.nombre));
+    const reorder = (pool: Place[]) => [
+      ...pool.filter(p => !isSeen(p)),
+      ...pool.filter(p => isSeen(p)),
+    ];
+    mainPool.splice(0, mainPool.length, ...reorder(mainPool));
+    gastroPool.splice(0, gastroPool.length, ...reorder(gastroPool));
+    othersPool.splice(0, othersPool.length, ...reorder(othersPool));
+  }
 
   // ── Selection loop ───────────────────────────────────────────────────────────
   const selected: Place[] = [];
