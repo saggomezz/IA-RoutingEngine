@@ -581,8 +581,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) return false;
 
-    // Lugares regulares (no nocturna) llegan como máximo a las 18:00
-    if (!relaxed && !isPureNocturna(place) && arrHour >= END_REGULAR_HOUR) return false;
+    // Evitar añadir lugares que empezarían demasiado tarde para ser disfrutados
+    // Solo bloqueamos si la hora de llegada ya pasó las 19:00 (19 = margen razonable tras las 18h)
+    if (!relaxed && !isPureNocturna(place) && arrHour >= 19) return false;
 
     if (!relaxed) {
       if (isGastro && hasNocturna && arrHour >= 20) return false;
