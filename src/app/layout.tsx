@@ -20,7 +20,10 @@ export const metadata: Metadata = {
   title: "PitzBol IA",
   description: "Generador de itinerarios con IA para Guadalajara",
   icons: {
-    icon: "/logoPitzbol.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
     apple: "/logoPitzbol.png",
   },
 };
