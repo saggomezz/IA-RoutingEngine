@@ -90,7 +90,7 @@ const INTEREST_OPTIONS = [
   { id: 'naturaleza', name: 'Naturaleza', emoji: '🌿' },
   { id: 'fotografia', name: 'Fotografía', emoji: '📷' },
   { id: 'compras', name: 'Compras', emoji: '🛍️' },
-  { id: 'vida-nocturna', name: 'Vida nocturna', emoji: '🌙' },
+  { id: 'vida-nocturna', name: 'Clubs / Bar', emoji: '🍹' },
   { id: 'futbol', name: 'Fútbol', emoji: '⚽' },
 ];
 
@@ -294,6 +294,13 @@ function HomePageInner() {
       (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => {} // sin ubicación, se usa la del último lugar como fallback
     );
+  }, []);
+
+  // Botón atrás del navegador vuelve al formulario desde el itinerario
+  useEffect(() => {
+    const handlePopState = () => setShowResults(false);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   useEffect(() => {
@@ -587,6 +594,8 @@ function HomePageInner() {
       });
       setShowResults(true);
       setSavedOk(false);
+      // Añadir entrada al historial para que el botón atrás del navegador funcione
+      window.history.pushState({ itinerario: true }, '');
       if (!userId) {
         const prev = parseInt(sessionStorage.getItem('pitzbol_guest_count') || '0');
         sessionStorage.setItem('pitzbol_guest_count', String(prev + 1));
