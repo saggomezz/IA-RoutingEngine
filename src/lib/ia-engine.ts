@@ -24,7 +24,7 @@ const CAFE_MORNING_CUTOFF_HOUR = 12;
 const NOCTURNA_OPEN_HOUR = 20;
 const COMPRAS_OPEN_HOUR = 11;
 const LAST_REASONABLE_ARRIVAL_HOUR = 23;
-const END_REGULAR_HOUR = 18; // último lugar regular llega como máximo a las 18:00
+const END_REGULAR_HOUR = 19; // último lugar regular llega como máximo a las 19:00
 
 
 // ── Helpers de tiempo (compartidos) ──────────────────────────────────────────
@@ -391,7 +391,7 @@ export interface GenerateOptions {
   reservedMins?: number;
   transporte?: Transporte;
   seenNames?: Set<string>;
-  // duration ya no se expone — el engine siempre genera día completo (startTime → 18:00)
+  // duration ya no se expone — el engine siempre genera día completo (startTime → 19:00)
 }
 
 export function validateGenerateOptions(opts: GenerateOptions): string | null {
@@ -481,7 +481,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
   if (filtered.length === 0) return [];
 
-  // ── Capacity planning — siempre día completo (startTime → 18:00) ─────────────
+  // ── Capacity planning — siempre día completo (startTime → 19:00) ─────────────
   const ritmoMult = ritmo === 'tranquilo' ? 1.3 : ritmo === 'activo' ? 0.8 : 1;
   const adjusted = filtered.map(p => ({ ...p, tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult) }));
 
