@@ -418,6 +418,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   if (error) throw new Error(error);
 
   const { interests, ritmo, startTime, budget, selectedDate, seed = dailySeed() } = opts;
+  const modoTransporte: Transporte = opts.transporte ?? 'taxi';
   const selectedDayOfWeek = getDayOfWeek(selectedDate);
   const isMatchDay = selectedDate in MATCH_DAYS;
   const startHour = parseInt(startTime.split(':')[0]);
@@ -578,7 +579,10 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     const isCafe = matchesInterest(place.categoria, 'cafeterias');
     const isFood = isGastro || isCafe;
     const isNocturna = isPureNocturna(place);
-    const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT_MINS : 0));
+    // Usar transitMins real con coordenadas en vez del fallback fijo de 15 min
+    const lastPlace = selected.length > 0 ? selected[selected.length - 1] : null;
+    const transitTime = lastPlace ? transitMins(lastPlace, place, modoTransporte) : 0;
+    const estArrival = addMinutes(startTime, totalTime + transitTime);
     const arrHour = parseInt(estArrival.split(':')[0]);
     const arrMins = toMins(estArrival);
 
@@ -621,7 +625,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       }
     }
 
-    const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? TRANSIT_MINS : 0);
+    const timeNeeded = place.tiempoEstancia + transitTime;
     // Permitir que el ÚLTIMO lugar se extienda hasta 90 min más allá del targetMins
     const overtime = isPureNocturna(place) ? 180 : 90;
     if (targetMins !== null && totalTime + timeNeeded > targetMins + overtime) return false;
@@ -675,7 +679,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       let added = false;
       for (const place of nocturnaPool) {
         if (usedNames.has(place.nombre)) continue;
-        const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT_MINS : 0));
+        const lastNoc = selected.length > 0 ? selected[selected.length - 1] : null;
+        const transitNoc = lastNoc ? transitMins(lastNoc, place, modoTransporte) : 0;
+        const estArrival = addMinutes(startTime, totalTime + transitNoc);
         const estHour = parseInt(estArrival.split(':')[0]);
         if (estHour < 16) continue; // demasiado temprano para vida nocturna
         if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
