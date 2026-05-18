@@ -21,7 +21,7 @@ const EARTH_RADIUS_KM = 6371;
 
 // Ventanas horarias (en horas)
 const CAFE_MORNING_CUTOFF_HOUR = 12;
-const NOCTURNA_OPEN_HOUR = 20;
+const NOCTURNA_OPEN_HOUR = 18; // bares y cantinas abren desde las 18:00
 const COMPRAS_OPEN_HOUR = 11;
 const LAST_REASONABLE_ARRIVAL_HOUR = 23;
 const END_REGULAR_HOUR = 19; // último lugar regular llega como máximo a las 19:00
@@ -505,7 +505,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     ? seededShuffle(
         adjusted.filter(p =>
           norm(p.categoria).includes('postre') &&
-          isPlaceOpen(p, '14:00', selectedDayOfWeek)
+          isPlaceOpen(p, '16:00', selectedDayOfWeek)  // postres solo después de las 4pm
         ), seed + 2)
     : [];
 
@@ -577,14 +577,20 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) return false;
 
-    // Evitar añadir lugares que empezarían demasiado tarde para ser disfrutados
-    // Solo bloqueamos si la hora de llegada ya pasó las 19:00 (19 = margen razonable tras las 18h)
-    if (!relaxed && !isPureNocturna(place) && arrHour >= 19) return false;
+    // Bloquear llegadas >= 19:00 para no-nocturnos, excepto si sería el último lugar del día
+    // (el último puede empezar antes de las 19 y terminar después — eso está permitido)
+    if (!relaxed && !isPureNocturna(place) && arrHour >= END_REGULAR_HOUR) {
+      // Permitir si no excede el tiempo total disponible — ese check lo hace targetMins abajo
+      // Solo bloquear si llegada es ya después de las 21:00 (demasiado tarde para cualquier lugar)
+      if (arrHour >= 21) return false;
+      // Entre 19-21: solo permitir si hay tiempo y será el último (no añadir más después)
+    }
 
     if (!relaxed) {
       if (isGastro && hasNocturna && arrHour >= 20) return false;
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
       if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
+      if (norm(place.categoria).includes('postre') && arrMins < 16 * 60) return false; // postres solo después de las 4pm
 
       if (startHour <= 11) {
         // ── Plan de mañana (inicio ≤ 11:59) ──────────────────────────────────
@@ -609,7 +615,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
 
     const timeNeeded = place.tiempoEstancia + (selected.length > 0 ? TRANSIT_MINS : 0);
-    if (targetMins !== null && totalTime + timeNeeded > targetMins) return false;
+    // Permitir que el ÚLTIMO lugar se extienda hasta 90 min más allá del targetMins
+    const overtime = isPureNocturna(place) ? 180 : 90;
+    if (targetMins !== null && totalTime + timeNeeded > targetMins + overtime) return false;
 
     selected.push(place);
     usedNames.add(place.nombre);
@@ -652,15 +660,19 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
   }
 
-  // Nocturna al final si aplica
+  // Nocturna al final si aplica — garantizada aunque sea el último lugar
   if (hasNocturna && !selected.find(p => matchesInterest(p.categoria, 'vida-nocturna'))) {
     for (const place of nocturnaPool) {
-      if (selected.length >= maxPlaces) break;
       if (usedNames.has(place.nombre)) continue;
       const estArrival = addMinutes(startTime, totalTime + TRANSIT_MINS);
-      if (parseInt(estArrival.split(':')[0]) < NOCTURNA_OPEN_HOUR) continue;
+      const estHour = parseInt(estArrival.split(':')[0]);
+      // Aceptar desde las 16:00 (planeación) — los bares/cantinas abren a partir de esa hora
+      if (estHour < 16) continue;
       if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
-      selected.push(place);
+      if (!usedNames.has(place.nombre)) {
+        selected.push(place);
+        usedNames.add(place.nombre);
+      }
       break;
     }
   }
