@@ -462,14 +462,37 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (withCoords.length >= 3) filtered = withCoords;
   }
 
-  if (opts.foodPreference === 'vegetariano') {
+  // ── Filtro de preferencia de comida ─────────────────────────────────────────
+  if (opts.foodPreference === 'vegana' || opts.foodPreference === 'vegetariano') {
     filtered = filtered.filter(p => {
-      // Las cafeterías siempre pasan — café, brunch y bebidas son veganos por defecto
-      if (matchesInterest(p.categoria, 'cafeterias')) return true;
-      // Los restaurantes (gastronomía) solo si tienen opción vegana/vegetariana
+      if (matchesInterest(p.categoria, 'cafeterias')) return true; // cafés siempre pasan
       if (matchesInterest(p.categoria, 'gastronomia')) {
         const cat = norm(p.categoria);
-        return cat.includes('vegana') || cat.includes('vegetaria') || cat.includes('sano');
+        const nom = norm(p.nombre);
+        return cat.includes('vegana') || cat.includes('vegetaria') ||
+               nom.includes('vegano') || nom.includes('vegana') || nom.includes('vegetarian');
+      }
+      return true;
+    });
+  }
+
+  if (opts.foodPreference === 'tradicional') {
+    filtered = filtered.filter(p => {
+      if (matchesInterest(p.categoria, 'cafeterias')) return true;
+      if (matchesInterest(p.categoria, 'gastronomia')) {
+        const cat = norm(p.categoria);
+        const nom = norm(p.nombre);
+        // Excluir cocinas internacionales
+        if (cat.includes('internacional') || cat.includes('italiana') ||
+            cat.includes('argentina') || cat.includes('americana') ||
+            cat.includes('europea') || cat.includes('bistro')) return false;
+        // Aceptar cocina mexicana/tradicional
+        return cat.includes('mexicana') || cat.includes('callejero') ||
+               cat.includes('tradicional') || cat.includes('pozole') ||
+               nom.includes('birria') || nom.includes('torta') ||
+               nom.includes('pozole') || nom.includes('taco') ||
+               nom.includes('cantina') || nom.includes('carnitas') ||
+               nom.includes('carnitas') || nom.includes('lonche');
       }
       return true;
     });
@@ -483,6 +506,7 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       return true;
     });
   }
+  // 'mix' = sin filtro adicional (acepta cualquier gastronomía)
 
   if (filtered.length === 0) return [];
 
@@ -960,9 +984,14 @@ export function pickAddStop(
           if (usedFoodTypes.has(getFoodType(p))) return false;
         }
         // Aplica filtros de foodPreference de forma consistente
-        if (opts.foodPreference === 'vegetariano' && isGastro) {
-          const cat = norm(p.categoria);
-          if (!(cat.includes('vegana') || cat.includes('vegetaria') || cat.includes('sano'))) return false;
+        if ((opts.foodPreference === 'vegana' || opts.foodPreference === 'vegetariano') && isGastro) {
+          const cat = norm(p.categoria); const nom = norm(p.nombre);
+          if (!(cat.includes('vegana') || cat.includes('vegetaria') || nom.includes('vegano') || nom.includes('vegana'))) return false;
+        }
+        if (opts.foodPreference === 'tradicional' && isGastro) {
+          const cat = norm(p.categoria); const nom = norm(p.nombre);
+          if (cat.includes('internacional') || cat.includes('italiana') || cat.includes('argentina') || cat.includes('americana')) return false;
+          if (!(cat.includes('mexicana') || cat.includes('callejero') || cat.includes('tradicional') || nom.includes('birria') || nom.includes('torta') || nom.includes('taco') || nom.includes('cantina'))) return false;
         }
         if (opts.foodPreference === 'nocturna' && isGastro) {
           if (!matchesInterest(p.categoria, 'vida-nocturna')) return false;

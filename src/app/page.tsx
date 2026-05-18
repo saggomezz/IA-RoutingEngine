@@ -107,7 +107,7 @@ const INTEREST_OPTIONS = [
 const FOOD_PREFS = [
   { id: 'tradicional', name: 'Tapatío tradicional', emoji: '🌮', desc: 'Birria, torta ahogada, pozole' },
   { id: 'mix', name: 'Variado', emoji: '🍴', desc: 'Tradicional + internacional' },
-  { id: 'vegetariano', name: 'Vegano / saludable', emoji: '🌱', desc: 'Opciones plant-based' },
+  { id: 'vegana', name: 'Vegana', emoji: '🌱', desc: 'Opciones veganas' },
 ];
 
 // ---- Stagger variants ----
