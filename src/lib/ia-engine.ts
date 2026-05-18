@@ -464,6 +464,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
   if (opts.foodPreference === 'vegetariano') {
     filtered = filtered.filter(p => {
+      // Las cafeterías siempre pasan — café, brunch y bebidas son veganos por defecto
+      if (matchesInterest(p.categoria, 'cafeterias')) return true;
+      // Los restaurantes (gastronomía) solo si tienen opción vegana/vegetariana
       if (matchesInterest(p.categoria, 'gastronomia')) {
         const cat = norm(p.categoria);
         return cat.includes('vegana') || cat.includes('vegetaria') || cat.includes('sano');
@@ -634,11 +637,18 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
 
     // ── Duración flexible ────────────────────────────────────────────────────────
-    // Si no cabe con tiempo completo, comprimir al 70% (mínimo 20 min).
-    // Esto evita rechazar lugares por pequeños excesos de tiempo.
+    // Si no cabe con tiempo completo, comprimir al 70% respetando mínimos por categoría.
     const softLimit = targetMins + (hasNocturna ? 240 : 60);
     const timeNeededFull = place.tiempoEstancia + transitTime;
-    const minEstancia = Math.max(20, Math.round(place.tiempoEstancia * 0.7));
+    // Mínimos razonables por tipo de lugar (no tiene sentido comprimir más)
+    const catN = norm(place.categoria);
+    const minEstanciaBase = catN.includes('naturaleza') || catN.includes('parque') || catN.includes('bosque') ? 45
+      : catN.includes('museo') || catN.includes('cultura') ? 45
+      : isGastro && !isPostre ? 45
+      : isPostre ? 15
+      : isCafe ? 20
+      : 25;
+    const minEstancia = Math.max(minEstanciaBase, Math.round(place.tiempoEstancia * 0.7));
     const timeNeededMin = minEstancia + transitTime;
 
     let usedEstancia = place.tiempoEstancia;
@@ -738,14 +748,18 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
         added = true;
         break;
       }
-      // Si no se pudo con horario, añadir el primero disponible de todas formas (garantía)
+      // Fallback: solo si el itinerario termina después de las 17:00 (tiene sentido ir a un bar)
       if (!added) {
-        for (const place of nocturnaPool) {
-          if (usedNames.has(place.nombre)) continue;
-          selected.push(place);
-          usedNames.add(place.nombre);
-          break;
+        const currentClock = toMins(addMinutes(startTime, totalTime));
+        if (currentClock >= 17 * 60) {
+          for (const place of nocturnaPool) {
+            if (usedNames.has(place.nombre)) continue;
+            selected.push(place);
+            usedNames.add(place.nombre);
+            break;
+          }
         }
+        // Si es muy temprano, NO añadir el bar — mejor un itinerario sin bar que uno con bar a mediodía
       }
     }
   }
