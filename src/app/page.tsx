@@ -212,6 +212,7 @@ function HomePageInner() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('turista');
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const generateSeedRef = useRef(Date.now());
   const [authTrigger, setAuthTrigger] = useState<'save' | 'limit' | 'profile' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
@@ -536,6 +537,8 @@ function HomePageInner() {
     }
     setGenerateError(null);
     setGenerating(true);
+    // Nuevo seed único por cada generación — garantiza resultados distintos
+    generateSeedRef.current = Date.now();
     const loadStart = Date.now();
     try {
       const res = await fetch('/api/places');
@@ -560,7 +563,7 @@ function HomePageInner() {
         startTime,
         budget,
         selectedDate,
-        seed: dailySeed(),
+        seed: generateSeedRef.current,
         foodPreference,
         transporte,
         userLat: transporte === 'a-pie' ? (userLocation?.lat ?? 20.6736) : undefined,

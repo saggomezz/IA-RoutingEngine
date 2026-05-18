@@ -493,7 +493,9 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
   // Lugares máximos según ritmo y tiempo disponible (aprox 75-90 min por lugar con traslado)
   const minsPerPlace = ritmo === 'tranquilo' ? 90 : ritmo === 'activo' ? 60 : 75;
-  const maxPlaces = Math.min(12, Math.max(2, Math.floor(availableMins / minsPerPlace)));
+  const rawMaxPlaces = Math.min(12, Math.max(2, Math.floor(availableMins / minsPerPlace)));
+  // Reservar 1 slot para nocturna si el usuario la seleccionó
+  const maxPlaces = hasNocturna ? Math.max(1, rawMaxPlaces - 1) : rawMaxPlaces;
 
   // Máximo de lugares de comida según tiempo disponible
   const maxGastro = availableMins >= 420 ? 2 : 1;
@@ -541,17 +543,22 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     return result;
   })();
 
-  // ── Memoria de sesión: lugares ya vistos van al final del pool ───────────────
+  // ── Memoria de sesión: excluir vistos si hay suficientes nuevos, si no reordenar ───
   if (opts.seenNames && opts.seenNames.size > 0) {
     const seen = opts.seenNames;
     const isSeen = (p: Place) => seen.has(norm(p.nombre));
-    const reorder = (pool: Place[]) => [
-      ...pool.filter(p => !isSeen(p)),
-      ...pool.filter(p => isSeen(p)),
-    ];
-    mainPool.splice(0, mainPool.length, ...reorder(mainPool));
-    gastroPool.splice(0, gastroPool.length, ...reorder(gastroPool));
-    othersPool.splice(0, othersPool.length, ...reorder(othersPool));
+    const exclude = (pool: Place[]) => {
+      const fresh = pool.filter(p => !isSeen(p));
+      // Solo excluir si hay suficientes lugares frescos para un itinerario completo
+      return fresh.length >= Math.max(3, maxPlaces) ? fresh : [
+        ...pool.filter(p => !isSeen(p)),
+        ...pool.filter(p => isSeen(p)),
+      ];
+    };
+    mainPool.splice(0, mainPool.length, ...exclude(mainPool));
+    gastroPool.splice(0, gastroPool.length, ...exclude(gastroPool));
+    othersPool.splice(0, othersPool.length, ...exclude(othersPool));
+    nocturnaPool.splice(0, nocturnaPool.length, ...exclude(nocturnaPool));
   }
 
   // ── Selection loop ───────────────────────────────────────────────────────────
@@ -660,20 +667,32 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
   }
 
-  // Nocturna al final si aplica — garantizada aunque sea el último lugar
-  if (hasNocturna && !selected.find(p => matchesInterest(p.categoria, 'vida-nocturna'))) {
-    for (const place of nocturnaPool) {
-      if (usedNames.has(place.nombre)) continue;
-      const estArrival = addMinutes(startTime, totalTime + TRANSIT_MINS);
-      const estHour = parseInt(estArrival.split(':')[0]);
-      // Aceptar desde las 16:00 (planeación) — los bares/cantinas abren a partir de esa hora
-      if (estHour < 16) continue;
-      if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
-      if (!usedNames.has(place.nombre)) {
+  // Nocturna GARANTIZADA al final — slot reservado, sin límite de maxPlaces
+  if (hasNocturna) {
+    const yaHayNocturna = selected.some(p => matchesInterest(p.categoria, 'vida-nocturna'));
+    if (!yaHayNocturna) {
+      // Intentar con restricción de horario primero
+      let added = false;
+      for (const place of nocturnaPool) {
+        if (usedNames.has(place.nombre)) continue;
+        const estArrival = addMinutes(startTime, totalTime + (selected.length > 0 ? TRANSIT_MINS : 0));
+        const estHour = parseInt(estArrival.split(':')[0]);
+        if (estHour < 16) continue; // demasiado temprano para vida nocturna
+        if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) continue;
         selected.push(place);
         usedNames.add(place.nombre);
+        added = true;
+        break;
       }
-      break;
+      // Si no se pudo con horario, añadir el primero disponible de todas formas (garantía)
+      if (!added) {
+        for (const place of nocturnaPool) {
+          if (usedNames.has(place.nombre)) continue;
+          selected.push(place);
+          usedNames.add(place.nombre);
+          break;
+        }
+      }
     }
   }
 
