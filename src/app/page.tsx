@@ -953,49 +953,52 @@ function HomePageInner() {
                   Estilo de viaje
                 </p>
 
-                <div className="mb-4">
-                  <label className="block text-xs text-gray-500 font-medium mb-2">Ritmo del día</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'tranquilo', label: 'Tranquilo', emoji: '🌿', desc: 'Más tiempo en cada lugar' },
-                      { id: 'normal', label: 'Normal', emoji: '⚡', desc: 'Balance perfecto' },
-                      { id: 'activo', label: 'Activo', emoji: '🔥', desc: 'Más lugares, más rápido' },
-                    ].map(opt => (
-                      <motion.button
-                        key={opt.id} type="button" onClick={() => setRitmo(opt.id as any)}
-                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                        className={`p-3 rounded-xl border-2 text-center transition-all ${
-                          ritmo === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
-                        }`}
-                      >
-                        <div className="text-xl mb-1">{opt.emoji}</div>
-                        <div className={`text-xs font-bold ${ritmo === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
-                        <div className="text-xs text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
-                      </motion.button>
-                    ))}
+                {/* Ritmo + Transporte: columna única en móvil, dos columnas en tablet/laptop */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 font-medium mb-2">Ritmo del día</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { id: 'tranquilo', label: 'Tranquilo', emoji: '🌿', desc: 'Más tiempo en cada lugar' },
+                        { id: 'normal', label: 'Normal', emoji: '⚡', desc: 'Balance perfecto' },
+                        { id: 'activo', label: 'Activo', emoji: '🔥', desc: 'Más lugares, más rápido' },
+                      ].map(opt => (
+                        <motion.button
+                          key={opt.id} type="button" onClick={() => setRitmo(opt.id as any)}
+                          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                          className={`p-2.5 rounded-xl border-2 text-center transition-all ${
+                            ritmo === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
+                          }`}
+                        >
+                          <div className="text-lg mb-0.5">{opt.emoji}</div>
+                          <div className={`text-xs font-bold ${ritmo === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5 leading-tight hidden sm:block">{opt.desc}</div>
+                        </motion.button>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs text-gray-500 font-medium mb-2">Cómo te vas a mover</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'a-pie', label: 'A pie', emoji: '🚶', desc: 'Solo el centro histórico' },
-                      { id: 'taxi', label: 'Uber / Taxi', emoji: '🚗', desc: 'Toda la ciudad' },
-                      { id: 'auto', label: 'Auto propio', emoji: '🚙', desc: 'Libertad total' },
-                    ].map(opt => (
-                      <motion.button
-                        key={opt.id} type="button" onClick={() => setTransporte(opt.id as any)}
-                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                        className={`p-3 rounded-xl border-2 text-center transition-all ${
-                          transporte === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
-                        }`}
-                      >
-                        <div className="text-xl mb-1">{opt.emoji}</div>
-                        <div className={`text-xs font-bold ${transporte === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
-                        <div className="text-xs text-gray-400 mt-0.5 leading-tight">{opt.desc}</div>
-                      </motion.button>
-                    ))}
+                  <div>
+                    <label className="block text-xs text-gray-500 font-medium mb-2">Cómo te vas a mover</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { id: 'a-pie', label: 'A pie', emoji: '🚶', desc: 'Solo el centro histórico' },
+                        { id: 'taxi', label: 'Uber / Taxi', emoji: '🚗', desc: 'Toda la ciudad' },
+                        { id: 'auto', label: 'Auto propio', emoji: '🚙', desc: 'Libertad total' },
+                      ].map(opt => (
+                        <motion.button
+                          key={opt.id} type="button" onClick={() => setTransporte(opt.id as any)}
+                          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                          className={`p-2.5 rounded-xl border-2 text-center transition-all ${
+                            transporte === opt.id ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200'
+                          }`}
+                        >
+                          <div className="text-lg mb-0.5">{opt.emoji}</div>
+                          <div className={`text-xs font-bold ${transporte === opt.id ? 'text-[#1A4D2E]' : 'text-gray-600'}`}>{opt.label}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5 leading-tight hidden sm:block">{opt.desc}</div>
+                        </motion.button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </motion.div>
