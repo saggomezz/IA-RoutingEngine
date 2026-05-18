@@ -79,6 +79,7 @@ export interface Place {
   fotos?: string[];
   calificacion?: string;
   direccion?: string;
+  descripcion?: string;
 }
 
 export interface Stop {
@@ -1082,6 +1083,22 @@ function parseCoord(s: unknown): number | undefined {
   return isNaN(v) ? undefined : v;
 }
 
+function defaultTiempoByCategoria(categoria: string): number {
+  const c = categoria.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (c.includes('museo') || c.includes('historia') || c.includes('hospicio') || c.includes('cabanas')) return 90;
+  if (c.includes('catedral') || c.includes('iglesia') || c.includes('teatro') || c.includes('arquitectura')) return 45;
+  if (c.includes('postre') || c.includes('nieves') || c.includes('churro') || c.includes('helado')) return 20;
+  if (c.includes('cafe') || c.includes('brunch')) return 50;
+  if (c.includes('restaurante') || c.includes('mexicana') || c.includes('gastronomia')) return 70;
+  if (c.includes('mercado') || c.includes('artesania') || c.includes('compras')) return 60;
+  if (c.includes('mirador') || c.includes('fotografia') || c.includes('parque') || c.includes('plaza')) return 30;
+  if (c.includes('nocturna') || c.includes('bar') || c.includes('cantina') || c.includes('club')) return 120;
+  if (c.includes('futbol') || c.includes('estadio') || c.includes('fan')) return 90;
+  if (c.includes('aventura') || c.includes('naturaleza') || c.includes('bosque')) return 90;
+  if (c.includes('evento') || c.includes('concierto') || c.includes('festival')) return 120;
+  return 60;
+}
+
 export function rawToPlace(p: Record<string, any>): Place | null {
   const nombre = String(p['Nombre del Lugar'] || '').trim();
   if (!nombre) return null;
@@ -1089,10 +1106,11 @@ export function rawToPlace(p: Record<string, any>): Place | null {
     nombre,
     categoria:      p['Categoria']        || '',
     direccion:      p['Dirección']        || '',
-    tiempoEstancia: parseInt(p['Tiempo de Estancia']) || 60,
+    tiempoEstancia: (() => { const t = parseInt(p['Tiempo de Estancia']); return (t && t !== 60) ? t : defaultTiempoByCategoria(p['Categoria'] || ''); })(),
     costo:          p['Costo Estimado']   || 'No disponible',
     calificacion:   p['Calificacion']     || '',
     fotos:          Array.isArray(p['fotos']) ? p['fotos'] : [],
+    descripcion:    p['Nota para IA'] || p['descripcion'] || '',
     lat:            parseCoord(p['Latitud']),
     lng:            parseCoord(p['Longitud']),
     horaApertura:   p['horaApertura']     || undefined,

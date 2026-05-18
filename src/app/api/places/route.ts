@@ -165,6 +165,7 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
         'Longitud': l.longitud || '',
         'Tiempo de Estancia': l.tiempoEstancia ? String(l.tiempoEstancia) : '60',
         'Costo Estimado': l.costoEstimado || '',
+        'Nota para IA': l.descripcion || l.notaIA || '',
         'Imagen': '',
         'horaApertura': horaApertura,
         'horaCierre': horaCierre,
