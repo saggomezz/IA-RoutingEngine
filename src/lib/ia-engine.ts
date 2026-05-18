@@ -592,11 +592,10 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) return false;
 
     const isPostre = norm(place.categoria).includes('postre');
-    const finishMins = arrMins + place.tiempoEstancia;
-
+    // Nota: el check de finishMins definitivo se hace al final con la duración flexible.
+    // Aquí solo hacemos un pre-check rápido con tiempo completo para filtrar obvios.
     if (!relaxed && !isPureNocturna(place)) {
-      // El lugar debe TERMINAR antes de maxFinishMins (20:00 sin nocturna, 23:00 con ella)
-      if (finishMins > maxFinishMins) return false;
+      if (arrMins + place.tiempoEstancia * 0.7 > maxFinishMins) return false; // ni comprimido cabe
     }
 
     if (!relaxed) {
@@ -634,10 +633,33 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
       }
     }
 
-    const timeNeeded = place.tiempoEstancia + transitTime;
-    if (targetMins !== null && totalTime + timeNeeded > targetMins + (hasNocturna ? 240 : 60)) return false;
+    // ── Duración flexible ────────────────────────────────────────────────────────
+    // Si no cabe con tiempo completo, comprimir al 70% (mínimo 20 min).
+    // Esto evita rechazar lugares por pequeños excesos de tiempo.
+    const softLimit = targetMins + (hasNocturna ? 240 : 60);
+    const timeNeededFull = place.tiempoEstancia + transitTime;
+    const minEstancia = Math.max(20, Math.round(place.tiempoEstancia * 0.7));
+    const timeNeededMin = minEstancia + transitTime;
 
-    selected.push(place);
+    let usedEstancia = place.tiempoEstancia;
+    if (targetMins !== null && totalTime + timeNeededFull > softLimit) {
+      if (totalTime + timeNeededMin <= softLimit) {
+        usedEstancia = minEstancia; // cabe con tiempo reducido
+      } else {
+        return false; // no cabe ni comprimido
+      }
+    }
+
+    // Re-verificar finishMins con la duración efectiva
+    const effectiveFinish = arrMins + usedEstancia;
+    if (!relaxed && !isPureNocturna(place) && effectiveFinish > maxFinishMins) return false;
+
+    const timeNeeded = usedEstancia + transitTime;
+    const placeToAdd = usedEstancia !== place.tiempoEstancia
+      ? { ...place, tiempoEstancia: usedEstancia }
+      : place;
+
+    selected.push(placeToAdd);
     usedNames.add(place.nombre);
     totalTime += timeNeeded;
     const isPostreTracking = norm(place.categoria).includes('postre');
