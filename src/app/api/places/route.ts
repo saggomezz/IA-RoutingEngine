@@ -184,7 +184,7 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
 }
 
 // ── Cache en memoria para /api/places ────────────────────────────────────────
-const PLACES_TTL = 5 * 60 * 1000; // 5 minutos
+const PLACES_TTL = 60 * 1000; // 1 minuto — Firestore es la fuente primaria, backend ya tiene su propio caché
 let placesCache: { data: any[] | null; expiresAt: number } = { data: null, expiresAt: 0 };
 
 // ── GET ───────────────────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ export async function GET() {
     // Servir desde caché si está vigente
     if (placesCache.data && placesCache.expiresAt > Date.now()) {
       return NextResponse.json(placesCache.data, {
-        headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' },
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
       });
     }
 
@@ -273,7 +273,7 @@ export async function GET() {
     placesCache = { data: result, expiresAt: Date.now() + PLACES_TTL };
 
     return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
   } catch (error) {
     console.error('Error building places list:', error);
@@ -325,5 +325,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE ya no es necesario aquí — el Backend guarda en Firebase lugares_eliminados
-// y el GET de arriba carga esa colección directamente vía adminDb
+// ── DELETE cache (llamado desde datos-lugares cuando se guarda un cambio) ────────
+export async function DELETE() {
+  placesCache = { data: null, expiresAt: 0 };
+  return NextResponse.json({ ok: true, message: 'Cache invalidado' });
+}
