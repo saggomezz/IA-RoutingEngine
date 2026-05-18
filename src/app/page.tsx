@@ -524,7 +524,7 @@ function HomePageInner() {
     doc.save(filename);
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (regenerate = false) => {
     if (!selectedDate || selectedInterests.length < 2) {
       setGenerateError('Selecciona una fecha y al menos 2 intereses para continuar.');
       return;
@@ -544,7 +544,13 @@ function HomePageInner() {
       const res = await fetch('/api/places');
       const raw: Record<string, any>[] = await res.json();
 
-      const places: Place[] = raw.map(rawToPlace).filter((p): p is Place => p !== null);
+      let places: Place[] = raw.map(rawToPlace).filter((p): p is Place => p !== null);
+
+      // Al "Generar de nuevo": excluir completamente los lugares del itinerario anterior
+      if (regenerate && stops.length > 0) {
+        const prevNames = new Set(stops.map(s => norm(s.place.nombre)));
+        places = places.filter(p => !prevNames.has(norm(p.nombre)));
+      }
 
       if (places.length === 0) {
         setGenerateError('No encontramos lugares disponibles. Inténtalo de nuevo en unos momentos.');
@@ -1446,7 +1452,7 @@ function HomePageInner() {
             🗺️ Ver mis itinerarios
           </motion.a>
           <motion.button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate(true)}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border border-[#1A4D2E] text-[#1A4D2E] text-sm font-bold hover:bg-[#E8F5E9] transition-all"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
