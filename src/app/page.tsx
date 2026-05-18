@@ -102,6 +102,8 @@ const INTEREST_OPTIONS = [
   { id: 'compras', name: 'Compras', emoji: '🛍️' },
   { id: 'vida-nocturna', name: 'Clubs / Bar', emoji: '🍹' },
   { id: 'futbol', name: 'Fútbol', emoji: '⚽' },
+  { id: 'callejera', name: 'Comida de calle', emoji: '🌮' },
+  { id: 'mercados', name: 'Mercados Locales', emoji: '🏪' },
 ];
 
 const FOOD_PREFS = [

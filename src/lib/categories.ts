@@ -154,6 +154,20 @@ export const TAXONOMY: Category[] = [
       { id: 'murales',     label: 'Murales',        keywords: ['mural', 'muralismo'] },
     ],
   },
+  {
+    id: 'callejera',
+    label: 'Comida de calle',
+    emoji: '🌮',
+    keywords: ['comida calle', 'comida de calle', 'street food', 'lonche', 'fonda', 'callejera'],
+    subs: [],
+  },
+  {
+    id: 'mercados',
+    label: 'Mercados Locales',
+    emoji: '🏪',
+    keywords: ['mercados locales', 'mercado local', 'mercado', 'tianguis', 'parian'],
+    subs: [],
+  },
 ];
 
 // ── Helpers derivados de la taxonomía ──────────────────────────────────────────
