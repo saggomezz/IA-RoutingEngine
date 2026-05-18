@@ -730,7 +730,7 @@ function HomePageInner() {
             transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
           />
           <motion.div
-            className="relative z-10 max-w-lg mx-auto"
+            className="relative z-10 max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -765,10 +765,10 @@ function HomePageInner() {
         </div>
 
         {/* Form */}
-        <div className="max-w-lg mx-auto px-4 py-8">
+        <div className="max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto px-4 py-8">
           <form onSubmit={(e) => { e.preventDefault(); handleGenerate(); }}>
             <motion.div
-              className="space-y-4"
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
@@ -992,7 +992,7 @@ function HomePageInner() {
               </motion.div>
 
               {/* Intereses */}
-              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 md:col-span-2">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-sm font-bold text-[#1A4D2E]">
                     ¿Qué te interesa?
@@ -1029,7 +1029,7 @@ function HomePageInner() {
                     key="food-prefs"
                     variants={cardVariants}
                     initial="hidden" animate="visible" exit={{ opacity: 0, height: 0 }}
-                    className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden"
+                    className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden md:col-span-2"
                   >
                     <p className="text-sm font-bold text-[#1A4D2E] mb-4">
                       ¿Qué tipo de comida?
@@ -1066,7 +1066,7 @@ function HomePageInner() {
                     initial={{ opacity: 0, y: 16, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 16, scale: 0.97 }}
-                    className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-5"
+                    className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-5 md:col-span-2"
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <motion.span
@@ -1113,7 +1113,7 @@ function HomePageInner() {
                 disabled={isGenerating || selectedInterests.length < 2}
                 whileHover={selectedInterests.length >= 2 ? { scale: 1.02, boxShadow: '0 8px 32px rgba(13,96,30,0.3)' } : {}}
                 whileTap={selectedInterests.length >= 2 ? { scale: 0.98 } : {}}
-                className="w-full bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="w-full bg-gradient-to-r from-[#0D601E] to-[#1A4D2E] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-40 disabled:cursor-not-allowed transition-all md:col-span-2"
               >
                 <span className="flex items-center justify-center gap-2">
                   <FiZap size={17} /> Generar mi itinerario
