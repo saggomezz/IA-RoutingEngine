@@ -217,7 +217,6 @@ function HomePageInner() {
   const [savedOk, setSavedOk] = useState(false);
   const [savedItineraryId, setSavedItineraryId] = useState<string | null>(null);
   const [calendarUrl, setCalendarUrl] = useState('');
-  const [alternatives, setAlternatives] = useState<{ stopIndex: number; places: Place[] } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
   const [calendarView, setCalendarView] = useState(() => {
@@ -665,19 +664,14 @@ function HomePageInner() {
     setStops(buildSchedule([...regular, newPlace, ...match], startTime, transporte));
   };
 
-  const showAlternatives = (i: number) => {
-    if (alternatives?.stopIndex === i) { setAlternatives(null); return; }
+  const swapWithAlternative = (i: number) => {
     const currentPlaces = stops.map(s => s.place);
-    const opts = { interests: selectedInterests, budget, selectedDate, startTime, seed: dailySeed() };
-    const alts = getAlternativesForStop(allPlaces, currentPlaces, i, opts, 3);
-    setAlternatives(alts.length > 0 ? { stopIndex: i, places: alts } : null);
-  };
-
-  const applyAlternative = (stopIndex: number, newPlace: Place) => {
-    const currentPlaces = stops.map(s => s.place);
-    const newPlaces = currentPlaces.map((p, idx) => idx === stopIndex ? newPlace : p);
-    setStops(buildSchedule(newPlaces, startTime, transporte));
-    setAlternatives(null);
+    const opts = { interests: selectedInterests, budget, selectedDate, startTime, seed: Date.now() };
+    const alts = getAlternativesForStop(allPlaces, currentPlaces, i, opts, 1);
+    if (alts.length > 0) {
+      const newPlaces = currentPlaces.map((p, idx) => idx === i ? alts[0] : p);
+      setStops(buildSchedule(newPlaces, startTime, transporte));
+    }
   };
 
   // ===== FORM =====
@@ -1408,9 +1402,9 @@ function HomePageInner() {
                         <button onClick={() => moveDown(i)} disabled={i === stops.length - 1} title="Bajar"
                           className="w-7 h-7 rounded-lg border border-gray-100 text-gray-400 text-xs disabled:opacity-25 hover:border-[#1A4D2E] hover:text-[#1A4D2E] transition-colors flex items-center justify-center">↓</button>
                         <button
-                          onClick={() => showAlternatives(i)}
-                          title="Ver alternativas"
-                          className={`w-7 h-7 rounded-lg border text-xs transition-colors flex items-center justify-center ${alternatives?.stopIndex === i ? 'bg-[#E8F5E9] border-[#1A4D2E] text-[#1A4D2E]' : 'border-[#81C784] text-[#0D601E] hover:bg-[#E8F5E9]'}`}
+                          onClick={() => swapWithAlternative(i)}
+                          title="Cambiar lugar"
+                          className="w-7 h-7 rounded-lg border border-[#81C784] text-[#0D601E] text-xs hover:bg-[#E8F5E9] transition-colors flex items-center justify-center"
                         >↺</button>
                         <button onClick={() => removeStop(i)} title="Eliminar"
                           className="w-7 h-7 rounded-lg border border-red-100 text-red-400 text-xs hover:bg-red-50 transition-colors flex items-center justify-center">✕</button>
@@ -1429,38 +1423,6 @@ function HomePageInner() {
               </div>
             )}
 
-            {/* Panel de alternativas */}
-            <AnimatePresence>
-              {alternatives?.stopIndex === i && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: 'auto' }}
-                  exit={{ opacity: 0, y: -6, height: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="bg-[#F7FBF7] border border-[#81C784] rounded-xl p-3 print:hidden overflow-hidden"
-                >
-                  <p className="text-[10px] font-bold text-[#1A4D2E] uppercase tracking-widest mb-2">Elige una alternativa</p>
-                  <div className="flex flex-col gap-1.5">
-                    {alternatives.places.map((alt, ai) => (
-                      <button
-                        key={ai}
-                        onClick={() => applyAlternative(i, alt)}
-                        className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-100 hover:border-[#1A4D2E] hover:bg-[#E8F5E9] transition-all text-left w-full group"
-                      >
-                        <span className="text-xs font-semibold text-[#1A4D2E] flex-1 leading-snug">{alt.nombre}</span>
-                        <span className="text-[10px] text-gray-400 shrink-0">{alt.costo && alt.costo !== 'No disponible' ? alt.costo : 'Gratis'}</span>
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => setAlternatives(null)}
-                      className="text-[10px] text-gray-400 hover:text-gray-600 text-center mt-1 transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
             </React.Fragment>
           );
           })}
