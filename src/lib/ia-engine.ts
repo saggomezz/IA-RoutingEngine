@@ -483,22 +483,25 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
   if (filtered.length === 0) return [];
 
-  // ── Capacity planning — siempre día completo (startTime → 19:00) ─────────────
+  // ── Capacity planning — siempre día completo (startTime → 20:00) ─────────────
   const ritmoMult = ritmo === 'tranquilo' ? 1.3 : ritmo === 'activo' ? 0.8 : 1;
   const adjusted = filtered.map(p => ({ ...p, tiempoEstancia: Math.round(p.tiempoEstancia * ritmoMult) }));
 
   const reservedMins = opts.reservedMins ?? 0;
-  // Minutos disponibles desde la hora de inicio hasta las 18:00 (menos tiempo reservado para partido)
   const availableMins = Math.max(60, END_REGULAR_HOUR * 60 - toMins(startTime) - reservedMins);
   const targetMins: number = availableMins;
 
-  // Lugares máximos según ritmo y tiempo disponible (aprox 75-90 min por lugar con traslado)
+  // Hora máxima de TÉRMINO según si hay nocturna o no
+  const maxFinishMins = hasNocturna ? LAST_REASONABLE_ARRIVAL_HOUR * 60 : 20 * 60; // 23:00 con nocturna, 20:00 sin ella
+
+  // Lugares máximos según ritmo y tiempo disponible
   const minsPerPlace = ritmo === 'tranquilo' ? 90 : ritmo === 'activo' ? 60 : 75;
   const rawMaxPlaces = Math.min(12, Math.max(2, Math.floor(availableMins / minsPerPlace)));
   // Reservar 1 slot para nocturna si el usuario la seleccionó
   const maxPlaces = hasNocturna ? Math.max(1, rawMaxPlaces - 1) : rawMaxPlaces;
 
-  // Máximo de lugares de comida según tiempo disponible
+  // Máximo de restaurantes (no cuenta postres ni cafeterías)
+  // Plan largo ≥7h: hasta 2 restaurantes; corto: 1
   const maxGastro = availableMins >= 420 ? 2 : 1;
 
   const mealCtx = getMealContext(startTime);
@@ -588,36 +591,42 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
     if (!isPlaceOpen(place, estArrival, selectedDayOfWeek)) return false;
 
-    // Bloquear llegadas >= 19:00 para no-nocturnos, excepto si sería el último lugar del día
-    // (el último puede empezar antes de las 19 y terminar después — eso está permitido)
-    if (!relaxed && !isPureNocturna(place) && arrHour >= END_REGULAR_HOUR) {
-      // Permitir si no excede el tiempo total disponible — ese check lo hace targetMins abajo
-      // Solo bloquear si llegada es ya después de las 21:00 (demasiado tarde para cualquier lugar)
-      if (arrHour >= 21) return false;
-      // Entre 19-21: solo permitir si hay tiempo y será el último (no añadir más después)
+    const isPostre = norm(place.categoria).includes('postre');
+    const finishMins = arrMins + place.tiempoEstancia;
+
+    if (!relaxed && !isPureNocturna(place)) {
+      // El lugar debe TERMINAR antes de maxFinishMins (20:00 sin nocturna, 23:00 con ella)
+      if (finishMins > maxFinishMins) return false;
     }
 
     if (!relaxed) {
-      if (isGastro && hasNocturna && arrHour >= 20) return false;
       if (isNocturna && hasNocturna && arrHour < NOCTURNA_OPEN_HOUR) return false;
       if (norm(place.categoria).includes('compras') && arrHour < COMPRAS_OPEN_HOUR) return false;
-      if (norm(place.categoria).includes('postre') && arrMins < 16 * 60) return false; // postres solo después de las 4pm
+
+      // ── Reglas de POSTRE ─────────────────────────────────────────────────────
+      if (isPostre) {
+        if (arrMins < 16 * 60) return false; // solo después de las 4pm
+        // Para postres, el gap mínimo con comida anterior es solo 60 min (no 150)
+        if (lastGastroEndMins > 0 && arrMins - lastGastroEndMins < 60) return false;
+      }
 
       if (startHour <= 11) {
         // ── Plan de mañana (inicio ≤ 11:59) ──────────────────────────────────
-        // Café solo en ventana mañanera; bloqueado desde las 12:00
+        // Café solo antes de las 12:00
         if (isCafe && hasCafeterias && arrHour >= CAFE_MORNING_CUTOFF_HOUR) return false;
-        // Segundo lugar de comida solo a las 15:00+ si el primero fue antes de las 12:00
-        if (isFood && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 12 * 60 && arrMins < 15 * 60) return false;
+        // Comida (almuerzo): no antes de las 12:30
+        if (isGastro && !isPostre && arrMins < 12 * 60 + 30) return false;
+        // Segunda comida solo a las 15:00+ si el primero fue antes de las 14:00
+        if (isFood && !isPostre && lastFoodArrivalMins >= 0 && lastFoodArrivalMins < 14 * 60 && arrMins < 15 * 60) return false;
       } else {
-        // ── Plan de tarde (inicio ≥ 12:00) ───────────────────────────────────
-        // Gastronomía: solo a partir de las 14:30
-        if (isGastro && arrMins < 14 * 60 + 30) return false;
-        // Cafetería: solo a partir de las 17:30
-        if (isCafe && hasCafeterias && arrMins < 17 * 60 + 30) return false;
+        // ── Plan de tarde/noche (inicio ≥ 12:00) ─────────────────────────────
+        if (isGastro && !isPostre && arrMins < 14 * 60) return false; // comida desde las 14:00
+        // Cafetería de tarde: desde las 15:00 (antes era 17:30, demasiado tarde)
+        if (isCafe && hasCafeterias && arrMins < 15 * 60) return false;
       }
 
-      if (isGastro) {
+      if (isGastro && !isPostre) {
+        // Postres no cuentan contra el límite de restaurantes
         if (gastroCount >= maxGastro) return false;
         if (arrMins - lastGastroEndMins < MIN_GASTRO_GAP_MINS) return false;
         const foodType = getFoodType(place);
@@ -626,18 +635,18 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
 
     const timeNeeded = place.tiempoEstancia + transitTime;
-    // Permitir que el ÚLTIMO lugar se extienda hasta 90 min más allá del targetMins
-    const overtime = isPureNocturna(place) ? 180 : 90;
-    if (targetMins !== null && totalTime + timeNeeded > targetMins + overtime) return false;
+    if (targetMins !== null && totalTime + timeNeeded > targetMins + (hasNocturna ? 240 : 60)) return false;
 
     selected.push(place);
     usedNames.add(place.nombre);
     totalTime += timeNeeded;
-    if (isGastro) {
+    const isPostreTracking = norm(place.categoria).includes('postre');
+    if (isGastro && !isPostreTracking) {
+      // Postres no cuentan como restaurante para el límite de gastroCount
       usedFoodTypes.add(getFoodType(place));
       gastroCount++;
-      lastGastroEndMins = arrMins + place.tiempoEstancia;
     }
+    if (isGastro) lastGastroEndMins = arrMins + place.tiempoEstancia;
     if (isFood) lastFoodArrivalMins = arrMins;
     return true;
   };
@@ -668,6 +677,23 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     for (const place of [...othersPool, ...gastroPool]) {
       if (selected.length >= maxPlaces) break;
       tryAdd(place);
+    }
+  }
+
+  // ── Slot de CENA ─────────────────────────────────────────────────────────────
+  // Si el plan llega hasta las 18:30+ y no ha habido comida en las últimas 3 horas, añadir cena
+  if (hasGastro && gastroCount < maxGastro) {
+    const currentClock = toMins(addMinutes(startTime, totalTime));
+    const sinCenaDesde3h = lastFoodArrivalMins < 0 || (currentClock - lastFoodArrivalMins) >= 3 * 60;
+    if (currentClock >= 18 * 60 + 30 && sinCenaDesde3h) {
+      const cenaPool = gastroPool.filter(p =>
+        !usedNames.has(p.nombre) &&
+        mealScore(p, 'cena') >= 0 &&
+        !norm(p.categoria).includes('postre')
+      );
+      for (const place of cenaPool) {
+        if (tryAdd(place)) break;
+      }
     }
   }
 
