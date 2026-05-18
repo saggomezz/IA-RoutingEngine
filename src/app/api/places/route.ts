@@ -160,9 +160,10 @@ async function fetchFirebasePlaces(): Promise<Map<string, Record<string, any>>> 
         'Nombre del Lugar': nombre,
         'Categoria': categoria,
         '_adminCats': hasAdminCats,   // si true, el admin editó: no mezclar con CSV
-        'Dirección': l.ubicacion || '',
-        'Latitud': l.latitud || '',
-        'Longitud': l.longitud || '',
+        'Dirección': l.ubicacion || l.direccion || l.address || '',
+        // Normalizar coords: pueden venir como número, string "20.67" o string "20,67"
+        'Latitud': l.latitud != null && l.latitud !== '' ? String(l.latitud) : (l.lat != null ? String(l.lat) : ''),
+        'Longitud': l.longitud != null && l.longitud !== '' ? String(l.longitud) : (l.lng != null ? String(l.lng) : ''),
         'Tiempo de Estancia': l.tiempoEstancia ? String(l.tiempoEstancia) : '60',
         'Costo Estimado': l.costoEstimado || '',
         'Nota para IA': l.descripcion || l.notaIA || '',
