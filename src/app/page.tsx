@@ -948,7 +948,7 @@ function HomePageInner() {
               </motion.div>
 
               {/* Estilo de viaje */}
-              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <motion.div variants={cardVariants} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 md:col-span-2">
                 <p className="text-sm font-bold text-[#1A4D2E] mb-4">
                   Estilo de viaje
                 </p>
