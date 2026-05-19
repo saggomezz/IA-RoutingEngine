@@ -90,6 +90,11 @@ function formatTime12(time: string): string {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
+// Máximo de intereses basado en pruebas de saturación del motor híbrido:
+// con N>6 el engine no tiene slots libres para optimización KNN y las paradas
+// promedio caen de 6.0 a 4.7. N=5 deja 3 slots libres → itinerarios óptimos.
+const MAX_INTERESTS = 5;
+
 // ---- Interest options ----
 const INTEREST_OPTIONS = [
   { id: 'cultura', name: 'Cultura', emoji: '🏛️' },
@@ -335,6 +340,8 @@ function HomePageInner() {
 
   const toggleInterest = (id: string) => {
     setSelectedInterests(prev => {
+      // No agregar si ya se llegó al máximo y no es deselección
+      if (!prev.includes(id) && prev.length >= MAX_INTERESTS) return prev;
       const next = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
       if (!next.includes('gastronomia')) setFoodPreference('');
       return next;
@@ -1011,23 +1018,37 @@ function HomePageInner() {
                   <p className="text-sm font-bold text-[#1A4D2E]">
                     ¿Qué te interesa?
                   </p>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${selectedInterests.length >= 2 ? 'bg-[#E8F5E9] text-[#1A4D2E]' : 'bg-amber-50 text-amber-600'}`}>
-                    {selectedInterests.length}/2 mín.
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    selectedInterests.length >= MAX_INTERESTS
+                      ? 'bg-[#1A4D2E] text-white'
+                      : selectedInterests.length >= 2
+                      ? 'bg-[#E8F5E9] text-[#1A4D2E]'
+                      : 'bg-amber-50 text-amber-600'
+                  }`}>
+                    {selectedInterests.length}/{MAX_INTERESTS}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {INTEREST_OPTIONS.map(opt => {
                     const active = selectedInterests.includes(opt.id);
+                    const atLimit = !active && selectedInterests.length >= MAX_INTERESTS;
                     return (
                       <motion.button
                         key={opt.id} type="button" onClick={() => toggleInterest(opt.id)}
-                        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+                        whileHover={!atLimit ? { scale: 1.04 } : {}}
+                        whileTap={!atLimit ? { scale: 0.95 } : {}}
+                        disabled={atLimit}
+                        title={atLimit ? `Máximo ${MAX_INTERESTS} intereses para itinerarios óptimos` : undefined}
                         className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all ${
-                          active ? 'border-[#1A4D2E] bg-[#E8F5E9]' : 'border-gray-100 hover:border-gray-200 bg-[#F7F9F4]'
+                          active
+                            ? 'border-[#1A4D2E] bg-[#E8F5E9]'
+                            : atLimit
+                            ? 'border-gray-100 bg-gray-50 opacity-35 cursor-not-allowed'
+                            : 'border-gray-100 hover:border-gray-200 bg-[#F7F9F4]'
                         }`}
                       >
                         <span className="text-2xl">{opt.emoji}</span>
-                        <span className={`text-xs font-semibold text-center leading-tight ${active ? 'text-[#1A4D2E]' : 'text-gray-500'}`}>
+                        <span className={`text-xs font-semibold text-center leading-tight ${active ? 'text-[#1A4D2E]' : atLimit ? 'text-gray-300' : 'text-gray-500'}`}>
                           {opt.name}
                         </span>
                       </motion.button>
@@ -1141,6 +1162,16 @@ function HomePageInner() {
                   className="text-center text-xs text-amber-600 -mt-2"
                 >
                   Selecciona al menos 2 intereses para continuar
+                </motion.p>
+              )}
+
+              {selectedInterests.length === MAX_INTERESTS && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center text-xs text-[#1A4D2E] -mt-2"
+                >
+                  ✓ Combinación óptima — el motor genera mejores rutas con hasta {MAX_INTERESTS} intereses
                 </motion.p>
               )}
 
