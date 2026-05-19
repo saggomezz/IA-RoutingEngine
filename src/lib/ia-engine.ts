@@ -564,7 +564,11 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     const others = hasNocturna ? othersPool : [...othersPool, ...nocturnaPool];
     if (!hasGastro || gastroPool.length === 0) return others;
     if (others.length === 0) return gastroPool;
-    const gap = Math.max(2, Math.floor(others.length / Math.max(1, maxGastro)));
+    // Cap gap a 3: con others.length grande (ej. 40 lugares) el gap sin cap llega
+    // a 20, haciendo que gastronomy quede en posición 20 del pool — inalcanzable
+    // con maxPlaces=8. Con gap≤3 gastronomy aparece en posiciones 3 y 7, siempre
+    // dentro del rango de selección.
+    const gap = Math.min(3, Math.max(1, Math.floor(others.length / Math.max(1, maxGastro))));
     const result: Place[] = [];
     let gi = 0, oi = 0;
     while (gi < gastroPool.length || oi < others.length) {
@@ -601,9 +605,11 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
   const usedFoodTypes = new Set<string>();
   const usedNames = new Set<string>();
 
-  // tryAdd con opción de relajar restricciones (FIX C: para fallback)
-  const tryAdd = (place: Place, relaxed = false): boolean => {
-    if (selected.length >= maxPlaces) return false;
+  // tryAdd con opción de relajar restricciones (FIX C: para fallback).
+  // forceSlot=true: omite el límite de maxPlaces — solo para garantizar comida
+  // cuando todos los slots están ocupados con lugares no-alimentarios.
+  const tryAdd = (place: Place, relaxed = false, forceSlot = false): boolean => {
+    if (!forceSlot && selected.length >= maxPlaces) return false;
     if (usedNames.has(place.nombre)) return false;
     const isGastro = hasGastro && matchesInterest(place.categoria, 'gastronomia');
     const isCafe = matchesInterest(place.categoria, 'cafeterias');
@@ -709,11 +715,24 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
 
   // Pre-selección: en planes de mañana (≤ 11:59) la comida va PRIMERO.
   // Café+gastro → café primero; solo gastro → gastro primero; solo café → café primero.
+  // Con cafeterias+gastro: el café se añade como primera parada explícitamente
+  // para evitar que el pool de otros lugares llene todos los slots primero.
   if (startHour <= 11 && (hasCafeterias || hasGastro)) {
     if (hasCafeterias) {
-      for (const p of mainPool) {
-        if (!matchesInterest(p.categoria, 'cafeterias')) continue;
-        if (tryAdd(p)) break;
+      // Buscar el mejor café disponible: primero en othersPool (orden semilla),
+      // luego en mainPool. Así saltamos directamente al café sin esperar el gap.
+      let cafeAdded = false;
+      const cafeCandidates = [...othersPool.filter(p => matchesInterest(p.categoria, 'cafeterias')),
+                              ...mainPool .filter(p => matchesInterest(p.categoria, 'cafeterias'))];
+      for (const p of cafeCandidates) {
+        if (tryAdd(p)) { cafeAdded = true; break; }
+      }
+      // Si no se pudo añadir café normalmente (ej. ventana horaria ajustada),
+      // intentar con restricciones relajadas para garantizar al menos 1 café.
+      if (!cafeAdded) {
+        for (const p of cafeCandidates) {
+          if (tryAdd(p, /* relaxed */ true)) break;
+        }
       }
     } else {
       // Solo gastronomía seleccionada: gastro como primera parada
@@ -788,16 +807,28 @@ export function generateItinerary(places: Place[], opts: GenerateOptions): Place
     }
   }
 
-  // Garantizar al menos 1 parada por interés (excepto nocturna y fútbol)
+  // Garantizar al menos 1 parada por interés (excepto nocturna y fútbol).
+  // Para gastronomia/cafeterias: busca primero en gastroPool (más relevante),
+  // y si el slot no pudo agregarse normalmente, fuerza 1 slot adicional de comida
+  // para que el usuario no se quede sin comer aunque maxPlaces esté lleno.
   for (const interest of interests) {
     if (interest === 'vida-nocturna' || interest === 'futbol') continue;
     if (selected.some(p => matchesInterest(p.categoria, interest))) continue;
-    const fallback = [...othersPool, ...gastroPool].find(p =>
+    const isFood = interest === 'gastronomia' || interest === 'cafeterias';
+    const searchPool = isFood
+      ? [...gastroPool, ...othersPool]   // comida primero
+      : [...othersPool, ...gastroPool];
+    const fallback = searchPool.find(p =>
       !usedNames.has(p.nombre) &&
       !BLACKLIST.some(bl => norm(p.nombre).includes(bl)) &&
       matchesInterest(p.categoria, interest)
     );
-    if (fallback) tryAdd(fallback);
+    if (!fallback) continue;
+    if (!tryAdd(fallback) && isFood) {
+      // Forzar 1 slot extra de comida: mejor un itinerario con 1 parada más
+      // que uno en el que el usuario seleccionó gastronomía y no come.
+      tryAdd(fallback, false, /* forceSlot */ true);
+    }
   }
 
   // Parada nocturna post-partido
